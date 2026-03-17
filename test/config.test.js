@@ -5,7 +5,7 @@ import { loadConfig } from '../config.js'
 describe('loadConfig', () => {
   it('returns defaults when no env vars set', () => {
     const cfg = loadConfig({})
-    assert.equal(cfg.port, 8787)
+    assert.equal(cfg.port, 7778)
     assert.equal(cfg.upstream, 'https://api.anthropic.com')
     assert.deepEqual(cfg.stages, ['minify'])
     assert.equal(cfg.minSize, 200)
@@ -63,7 +63,7 @@ describe('loadConfig', () => {
 
   it('falls back to defaults for invalid numeric env vars', () => {
     const cfg = loadConfig({ TOONA_PORT: 'abc', TOONA_MIN_SIZE: '', TOONA_MAX_BODY: 'xyz' })
-    assert.equal(cfg.port, 8787)
+    assert.equal(cfg.port, 7778)
     assert.equal(cfg.minSize, 200)
     assert.equal(cfg.maxBody, 10_485_760)
   })

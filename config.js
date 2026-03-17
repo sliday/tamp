@@ -1,7 +1,7 @@
 export function loadConfig(env = process.env) {
   const stages = (env.TOONA_STAGES || 'minify').split(',').map(s => s.trim()).filter(Boolean)
   return Object.freeze({
-    port: parseInt(env.TOONA_PORT, 10) || 8787,
+    port: parseInt(env.TOONA_PORT, 10) || 7778,
     upstream: env.TOONA_UPSTREAM || 'https://api.anthropic.com',
     minSize: parseInt(env.TOONA_MIN_SIZE, 10) || 200,
     stages,
