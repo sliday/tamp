@@ -1,0 +1,506 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tamp — Compress the noise. Keep the signal.</title>
+    <meta name="description" content="Tamp is a token compression proxy for Claude Code. 50% fewer tokens, zero behavior change.">
+    <link rel="icon" href="favicon.ico" sizes="any">
+    <link rel="icon" href="tamper-icon.png" type="image/png">
+    <link rel="apple-touch-icon" href="apple-touch-icon.png">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/daub-ui@latest/daub.css">
+    <link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@300..900&family=Source+Serif+4:wght@300..900&family=Cabin:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --tamp-espresso: #8B6914;
+            --tamp-cream: #F5E6C8;
+            --tamp-dark: #1a1208;
+            --db-noise: 0.078;
+        }
+        html { scroll-behavior: smooth; }
+        body { overflow-x: hidden; }
+
+        /* db-nav — bespoke marketing site nav (not in daub.css) */
+        .db-nav {
+            position: sticky; top: 0; z-index: 100;
+            background: #ebdbb2;
+            border-bottom: 1px solid #d5c4a1;
+            padding: 0 24px;
+            display: flex; align-items: center; justify-content: space-between;
+            height: 48px;
+            font-family: var(--db-font-ui, inherit);
+        }
+        .db-nav__brand {
+            font-family: var(--db-font-heading, inherit);
+            font-weight: 800; font-size: 1.125rem;
+            color: #282828;
+            text-decoration: none;
+            display: inline-flex; align-items: center; gap: 8px;
+        }
+        .db-nav__links {
+            display: flex; align-items: center; gap: 4px;
+            list-style: none; margin: 0; padding: 0;
+        }
+        .db-nav__links a {
+            font-size: 0.8125rem; font-weight: 500;
+            color: #504945;
+            text-decoration: none;
+            padding: 6px 12px;
+            border-radius: var(--db-radius-2, 6px);
+            transition: color 0.15s, background 0.15s;
+        }
+        .db-nav__links a:hover {
+            color: #282828;
+            background: rgba(40,40,40,0.07);
+        }
+        .db-nav__github {
+            display: inline-flex; align-items: center; gap: 6px;
+            font-size: 0.8125rem; font-weight: 500;
+            color: #504945;
+            text-decoration: none;
+            padding: 6px 12px;
+            border-radius: var(--db-radius-2, 6px);
+            border: 1px solid #bdae93;
+            transition: border-color 0.15s;
+        }
+        .db-nav__github:hover { border-color: #504945; }
+        .db-nav__toggle {
+            display: none; align-items: center; justify-content: center;
+            width: 36px; height: 36px;
+            background: none;
+            border: 1px solid #bdae93;
+            border-radius: var(--db-radius-2, 6px);
+            cursor: pointer;
+            color: #282828;
+            flex-shrink: 0;
+        }
+        .db-nav__toggle:hover { background: rgba(40,40,40,0.05); }
+        @media (max-width: 768px) {
+            .db-nav__toggle { display: flex; }
+            .db-nav__links {
+                display: none; position: absolute;
+                top: 48px; left: 0; right: 0;
+                flex-direction: column;
+                background: #ebdbb2;
+                border-bottom: 1px solid #d5c4a1;
+                padding: 8px 16px; gap: 0;
+                box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+                z-index: 99;
+            }
+            .db-nav__links li { width: 100%; }
+            .db-nav__links a { display: block; width: 100%; padding: 10px 12px; font-size: 0.875rem; }
+            .db-nav__github { width: 100%; justify-content: flex-start; border: none; padding: 10px 12px !important; }
+            .db-nav--open .db-nav__links { display: flex; }
+        }
+
+        .hero-section {
+            min-height: 100dvh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 6rem 1.5rem 4rem;
+        }
+        .hero-inner {
+            max-width: 720px;
+            width: 100%;
+            text-align: center;
+        }
+        .hero-inner .db-h1 {
+            font-size: clamp(3rem, 8vw, 5rem);
+            letter-spacing: -0.02em;
+        }
+
+        section { padding: clamp(3rem, 8vh, 6rem) 1.5rem; }
+        .section-inner { max-width: 960px; margin: 0 auto; }
+
+        .install-card {
+            text-align: left;
+            margin-top: 2rem;
+        }
+        .install-card pre {
+            margin: 0;
+            padding: 1.25rem 1.5rem;
+            font-family: 'Courier New', monospace;
+            font-size: 0.95rem;
+            line-height: 1.8;
+            overflow-x: auto;
+            border-radius: 8px;
+            background: #1d2021;
+            color: #ebdbb2;
+        }
+        .install-card pre .prompt { opacity: 0.5; }
+        .install-card pre .cmd { color: var(--db-accent, var(--tamp-espresso)); font-weight: 600; }
+        .install-card pre .comment { opacity: 0.4; }
+
+        .comparison-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+        }
+        @media (max-width: 600px) {
+            .comparison-grid { grid-template-columns: 1fr; }
+        }
+        @media (max-width: 768px) {
+            .grid-2, .grid-3 { grid-template-columns: 1fr !important; }
+        }
+
+        .code-sample {
+            background: var(--db-surface-inset, rgba(0,0,0,0.3));
+            border-radius: 6px;
+            padding: 1rem;
+            font-family: monospace;
+            font-size: 0.85rem;
+            line-height: 1.6;
+            overflow-x: auto;
+            white-space: pre-wrap;
+            word-break: break-all;
+        }
+
+        .stat-big {
+            font-size: clamp(2rem, 6vw, 4rem);
+            font-weight: 700;
+            color: var(--db-accent, var(--tamp-espresso));
+        }
+
+        .flow-diagram {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.75rem;
+            flex-wrap: wrap;
+        }
+
+        .flow-arrow {
+            opacity: 0.5;
+            font-size: 1.25rem;
+        }
+
+    </style>
+</head>
+<body>
+<script src="https://cdn.jsdelivr.net/npm/daub-ui@latest/daub.js"></script>
+<script>
+    DAUB.setTemperature('auto');
+    DAUB.setTexture('metal');
+    DAUB.setFamily('gruvbox');
+    DAUB.setAccent('#4B5D78');
+</script>
+
+<!-- NAVBAR -->
+<header>
+  <nav class="db-nav" role="navigation" aria-label="Main">
+    <a href="#hero" class="db-nav__brand">
+      <img src="tamper-icon.png" alt="Tamp" style="height: 24px; width: auto;">
+      Tamp
+    </a>
+    <button class="db-nav__toggle" aria-label="Menu" aria-expanded="false" onclick="this.closest('.db-nav').classList.toggle('db-nav--open');this.setAttribute('aria-expanded',this.closest('.db-nav').classList.contains('db-nav--open'))">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
+    </button>
+    <ul class="db-nav__links">
+      <li><a href="#how-it-works">How it works</a></li>
+      <li><a href="#results">Results</a></li>
+      <li><a href="#architecture">Architecture</a></li>
+      <li><a href="#roadmap">Roadmap</a></li>
+      <li>
+        <a href="https://github.com/sliday/tamp" class="db-nav__github" target="_blank" rel="noopener">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"></path></svg>
+          <span>GitHub</span>
+        </a>
+      </li>
+    </ul>
+  </nav>
+</header>
+
+<main>
+
+<!-- ============================
+     HERO
+     ============================ -->
+<section class="hero-section" id="hero">
+    <div class="hero-inner">
+        <h1 class="db-h1">Tamp</h1>
+        <p class="db-body" style="margin-top: 0.75rem; opacity: 0.7; font-size: 1.25rem;">
+            Compress the noise. Keep the signal.
+        </p>
+
+        <div class="install-card db-card db-surface--raised" style="margin-top: 2rem;">
+            <pre><span class="prompt">$</span> <span class="cmd">curl -fsSL https://raw.githubusercontent.com/sliday/tamp/main/setup.sh | bash</span></pre>
+        </div>
+
+        <p class="db-caption" style="margin-top: 0.75rem; opacity: 0.5;">
+            Installs to ~/.tamp, configures your shell, adds <code>tamp</code> alias.
+        </p>
+
+        <div style="margin-top: 1rem;">
+            <span class="db-badge db-badge--new">~50% compression on real traffic</span>
+        </div>
+
+        <details style="margin-top: 1.5rem; text-align: left; max-width: 560px; width: 100; margin-left: auto; margin-right: auto;">
+            <summary class="db-caption" style="cursor: pointer; opacity: 0.5;">Other installation methods</summary>
+            <div class="install-card" style="margin-top: 0.75rem;">
+                <pre><span class="comment"># Manual</span>
+<span class="prompt">$</span> <span class="cmd">git clone https://github.com/sliday/tamp ~/.tamp</span>
+<span class="prompt">$</span> <span class="cmd">cd ~/.tamp && npm install</span>
+<span class="prompt">$</span> <span class="cmd">export ANTHROPIC_BASE_URL=http://localhost:7778</span>
+<span class="prompt">$</span> <span class="cmd">node index.js</span></pre>
+            </div>
+        </details>
+    </div>
+</section>
+
+<!-- ============================
+     THE PROBLEM
+     ============================ -->
+<section id="problem">
+    <div class="section-inner">
+        <h2 class="db-h2">Tokens pile up. Fast.</h2>
+        <div class="grid-3" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; margin-top: 1.5rem;">
+            <div class="db-card" style="padding: 1.25rem;">
+                <p class="db-body"><strong>Claude Code</strong> sends full history every turn.</p>
+            </div>
+            <div class="db-card" style="padding: 1.25rem;">
+                <p class="db-body">Tool results: pretty JSON, raw files, verbose CLI output.</p>
+            </div>
+            <div class="db-card" style="padding: 1.25rem;">
+                <p class="db-body"><strong>100K+ tokens</strong> in minutes &mdash; mostly redundant.</p>
+            </div>
+        </div>
+        <p class="db-caption" style="margin-top: 1rem; opacity: 0.6;">
+            More tokens = more cost, more latency, faster context exhaustion.
+        </p>
+    </div>
+</section>
+
+<div class="section-inner"><div class="db-separator"></div></div>
+
+<!-- ============================
+     PIPELINE OVERVIEW
+     ============================ -->
+<section id="how-it-works">
+    <div class="section-inner" style="text-align: center;">
+        <h2 class="db-h2">3-Stage Compression Pipeline</h2>
+        <div class="db-stepper" style="margin-top: 2rem;">
+            <div class="db-stepper__step db-stepper__step--completed">
+                <div class="db-stepper__indicator">1</div>
+                <div class="db-stepper__content">
+                    <div class="db-stepper__title">JSON Minify</div>
+                    <div class="db-stepper__description">Strip whitespace. Lossless.</div>
+                </div>
+            </div>
+            <div class="db-stepper__step db-stepper__step--completed">
+                <div class="db-stepper__indicator">2</div>
+                <div class="db-stepper__content">
+                    <div class="db-stepper__title">TOON Encode</div>
+                    <div class="db-stepper__description">Objects &rarr; columnar format.</div>
+                </div>
+            </div>
+            <div class="db-stepper__step db-stepper__step--active">
+                <div class="db-stepper__indicator">3</div>
+                <div class="db-stepper__content">
+                    <div class="db-stepper__title">LLMLingua-2</div>
+                    <div class="db-stepper__description">ML token pruning.</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<div class="section-inner"><div class="db-separator"></div></div>
+
+<!-- ============================
+     STAGE 1 — JSON MINIFY
+     ============================ -->
+<section id="stage-1">
+    <div class="section-inner">
+        <p class="db-caption" style="opacity: 0.5; margin-bottom: 0.25rem;">Stage 1</p>
+        <h2 class="db-h2">JSON Minify</h2>
+        <p class="db-body" style="margin-top: 0.5rem;">Strip whitespace. Instant, lossless.</p>
+        <div class="comparison-grid" style="margin-top: 1.5rem;">
+            <div>
+                <p class="db-label" style="margin-bottom: 0.5rem; color: #ff6b6b;">Before</p>
+                <div class="code-sample">{
+  "name": "tamp",
+  "version": "0.1.0",
+  "type": "module",
+  "dependencies": {
+    "@toon-format/toon": "^2.1.0"
+  }
+}</div>
+            </div>
+            <div>
+                <p class="db-label" style="margin-bottom: 0.5rem; color: #51cf66;">After</p>
+                <div class="code-sample">{"name":"tamp","version":"0.1.0","type":"module","dependencies":{"@toon-format/toon":"^2.1.0"}}</div>
+            </div>
+        </div>
+        <p class="db-body" style="margin-top: 1rem; text-align: center;">
+            Typical saving: <strong>~30-50%</strong> on structured data
+        </p>
+    </div>
+</section>
+
+<div class="section-inner"><div class="db-separator"></div></div>
+
+<!-- ============================
+     STAGE 2 — TOON ENCODING
+     ============================ -->
+<section id="stage-2">
+    <div class="section-inner">
+        <p class="db-caption" style="opacity: 0.5; margin-bottom: 0.25rem;">Stage 2</p>
+        <h2 class="db-h2">TOON Encoding</h2>
+        <p class="db-body" style="margin-top: 0.5rem;">Array-of-objects &rarr; columnar. Huge wins on tabular data.</p>
+        <div class="comparison-grid" style="margin-top: 1.5rem;">
+            <div>
+                <p class="db-label" style="margin-bottom: 0.5rem; color: #ff6b6b;">JSON (334 chars)</p>
+                <div class="code-sample">[{"name":"a.js","size":1024},
+ {"name":"b.js","size":2048},
+ {"name":"c.js","size":512}]</div>
+            </div>
+            <div>
+                <p class="db-label" style="margin-bottom: 0.5rem; color: #51cf66;">TOON (165 chars)</p>
+                <div class="code-sample">name[3]{a.js|b.js|c.js}
+size[3]{1024|2048|512}</div>
+            </div>
+        </div>
+        <div style="text-align: center; margin-top: 1.5rem;">
+            <span class="stat-big">-50.6%</span>
+            <p class="db-caption">on real package.json tool result</p>
+        </div>
+    </div>
+</section>
+
+<div class="section-inner"><div class="db-separator"></div></div>
+
+<!-- ============================
+     STAGE 3 — LLMLINGUA-2
+     ============================ -->
+<section id="stage-3">
+    <div class="section-inner">
+        <p class="db-caption" style="opacity: 0.5; margin-bottom: 0.25rem;">Stage 3</p>
+        <h2 class="db-h2">LLMLingua-2</h2>
+        <p class="db-body" style="margin-top: 0.5rem;">ML token pruning. Preserves meaning, drops the rest.</p>
+        <div class="db-card" style="padding: 1.25rem; margin-top: 1.5rem;">
+            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem;">
+                <div>
+                    <p class="db-caption">Input: compress.js source code</p>
+                    <p class="db-body" style="font-family: monospace;">
+                        <span style="color: #ff6b6b;">4,630</span> chars &rarr;
+                        <span style="color: #51cf66;">2,214</span> chars
+                    </p>
+                </div>
+                <span class="stat-big" style="font-size: clamp(1.5rem, 4vw, 2.5rem);">-52.2%</span>
+            </div>
+        </div>
+        <div class="db-card" style="padding: 1.25rem; margin-top: 0.75rem;">
+            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem;">
+                <div>
+                    <p class="db-caption">Input: ls -la command output</p>
+                    <p class="db-body" style="font-family: monospace;">
+                        <span style="color: #ff6b6b;">1,046</span> chars &rarr;
+                        <span style="color: #51cf66;">516</span> chars
+                    </p>
+                </div>
+                <span class="stat-big" style="font-size: clamp(1.5rem, 4vw, 2.5rem);">-50.7%</span>
+            </div>
+        </div>
+        <p class="db-caption" style="margin-top: 1rem; text-align: center; opacity: 0.6;">
+            Python sidecar via Microsoft LLMLingua-2, running on CPU
+        </p>
+    </div>
+</section>
+
+<div class="section-inner"><div class="db-separator"></div></div>
+
+<!-- ============================
+     RESULTS
+     ============================ -->
+<section id="results">
+    <div class="section-inner">
+        <h2 class="db-h2">Real proxy session output</h2>
+        <div class="db-list" style="margin-top: 1.5rem;">
+            <div class="db-list__item">
+                <div class="db-list__title">Read package.json</div>
+                <div class="db-list__secondary">json-lined &rarr; toon &mdash; 334 &rarr; 165 chars</div>
+                <span class="db-badge" style="margin-left: auto;">-50.6%</span>
+            </div>
+            <div class="db-list__item">
+                <div class="db-list__title">Read compress.js</div>
+                <div class="db-list__secondary">text &rarr; llmlingua &mdash; 4,630 &rarr; 2,214 chars</div>
+                <span class="db-badge" style="margin-left: auto;">-52.2%</span>
+            </div>
+            <div class="db-list__item">
+                <div class="db-list__title">Bash ls -la</div>
+                <div class="db-list__secondary">text &rarr; llmlingua &mdash; 1,046 &rarr; 516 chars</div>
+                <span class="db-badge" style="margin-left: auto;">-50.7%</span>
+            </div>
+        </div>
+        <div class="db-stat" style="margin-top: 2rem; text-align: center;">
+            <div class="db-stat__value">3,115</div>
+            <div class="db-stat__label">chars saved across 3 requests</div>
+        </div>
+    </div>
+</section>
+
+<div class="section-inner"><div class="db-separator"></div></div>
+
+<!-- ============================
+     ARCHITECTURE
+     ============================ -->
+<section id="architecture">
+    <div class="section-inner" style="text-align: center;">
+        <h2 class="db-h2">Transparent HTTP Proxy</h2>
+        <div class="flow-diagram" style="margin-top: 2rem;">
+            <span class="db-chip">Claude Code</span>
+            <span class="flow-arrow">&rarr;</span>
+            <span class="db-chip db-chip--amber">tamp:7778</span>
+            <span class="flow-arrow">&rarr;</span>
+            <span class="db-chip">Anthropic API</span>
+        </div>
+        <div class="grid-2" style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 2rem; text-align: left;">
+            <div class="db-card" style="padding: 1.25rem;">
+                <p class="db-label">Intercept</p>
+                <p class="db-caption">POST /v1/messages only. All other routes pass through untouched.</p>
+            </div>
+            <div class="db-card" style="padding: 1.25rem;">
+                <p class="db-label">Compress</p>
+                <p class="db-caption">Last user message &rarr; tool_result blocks get compressed per content type.</p>
+            </div>
+            <div class="db-card" style="padding: 1.25rem;">
+                <p class="db-label">Forward</p>
+                <p class="db-caption">Rewrite Content-Length, forward to upstream API. Response streams back untouched.</p>
+            </div>
+            <div class="db-card" style="padding: 1.25rem;">
+                <p class="db-label">Safety</p>
+                <p class="db-caption">Bodies over 256KB bypass compression. Parse errors fall through gracefully.</p>
+            </div>
+        </div>
+    </div>
+</section>
+
+<div class="section-inner"><div class="db-separator"></div></div>
+
+<!-- ============================
+     ROADMAP
+     ============================ -->
+<section id="roadmap">
+    <div class="section-inner">
+        <h2 class="db-h2">What's Next</h2>
+        <div class="db-list" style="margin-top: 1.5rem;">
+            <div class="db-list__item"><div class="db-list__title">Extended thinking block compression</div></div>
+            <div class="db-list__item"><div class="db-list__title">Response caching for repeated tool calls</div></div>
+            <div class="db-list__item"><div class="db-list__title">Per-session dashboards with live stats</div></div>
+            <div class="db-list__item"><div class="db-list__title">Configurable compression aggressiveness</div></div>
+            <div class="db-list__item"><div class="db-list__title">npm package: <code>npx tamp</code></div></div>
+        </div>
+    </div>
+</section>
+
+</main>
+
+<!-- FOOTER -->
+<footer style="text-align:center; padding:8px; background:var(--db-cream-dark); color:var(--db-warm-gray); margin-top:16px; font-family:var(--db-font-ui); font-size:0.75rem;">
+    Made by <a href="https://x.com/staskulesh" target="_blank" rel="noopener" style="color:var(--db-terracotta); text-decoration:none;">@staskulesh</a> <a href="https://aichess.co/static/easter-egg/index.html" title="&#127875;" style="text-decoration: none; display: inline-block; transition: transform 0.2s; transform: scale(1);" onmouseover="this.style.transform='scale(1.3)'" onmouseout="this.style.transform='scale(1)'">&#128007;</a>
+</footer>
+
+<script></script>
+</body>
+</html>

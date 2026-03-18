@@ -1,3 +1,11 @@
 node_modules/
 __pycache__/
 .venv/
+video/*.mp4
+video/node_modules/
+.playwright-mcp/
+*.png
+!site/favicon.ico
+!site/tamper-icon.png
+!site/apple-touch-icon.png
+!site/icon-192.png

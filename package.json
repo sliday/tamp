@@ -1,12 +1,24 @@
 {
-  "name": "toona",
+  "name": "tamp",
   "version": "0.1.0",
+  "description": "Token compression proxy for Claude Code. 50% fewer tokens, zero behavior change.",
   "type": "module",
   "main": "index.js",
+  "bin": {
+    "tamp": "./bin/tamp.js"
+  },
   "scripts": {
-    "start": "node index.js",
+    "start": "node bin/tamp.js",
     "test": "node --test test/*.test.js"
   },
+  "keywords": ["claude", "anthropic", "proxy", "compression", "tokens", "llm"],
+  "author": "Stas Kulesh <stas@sliday.com>",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/sliday/tamp"
+  },
+  "homepage": "https://github.com/sliday/tamp",
   "dependencies": {
     "@toon-format/toon": "^2.1.0"
   }

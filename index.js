@@ -28,7 +28,7 @@ function forwardRequest(method, upstreamUrl, headers, body, res) {
   })
 
   upstream.on('error', (err) => {
-    console.error(`[toona] upstream error: ${err.message}`)
+    console.error(`[tamp] upstream error: ${err.message}`)
     if (!res.headersSent) {
       res.writeHead(502, { 'Content-Type': 'application/json' })
     }
@@ -63,7 +63,7 @@ function pipeRequest(req, res, upstreamUrl, prefixChunks) {
   })
 
   upstream.on('error', (err) => {
-    console.error(`[toona] upstream error: ${err.message}`)
+    console.error(`[tamp] upstream error: ${err.message}`)
     if (!res.headersSent) {
       res.writeHead(502, { 'Content-Type': 'application/json' })
     }
@@ -80,7 +80,7 @@ function pipeRequest(req, res, upstreamUrl, prefixChunks) {
 }
 
 return http.createServer(async (req, res) => {
-  if (config.log) console.error(`[toona] ${req.method} ${req.url}`)
+  if (config.log) console.error(`[tamp] ${req.method} ${req.url}`)
   const upstreamUrl = new URL(req.url, config.upstream)
   const isMessages = req.method === 'POST' && req.url.startsWith('/v1/messages')
 
@@ -102,7 +102,7 @@ return http.createServer(async (req, res) => {
   }
 
   if (overflow) {
-    if (config.log) console.error('[toona] passthrough (body too large)')
+    if (config.log) console.error('[tamp] passthrough (body too large)')
     return pipeRequest(req, res, upstreamUrl, chunks)
   }
 
@@ -121,7 +121,7 @@ return http.createServer(async (req, res) => {
       console.error(formatRequestLog(stats, session))
     }
   } catch (err) {
-    if (config.log) console.error(`[toona] passthrough (parse error): ${err.message}`)
+    if (config.log) console.error(`[tamp] passthrough (parse error): ${err.message}`)
     finalBody = rawBody
   }
 
@@ -137,8 +137,8 @@ const isMain = !process.argv[1]?.includes('node_modules') && process.argv[1] ===
 if (isMain) {
   const { config, server } = createProxy()
   server.listen(config.port, () => {
-    console.error(`[toona] proxy listening on http://localhost:${config.port}`)
-    console.error(`[toona] upstream: ${config.upstream}`)
-    console.error(`[toona] stages: ${config.stages.join(', ')}`)
+    console.error(`[tamp] proxy listening on http://localhost:${config.port}`)
+    console.error(`[tamp] upstream: ${config.upstream}`)
+    console.error(`[tamp] stages: ${config.stages.join(', ')}`)
   })
 }
