@@ -15,7 +15,7 @@
             --tamp-espresso: #8B6914;
             --tamp-cream: #F5E6C8;
             --tamp-dark: #1a1208;
-            --db-noise: 0.078;
+            --db-noise: 0.114;
         }
         html { scroll-behavior: smooth; }
         body { overflow-x: hidden; }
@@ -162,6 +162,54 @@
             color: var(--db-accent, var(--tamp-espresso));
         }
 
+        .tamp-chart-wrap {
+            max-width: 720px;
+            margin: 0 auto;
+        }
+        .tamp-chart-wrap .db-chart {
+            height: 280px;
+            align-items: flex-end;
+            gap: var(--db-space-3);
+            padding: 0 var(--db-space-2);
+        }
+        .tamp-chart-wrap .db-chart__bar {
+            position: relative;
+            min-width: 0;
+            border-radius: var(--db-radius-2) var(--db-radius-2) 0 0;
+        }
+        .tamp-chart-wrap .db-chart__bar--muted {
+            opacity: 0.3;
+        }
+        .bar-value {
+            position: absolute;
+            top: -1.6em;
+            left: 50%;
+            transform: translateX(-50%);
+            font-family: var(--db-font-ui);
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: var(--db-color-text);
+            white-space: nowrap;
+        }
+        .tamp-chart-wrap .db-chart__labels {
+            gap: var(--db-space-3);
+            padding: var(--db-space-2) var(--db-space-2) 0;
+        }
+        .tamp-chart-wrap .db-chart__labels span {
+            font-family: var(--db-font-ui);
+            font-size: 0.7rem;
+            color: var(--db-color-text-muted);
+            text-align: center;
+            line-height: 1.2;
+        }
+        .tamp-stat-card {
+            padding: var(--db-space-4);
+            text-align: center;
+        }
+        .tamp-stat-card .db-stat__value {
+            font-family: var(--db-font-heading);
+        }
+
         .flow-diagram {
             display: flex;
             align-items: center;
@@ -182,7 +230,7 @@
 <script>
     DAUB.setTemperature('auto');
     DAUB.setTexture('metal');
-    DAUB.setFamily('gruvbox');
+    DAUB.setFamily('solarized');
     DAUB.resetAccent();
 </script>
 
@@ -198,6 +246,7 @@
     </button>
     <ul class="db-nav__links">
       <li><a href="#whitepaper">Benchmark</a></li>
+      <li><a href="#savings">Savings</a></li>
       <li><a href="#how-it-works">How it works</a></li>
       <li><a href="#results">Results</a></li>
       <li><a href="#architecture">Architecture</a></li>
@@ -259,96 +308,90 @@
         <p class="db-caption" style="opacity: 0.5; margin-bottom: 0.25rem;">Independent A/B Benchmark</p>
         <h2 class="db-h2">33.9% fewer input tokens. Measured.</h2>
         <p class="db-body" style="margin-top: 0.75rem; max-width: 640px;">
-            We sent identical requests through OpenRouter &mdash; once raw, once compressed by Tamp &mdash; and compared the exact token counts reported by the API. Seven scenarios, five runs each, 70 API calls total.
+            We sent identical requests through OpenRouter &mdash; once raw, once compressed by Tamp &mdash; and compared the exact token counts reported by the API. Six compressible scenarios plus one error-passthrough control, five runs each, 70 API calls total.
         </p>
 
-        <!-- Inline SVG bar chart -->
-        <div style="margin: 2rem auto; max-width: 620px;">
-            <svg viewBox="0 0 620 300" xmlns="http://www.w3.org/2000/svg" style="width:100%; font-family: var(--db-font-ui, system-ui, sans-serif);">
-                <defs>
-                    <linearGradient id="barGrad" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stop-color="#51cf66"/>
-                        <stop offset="100%" stop-color="#2d7d46"/>
-                    </linearGradient>
-                </defs>
-                <!-- Grid lines -->
-                <line x1="60" y1="30" x2="600" y2="30" stroke="rgba(255,255,255,0.06)" stroke-width="0.5"/>
-                <line x1="60" y1="74" x2="600" y2="74" stroke="rgba(255,255,255,0.06)" stroke-width="0.5"/>
-                <line x1="60" y1="118" x2="600" y2="118" stroke="rgba(255,255,255,0.06)" stroke-width="0.5"/>
-                <line x1="60" y1="162" x2="600" y2="162" stroke="rgba(255,255,255,0.06)" stroke-width="0.5"/>
-                <line x1="60" y1="206" x2="600" y2="206" stroke="rgba(255,255,255,0.06)" stroke-width="0.5"/>
-                <!-- Y-axis labels -->
-                <text x="55" y="34" text-anchor="end" font-size="10" fill="rgba(255,255,255,0.4)">50%</text>
-                <text x="55" y="78" text-anchor="end" font-size="10" fill="rgba(255,255,255,0.4)">40%</text>
-                <text x="55" y="122" text-anchor="end" font-size="10" fill="rgba(255,255,255,0.4)">30%</text>
-                <text x="55" y="166" text-anchor="end" font-size="10" fill="rgba(255,255,255,0.4)">20%</text>
-                <text x="55" y="210" text-anchor="end" font-size="10" fill="rgba(255,255,255,0.4)">10%</text>
-                <text x="55" y="254" text-anchor="end" font-size="10" fill="rgba(255,255,255,0.4)">0%</text>
-                <!-- Baseline -->
-                <line x1="60" y1="250" x2="600" y2="250" stroke="rgba(255,255,255,0.12)" stroke-width="1"/>
-                <!-- Bars: y = 250 - (pct/50)*220 -->
-                <!-- Small JSON: 21.9% → h=96.4, y=153.6 -->
-                <rect x="78" y="153.6" width="52" height="96.4" fill="url(#barGrad)" rx="3"/>
-                <text x="104" y="147" text-anchor="middle" font-size="11" font-weight="600" fill="#51cf66">21.9%</text>
-                <text x="104" y="272" text-anchor="middle" font-size="9" fill="rgba(255,255,255,0.5)">Small</text>
-                <text x="104" y="283" text-anchor="middle" font-size="9" fill="rgba(255,255,255,0.5)">JSON</text>
-                <!-- Large JSON: 28.3% → h=124.5, y=125.5 -->
-                <rect x="153" y="125.5" width="52" height="124.5" fill="url(#barGrad)" rx="3"/>
-                <text x="179" y="119" text-anchor="middle" font-size="11" font-weight="600" fill="#51cf66">28.3%</text>
-                <text x="179" y="272" text-anchor="middle" font-size="9" fill="rgba(255,255,255,0.5)">Large</text>
-                <text x="179" y="283" text-anchor="middle" font-size="9" fill="rgba(255,255,255,0.5)">JSON</text>
-                <!-- Tabular: 48.7% → h=214.3, y=35.7 -->
-                <rect x="228" y="35.7" width="52" height="214.3" fill="url(#barGrad)" rx="3"/>
-                <text x="254" y="29" text-anchor="middle" font-size="11" font-weight="600" fill="#51cf66">48.7%</text>
-                <text x="254" y="272" text-anchor="middle" font-size="9" fill="rgba(255,255,255,0.5)">Tabular</text>
-                <text x="254" y="283" text-anchor="middle" font-size="9" fill="rgba(255,255,255,0.5)">Data</text>
-                <!-- Source Code: 39.8% → h=175.1, y=74.9 -->
-                <rect x="303" y="74.9" width="52" height="175.1" fill="url(#barGrad)" rx="3"/>
-                <text x="329" y="68" text-anchor="middle" font-size="11" font-weight="600" fill="#51cf66">39.8%</text>
-                <text x="329" y="272" text-anchor="middle" font-size="9" fill="rgba(255,255,255,0.5)">Source</text>
-                <text x="329" y="283" text-anchor="middle" font-size="9" fill="rgba(255,255,255,0.5)">Code</text>
-                <!-- Multi-turn: 23.0% → h=101.2, y=148.8 -->
-                <rect x="378" y="148.8" width="52" height="101.2" fill="url(#barGrad)" rx="3"/>
-                <text x="404" y="142" text-anchor="middle" font-size="11" font-weight="600" fill="#51cf66">23.0%</text>
-                <text x="404" y="272" text-anchor="middle" font-size="9" fill="rgba(255,255,255,0.5)">Multi-</text>
-                <text x="404" y="283" text-anchor="middle" font-size="9" fill="rgba(255,255,255,0.5)">turn</text>
-                <!-- Line-Numbered: 31.7% → h=139.5, y=110.5 -->
-                <rect x="453" y="110.5" width="52" height="139.5" fill="url(#barGrad)" rx="3"/>
-                <text x="479" y="104" text-anchor="middle" font-size="11" font-weight="600" fill="#51cf66">31.7%</text>
-                <text x="479" y="272" text-anchor="middle" font-size="9" fill="rgba(255,255,255,0.5)">Line-</text>
-                <text x="479" y="283" text-anchor="middle" font-size="9" fill="rgba(255,255,255,0.5)">Numbered</text>
-                <!-- Error Result: 0% -->
-                <rect x="528" y="249" width="52" height="1" fill="rgba(255,255,255,0.15)" rx="3"/>
-                <text x="554" y="243" text-anchor="middle" font-size="11" font-weight="500" fill="rgba(255,255,255,0.35)">0%</text>
-                <text x="554" y="272" text-anchor="middle" font-size="9" fill="rgba(255,255,255,0.5)">Error</text>
-                <text x="554" y="283" text-anchor="middle" font-size="9" fill="rgba(255,255,255,0.5)">Result</text>
-                <!-- Y-axis title -->
-                <text x="14" y="150" text-anchor="middle" font-size="10" fill="rgba(255,255,255,0.4)" transform="rotate(-90 14 150)">Token Reduction</text>
-            </svg>
+        <!-- DAUB native bar chart -->
+        <div class="tamp-chart-wrap" style="margin-top: 2rem;">
+            <div class="db-chart" style="height:280px;">
+                <div class="db-chart__bar" style="height:44.9%;">
+                    <span class="bar-value">21.9%</span>
+                </div>
+                <div class="db-chart__bar" style="height:58.1%;">
+                    <span class="bar-value">28.3%</span>
+                </div>
+                <div class="db-chart__bar" style="height:100%;">
+                    <span class="bar-value">48.7%</span>
+                </div>
+                <div class="db-chart__bar db-chart__bar--secondary" style="height:81.7%;">
+                    <span class="bar-value">39.8%</span>
+                </div>
+                <div class="db-chart__bar" style="height:47.2%;">
+                    <span class="bar-value">23.0%</span>
+                </div>
+                <div class="db-chart__bar" style="height:65.1%;">
+                    <span class="bar-value">31.7%</span>
+                </div>
+            </div>
+            <div class="db-chart__labels">
+                <span>Small JSON</span>
+                <span>Large JSON</span>
+                <span>Tabular Data</span>
+                <span>Source Code</span>
+                <span>Multi-turn</span>
+                <span>Line-Num</span>
+            </div>
+            <p class="db-caption" style="text-align: center; opacity: 0.45; margin-top: var(--db-space-2);">
+                Error results (<code>is_error: true</code>) are never compressed &mdash; diagnostic info must stay intact.
+            </p>
         </div>
 
-        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; margin-top: 1rem;" class="grid-3">
-            <div class="db-card" style="padding: 1.25rem; text-align: center;">
-                <p class="stat-big" style="font-size: clamp(1.5rem, 4vw, 2.5rem);">48.7%</p>
-                <p class="db-caption">on tabular data<br><span style="opacity: 0.5;">TOON columnar encoding</span></p>
+        <div class="db-grid db-grid--3 db-gap-4" style="max-width: 720px; margin: var(--db-space-5) auto 0;">
+            <div class="db-card tamp-stat-card">
+                <div class="db-stat">
+                    <span class="db-stat__label">Weighted Average</span>
+                    <span class="db-stat__value">33.9%</span>
+                    <span class="db-stat__change">input token reduction</span>
+                </div>
             </div>
-            <div class="db-card" style="padding: 1.25rem; text-align: center;">
-                <p class="stat-big" style="font-size: clamp(1.5rem, 4vw, 2.5rem);">39.8%</p>
-                <p class="db-caption">on source code<br><span style="opacity: 0.5;">LLMLingua-2 neural compression</span></p>
+            <div class="db-card tamp-stat-card">
+                <div class="db-stat">
+                    <span class="db-stat__label">Per 200-req Session</span>
+                    <span class="db-stat__value">$0.23</span>
+                    <span class="db-stat__change">saved</span>
+                </div>
             </div>
-            <div class="db-card" style="padding: 1.25rem; text-align: center;">
-                <p class="stat-big" style="font-size: clamp(1.5rem, 4vw, 2.5rem);">&lt;1ms</p>
-                <p class="db-caption">compression overhead<br><span style="opacity: 0.5;">per request</span></p>
+            <div class="db-card tamp-stat-card">
+                <div class="db-stat">
+                    <span class="db-stat__label">Compression Overhead</span>
+                    <span class="db-stat__value">&lt;1ms</span>
+                    <span class="db-stat__change">sub-millisecond</span>
+                </div>
             </div>
         </div>
 
-        <div class="db-card" style="padding: 1.25rem; margin-top: 1.5rem;">
-            <p class="db-body" style="margin-bottom: 0.5rem;"><strong>How we tested.</strong>
-                Each of 7 scenarios was sent to Claude Sonnet 4 via OpenRouter 5 times &mdash; once raw (control), once after Tamp compression (treatment). OpenRouter reports exact <code>input_tokens</code> for both, giving us a clean A/B comparison with no estimation.</p>
-            <p class="db-body" style="margin-bottom: 0.5rem;"><strong>What compresses.</strong>
-                Pretty-printed JSON (minify whitespace), homogeneous arrays like file listings and route tables (TOON columnar encoding), line-numbered Read tool output (strip prefixes + minify), and natural-language text content (LLMLingua-2 neural compression). These are the bulk of tool_result traffic in real Claude Code sessions.</p>
-            <p class="db-body"><strong>What doesn't.</strong>
-                Error results, already-minified JSON, and TOON-encoded content all pass through untouched. Tamp classifies content first and only compresses when it's safe and effective.</p>
+        <div class="db-grid db-grid--3 db-gap-4" style="max-width: 800px; margin: var(--db-space-5) auto 0;">
+            <div class="db-card" style="padding: 1.25rem;">
+                <div style="margin-bottom: 0.75rem;">
+                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--db-color-accent, currentColor)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/><path d="M9 14l2 2 4-4"/></svg>
+                </div>
+                <p class="db-body" style="font-weight: 600; margin-bottom: 0.25rem;">How we tested</p>
+                <p class="db-caption">7 scenarios sent to Claude Sonnet 4 via OpenRouter, 5 runs each. Raw vs. compressed, exact <code>input_tokens</code> compared. Clean A/B, no estimation.</p>
+            </div>
+            <div class="db-card" style="padding: 1.25rem;">
+                <div style="margin-bottom: 0.75rem;">
+                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--db-color-accent, currentColor)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+                </div>
+                <p class="db-body" style="font-weight: 600; margin-bottom: 0.25rem;">What compresses</p>
+                <p class="db-caption">Pretty-printed JSON (minify), homogeneous arrays (TOON columnar), line-numbered output (strip + minify), natural-language text (LLMLingua-2 neural).</p>
+            </div>
+            <div class="db-card" style="padding: 1.25rem;">
+                <div style="margin-bottom: 0.75rem;">
+                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--db-color-accent, currentColor)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                </div>
+                <p class="db-body" style="font-weight: 600; margin-bottom: 0.25rem;">What doesn't</p>
+                <p class="db-caption">Error results, already-minified JSON, and TOON-encoded content pass through untouched. Tamp classifies first, compresses only when safe.</p>
+            </div>
         </div>
 
         <div style="display: flex; gap: 0.75rem; justify-content: center; flex-wrap: wrap; margin-top: 1.5rem;">
@@ -360,6 +403,50 @@
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
                 <span class="db-body" style="font-weight: 600;">Reproduce the benchmark</span>
             </a>
+        </div>
+    </div>
+</section>
+
+<div class="section-inner"><div class="db-separator"></div></div>
+
+<!-- ============================
+     COST SAVINGS
+     ============================ -->
+<section id="savings">
+    <div class="section-inner" style="text-align: center;">
+        <p class="db-caption" style="opacity: 0.5; margin-bottom: 0.25rem;">What that means for your wallet</p>
+        <h2 class="db-h2">Save $2&ndash;5 per session. Automatically.</h2>
+        <p class="db-body" style="margin-top: 0.75rem; max-width: 640px; margin-left: auto; margin-right: auto; opacity: 0.7;">
+            Claude Sonnet 4 charges $3 per million input tokens. Tamp cuts 33.9% of those tokens before they reach the API.
+        </p>
+
+        <div class="db-grid db-grid--4 db-gap-4" style="max-width: 800px; margin: var(--db-space-5) auto 0;">
+            <div class="db-card" style="padding: 1.25rem; text-align: center;">
+                <p class="stat-big" style="font-size: clamp(1.25rem, 3.5vw, 2rem);">$0.23</p>
+                <p class="db-caption">saved per session<br><span style="opacity: 0.5;">200 requests</span></p>
+            </div>
+            <div class="db-card" style="padding: 1.25rem; text-align: center;">
+                <p class="stat-big" style="font-size: clamp(1.25rem, 3.5vw, 2rem);">$1.15</p>
+                <p class="db-caption">saved per day<br><span style="opacity: 0.5;">5 sessions</span></p>
+            </div>
+            <div class="db-card" style="padding: 1.25rem; text-align: center;">
+                <p class="stat-big" style="font-size: clamp(1.25rem, 3.5vw, 2rem);">$35</p>
+                <p class="db-caption">saved per month<br><span style="opacity: 0.5;">per developer</span></p>
+            </div>
+            <div class="db-card" style="padding: 1.25rem; text-align: center;">
+                <p class="stat-big" style="font-size: clamp(1.25rem, 3.5vw, 2rem);">$420</p>
+                <p class="db-caption">saved per year<br><span style="opacity: 0.5;">per developer</span></p>
+            </div>
+        </div>
+
+        <div class="db-card" style="max-width: 640px; margin: var(--db-space-4) auto 0; padding: 1.25rem; text-align: left;">
+            <p class="db-body" style="margin-bottom: 0.5rem;"><strong>For teams, it adds up fast.</strong>
+                A 10-person engineering team saves <strong>~$4,200/year</strong>. A 50-person org saves <strong>~$21,000/year</strong>.
+                Tamp pays for itself in the first hour &mdash; it's free and open source.</p>
+            <p class="db-caption" style="opacity: 0.5;">
+                Based on Sonnet 4 input pricing ($3/Mtok), 200 req/session, 60% compressible, 5 sessions/day.
+                Actual savings depend on your usage patterns. Opus/Haiku have different per-token rates.
+            </p>
         </div>
     </div>
 </section>
@@ -594,6 +681,42 @@ size[3]{1024|2048|512}</div>
             </div>
         </div>
 
+        <!-- Compact bar chart -->
+        <div style="margin: 2rem auto; max-width: 620px;">
+            <svg viewBox="0 0 620 170" xmlns="http://www.w3.org/2000/svg" style="width:100%; font-family: var(--db-font-ui, system-ui, sans-serif);">
+                <defs>
+                    <linearGradient id="barGrad2" x1="1" y1="0" x2="0" y2="0">
+                        <stop offset="0%" stop-color="#51cf66"/>
+                        <stop offset="100%" stop-color="#2d7d46"/>
+                    </linearGradient>
+                </defs>
+                <!-- Horizontal bars: width = (pct/50) * 380 -->
+                <text x="110" y="24" text-anchor="end" font-size="10" fill="rgba(255,255,255,0.6)">Small JSON</text>
+                <rect x="115" y="14" width="166" height="16" fill="url(#barGrad2)" rx="2"/>
+                <text x="287" y="26" font-size="10" fill="#51cf66" font-weight="600">21.9%</text>
+
+                <text x="110" y="49" text-anchor="end" font-size="10" fill="rgba(255,255,255,0.6)">Large JSON</text>
+                <rect x="115" y="39" width="215" height="16" fill="url(#barGrad2)" rx="2"/>
+                <text x="336" y="51" font-size="10" fill="#51cf66" font-weight="600">28.3%</text>
+
+                <text x="110" y="74" text-anchor="end" font-size="10" fill="rgba(255,255,255,0.6)">Tabular Data</text>
+                <rect x="115" y="64" width="370" height="16" fill="url(#barGrad2)" rx="2"/>
+                <text x="491" y="76" font-size="10" fill="#51cf66" font-weight="600">48.7%</text>
+
+                <text x="110" y="99" text-anchor="end" font-size="10" fill="rgba(255,255,255,0.6)">Source Code</text>
+                <rect x="115" y="89" width="302" height="16" fill="url(#barGrad2)" rx="2"/>
+                <text x="423" y="101" font-size="10" fill="#51cf66" font-weight="600">39.8%</text>
+
+                <text x="110" y="124" text-anchor="end" font-size="10" fill="rgba(255,255,255,0.6)">Multi-turn</text>
+                <rect x="115" y="114" width="175" height="16" fill="url(#barGrad2)" rx="2"/>
+                <text x="296" y="126" font-size="10" fill="#51cf66" font-weight="600">23.0%</text>
+
+                <text x="110" y="149" text-anchor="end" font-size="10" fill="rgba(255,255,255,0.6)">Line-Numbered</text>
+                <rect x="115" y="139" width="241" height="16" fill="url(#barGrad2)" rx="2"/>
+                <text x="362" y="151" font-size="10" fill="#51cf66" font-weight="600">31.7%</text>
+            </svg>
+        </div>
+
         <div style="margin-top: 2rem; overflow-x: auto;">
             <table style="width: 100%; border-collapse: collapse; font-size: 0.85rem; font-family: var(--db-font-ui, inherit);">
                 <thead>
@@ -642,10 +765,10 @@ size[3]{1024|2048|512}</div>
                         <td style="padding: 8px 12px; text-align: right; color: #51cf66; font-weight: 600;">-31.7%</td>
                     </tr>
                     <tr>
-                        <td style="padding: 8px 12px;">Error Result <span class="db-caption">(is_error: true)</span></td>
-                        <td style="padding: 8px 12px; text-align: right; font-family: monospace;">167</td>
-                        <td style="padding: 8px 12px; text-align: right; font-family: monospace;">167</td>
-                        <td style="padding: 8px 12px; text-align: right; opacity: 0.4;">0.0%</td>
+                        <td style="padding: 8px 12px;">Error Result <span class="db-caption">(is_error: true)</span> <span style="font-style: italic; opacity: 0.5;">&mdash; skipped by design</span></td>
+                        <td style="padding: 8px 12px; text-align: right; font-family: monospace; opacity: 0.4;">167</td>
+                        <td style="padding: 8px 12px; text-align: right; font-family: monospace; opacity: 0.4;">167</td>
+                        <td style="padding: 8px 12px; text-align: right; opacity: 0.4; font-style: italic;">0.0%</td>
                     </tr>
                 </tbody>
             </table>

@@ -1,0 +1,9 @@
+{
+  "id": "cli-output",
+  "original": "total 128\ndrwxr-xr-x  12 stas  staff    384 Mar 15 10:30 .\ndrwxr-xr-x   5 stas  staff    160 Mar 14 09:00 ..\n-rw-r--r--   1 stas  staff    245 Mar 15 10:30 package.json\n-rw-r--r--   1 stas  staff   1024 Mar 15 10:28 index.js\n-rw-r--r--   1 stas  staff   2048 Mar 15 10:25 compress.js\n-rw-r--r--   1 stas  staff    512 Mar 15 10:20 detect.js\n-rw-r--r--   1 stas  staff    768 Mar 15 10:18 config.js\n-rw-r--r--   1 stas  staff   3072 Mar 15 10:15 stats.js\ndrwxr-xr-x   4 stas  staff    128 Mar 15 10:10 bin\ndrwxr-xr-x   6 stas  staff    192 Mar 15 10:05 test\ndrwxr-xr-x   3 stas  staff     96 Mar 15 09:55 sidecar\n-rw-r--r--   1 stas  staff    456 Mar 14 15:30 README.md",
+  "compressed": "total 128\ndrwxr-xr-x 12 stas staff 384 Mar 15 10:30 .\n-rw-r--r-- 1 stas staff 245 Mar 15 10:30 package.json\n-rw-r--r-- 1 stas staff 1024 Mar 15 10:28 index.js\n-rw-r--r-- 1 stas staff 2048 Mar 15 10:25 compress.js\n-rw-r--r-- 1 stas staff 512 Mar 15 10:20 detect.js\n-rw-r--r-- 1 stas staff 768 Mar 15 10:18 config.js\n-rw-r--r-- 1 stas staff 3072 Mar 15 10:15 stats.js\ndrwxr-xr-x 4 stas staff 128 Mar 15 10:10 bin\ndrwxr-xr-x 6 stas staff 192 Mar 15 10:05 test\ndrwxr-xr-x 3 stas staff 96 Mar 15 09:55 sidecar\n-rw-r--r-- 1 stas staff 456 Mar 14 15:30 README.md",
+  "original_tokens": 248,
+  "compressed_tokens": 195,
+  "rate": 0.5,
+  "captured_at": "2026-03-18T16:00:00.000Z"
+}

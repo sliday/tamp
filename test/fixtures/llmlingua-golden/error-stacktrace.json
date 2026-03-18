@@ -1,0 +1,9 @@
+{
+  "id": "error-stacktrace",
+  "original": "Error: Cannot find module '/app/src/services/auth/jwt-validator.js'\n    at Module._resolveFilename (node:internal/modules/cjs/loader:1075:15)\n    at Module._load (node:internal/modules/cjs/loader:920:27)\n    at Module.require (node:internal/modules/cjs/loader:1141:19)\n    at require (node:internal/modules/helpers:121:18)\n    at Object.<anonymous> (/app/src/middleware/authenticate.js:3:22)\n    at Module._compile (node:internal/modules/cjs/loader:1254:14)\n    at Module._extensions..js (node:internal/modules/cjs/loader:1308:10)\n    at Module.load (node:internal/modules/cjs/loader:1117:32)\n    at Module._resolveFilename (node:internal/modules/cjs/loader:1075:15)\n    at Module._load (node:internal/modules/cjs/loader:920:27)\n\nProcess exited with code 1\nNode.js version: v20.11.0\nPlatform: linux x64\nWorking directory: /app",
+  "compressed": "Error: Cannot find module '/app/src/services/auth/jwt-validator.js'\n    at Module._resolveFilename (node:internal/modules/cjs/loader:1075:15)\n    at Module._load (node:internal/modules/cjs/loader:920:27)\n    at Module.require (node:internal/modules/cjs/loader:1141:19)\n    at require (node:internal/modules/helpers:121:18)\n    at Object.<anonymous> (/app/src/middleware/authenticate.js:3:22)\n    at Module._compile (node:internal/modules/cjs/loader:1254:14)\n    at Module.load (node:internal/modules/cjs/loader:1117:32)\n\nProcess exited with code 1\nNode.js version: v20.11.0\nPlatform: linux x64\nWorking directory: /app",
+  "original_tokens": 230,
+  "compressed_tokens": 170,
+  "rate": 0.5,
+  "captured_at": "2026-03-18T16:00:00.000Z"
+}

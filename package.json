@@ -17,7 +17,9 @@
   },
   "scripts": {
     "start": "node bin/tamp.js",
-    "test": "node --test test/*.test.js"
+    "test": "node --test test/*.test.js",
+    "test:sidecar": "node test/capture-golden.js --verify",
+    "bench:semantic": "node bench/semantic-eval.js"
   },
   "keywords": [
     "claude",

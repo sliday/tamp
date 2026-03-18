@@ -1,0 +1,9 @@
+{
+  "id": "short-text",
+  "original": "The quick brown fox jumps over the lazy dog. This sentence contains every letter of the alphabet at least once. It is commonly used for testing fonts and keyboard layouts.",
+  "compressed": "The quick brown fox jumps over lazy dog. This sentence contains every letter of alphabet. It is used for testing fonts and keyboard layouts.",
+  "original_tokens": 35,
+  "compressed_tokens": 26,
+  "rate": 0.5,
+  "captured_at": "2026-03-18T16:00:00.000Z"
+}
