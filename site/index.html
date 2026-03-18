@@ -413,32 +413,91 @@ size[3]{1024|2048|512}</div>
 <div class="section-inner"><div class="db-separator"></div></div>
 
 <!-- ============================
-     RESULTS
+     BENCHMARK RESULTS
      ============================ -->
 <section id="results">
     <div class="section-inner">
-        <h2 class="db-h2">Real proxy session output</h2>
-        <div class="db-list" style="margin-top: 1.5rem;">
-            <div class="db-list__item">
-                <div class="db-list__title">Read package.json</div>
-                <div class="db-list__secondary">json-lined &rarr; toon &mdash; 334 &rarr; 165 chars</div>
-                <span class="db-badge" style="margin-left: auto;">-50.6%</span>
+        <h2 class="db-h2">Benchmark Results</h2>
+        <p class="db-body" style="margin-top: 0.5rem; opacity: 0.7;">
+            A/B tested via OpenRouter with Claude Sonnet 4. 7 scenarios, 5 runs each, 70 API calls total.
+        </p>
+
+        <div style="display: flex; gap: 1rem; flex-wrap: wrap; justify-content: center; margin-top: 2rem;">
+            <div class="db-card" style="padding: 1.5rem; text-align: center; flex: 1; min-width: 180px;">
+                <div class="stat-big">30.7%</div>
+                <p class="db-caption">weighted avg token reduction</p>
             </div>
-            <div class="db-list__item">
-                <div class="db-list__title">Read compress.js</div>
-                <div class="db-list__secondary">text &rarr; llmlingua &mdash; 4,630 &rarr; 2,214 chars</div>
-                <span class="db-badge" style="margin-left: auto;">-52.2%</span>
+            <div class="db-card" style="padding: 1.5rem; text-align: center; flex: 1; min-width: 180px;">
+                <div class="stat-big">48.7%</div>
+                <p class="db-caption">on tabular data (TOON)</p>
             </div>
-            <div class="db-list__item">
-                <div class="db-list__title">Bash ls -la</div>
-                <div class="db-list__secondary">text &rarr; llmlingua &mdash; 1,046 &rarr; 516 chars</div>
-                <span class="db-badge" style="margin-left: auto;">-50.7%</span>
+            <div class="db-card" style="padding: 1.5rem; text-align: center; flex: 1; min-width: 180px;">
+                <div class="stat-big">0%</div>
+                <p class="db-caption">impact on model output</p>
             </div>
         </div>
-        <div class="db-stat" style="margin-top: 2rem; text-align: center;">
-            <div class="db-stat__value">3,115</div>
-            <div class="db-stat__label">chars saved across 3 requests</div>
+
+        <div style="margin-top: 2rem; overflow-x: auto;">
+            <table style="width: 100%; border-collapse: collapse; font-size: 0.85rem; font-family: var(--db-font-ui, inherit);">
+                <thead>
+                    <tr style="border-bottom: 2px solid var(--db-border, rgba(255,255,255,0.15)); text-align: left;">
+                        <th style="padding: 8px 12px;">Scenario</th>
+                        <th style="padding: 8px 12px; text-align: right;">Control</th>
+                        <th style="padding: 8px 12px; text-align: right;">Compressed</th>
+                        <th style="padding: 8px 12px; text-align: right;">Reduction</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr style="border-bottom: 1px solid var(--db-border, rgba(255,255,255,0.08));">
+                        <td style="padding: 8px 12px;">Small JSON <span class="db-caption">(package.json)</span></td>
+                        <td style="padding: 8px 12px; text-align: right; font-family: monospace;">315</td>
+                        <td style="padding: 8px 12px; text-align: right; font-family: monospace;">246</td>
+                        <td style="padding: 8px 12px; text-align: right; color: #51cf66; font-weight: 600;">-21.9%</td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid var(--db-border, rgba(255,255,255,0.08));">
+                        <td style="padding: 8px 12px;">Large JSON <span class="db-caption">(dependency tree)</span></td>
+                        <td style="padding: 8px 12px; text-align: right; font-family: monospace;">6,773</td>
+                        <td style="padding: 8px 12px; text-align: right; font-family: monospace;">4,855</td>
+                        <td style="padding: 8px 12px; text-align: right; color: #51cf66; font-weight: 600;">-28.3%</td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid var(--db-border, rgba(255,255,255,0.08));">
+                        <td style="padding: 8px 12px;">Tabular Data <span class="db-caption">(file listing)</span></td>
+                        <td style="padding: 8px 12px; text-align: right; font-family: monospace;">3,574</td>
+                        <td style="padding: 8px 12px; text-align: right; font-family: monospace;">1,835</td>
+                        <td style="padding: 8px 12px; text-align: right; color: #51cf66; font-weight: 600;">-48.7%</td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid var(--db-border, rgba(255,255,255,0.08));">
+                        <td style="padding: 8px 12px;">Source Code <span class="db-caption">(TypeScript)</span></td>
+                        <td style="padding: 8px 12px; text-align: right; font-family: monospace;">1,069</td>
+                        <td style="padding: 8px 12px; text-align: right; font-family: monospace;">1,069</td>
+                        <td style="padding: 8px 12px; text-align: right; opacity: 0.4;">0.0%</td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid var(--db-border, rgba(255,255,255,0.08));">
+                        <td style="padding: 8px 12px;">Multi-turn <span class="db-caption">(5-turn conversation)</span></td>
+                        <td style="padding: 8px 12px; text-align: right; font-family: monospace;">1,026</td>
+                        <td style="padding: 8px 12px; text-align: right; font-family: monospace;">790</td>
+                        <td style="padding: 8px 12px; text-align: right; color: #51cf66; font-weight: 600;">-23.0%</td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid var(--db-border, rgba(255,255,255,0.08));">
+                        <td style="padding: 8px 12px;">Line-Numbered <span class="db-caption">(Read tool output)</span></td>
+                        <td style="padding: 8px 12px; text-align: right; font-family: monospace;">473</td>
+                        <td style="padding: 8px 12px; text-align: right; font-family: monospace;">323</td>
+                        <td style="padding: 8px 12px; text-align: right; color: #51cf66; font-weight: 600;">-31.7%</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 8px 12px;">Error Result <span class="db-caption">(is_error: true)</span></td>
+                        <td style="padding: 8px 12px; text-align: right; font-family: monospace;">167</td>
+                        <td style="padding: 8px 12px; text-align: right; font-family: monospace;">167</td>
+                        <td style="padding: 8px 12px; text-align: right; opacity: 0.4;">0.0%</td>
+                    </tr>
+                </tbody>
+            </table>
         </div>
+
+        <p class="db-caption" style="margin-top: 1.25rem; opacity: 0.5; text-align: center;">
+            Token counts from OpenRouter. Source code and errors pass through untouched by design.
+            <a href="https://github.com/sliday/tamp/tree/main/bench" style="color: var(--db-accent, var(--tamp-espresso));">Reproduce it yourself &rarr;</a>
+        </p>
     </div>
 </section>
 
