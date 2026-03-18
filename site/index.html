@@ -197,6 +197,7 @@
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
     </button>
     <ul class="db-nav__links">
+      <li><a href="#whitepaper">Benchmark</a></li>
       <li><a href="#how-it-works">How it works</a></li>
       <li><a href="#results">Results</a></li>
       <li><a href="#architecture">Architecture</a></li>
@@ -249,6 +250,116 @@
         </details>
     </div>
 </section>
+
+<!-- ============================
+     WHITEPAPER SUMMARY
+     ============================ -->
+<section id="whitepaper" style="padding-top: 2rem;">
+    <div class="section-inner">
+        <p class="db-caption" style="opacity: 0.5; margin-bottom: 0.25rem;">Independent A/B Benchmark</p>
+        <h2 class="db-h2">30.7% fewer input tokens. Measured.</h2>
+        <p class="db-body" style="margin-top: 0.75rem; max-width: 640px;">
+            We sent identical requests through OpenRouter &mdash; once raw, once compressed by Tamp &mdash; and compared the exact token counts reported by the API. Seven scenarios, five runs each, 70 API calls total.
+        </p>
+
+        <!-- Inline SVG bar chart -->
+        <div style="margin: 2rem auto; max-width: 620px;">
+            <svg viewBox="0 0 620 300" xmlns="http://www.w3.org/2000/svg" style="width:100%; font-family: var(--db-font-ui, system-ui, sans-serif);">
+                <defs>
+                    <linearGradient id="barGrad" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stop-color="#51cf66"/>
+                        <stop offset="100%" stop-color="#2d7d46"/>
+                    </linearGradient>
+                </defs>
+                <!-- Grid lines -->
+                <line x1="60" y1="30" x2="600" y2="30" stroke="rgba(255,255,255,0.06)" stroke-width="0.5"/>
+                <line x1="60" y1="74" x2="600" y2="74" stroke="rgba(255,255,255,0.06)" stroke-width="0.5"/>
+                <line x1="60" y1="118" x2="600" y2="118" stroke="rgba(255,255,255,0.06)" stroke-width="0.5"/>
+                <line x1="60" y1="162" x2="600" y2="162" stroke="rgba(255,255,255,0.06)" stroke-width="0.5"/>
+                <line x1="60" y1="206" x2="600" y2="206" stroke="rgba(255,255,255,0.06)" stroke-width="0.5"/>
+                <!-- Y-axis labels -->
+                <text x="55" y="34" text-anchor="end" font-size="10" fill="rgba(255,255,255,0.4)">50%</text>
+                <text x="55" y="78" text-anchor="end" font-size="10" fill="rgba(255,255,255,0.4)">40%</text>
+                <text x="55" y="122" text-anchor="end" font-size="10" fill="rgba(255,255,255,0.4)">30%</text>
+                <text x="55" y="166" text-anchor="end" font-size="10" fill="rgba(255,255,255,0.4)">20%</text>
+                <text x="55" y="210" text-anchor="end" font-size="10" fill="rgba(255,255,255,0.4)">10%</text>
+                <text x="55" y="254" text-anchor="end" font-size="10" fill="rgba(255,255,255,0.4)">0%</text>
+                <!-- Baseline -->
+                <line x1="60" y1="250" x2="600" y2="250" stroke="rgba(255,255,255,0.12)" stroke-width="1"/>
+                <!-- Bars: y = 250 - (pct/50)*220 -->
+                <!-- Small JSON: 21.9% → h=96.4, y=153.6 -->
+                <rect x="78" y="153.6" width="52" height="96.4" fill="url(#barGrad)" rx="3"/>
+                <text x="104" y="147" text-anchor="middle" font-size="11" font-weight="600" fill="#51cf66">21.9%</text>
+                <text x="104" y="272" text-anchor="middle" font-size="9" fill="rgba(255,255,255,0.5)">Small</text>
+                <text x="104" y="283" text-anchor="middle" font-size="9" fill="rgba(255,255,255,0.5)">JSON</text>
+                <!-- Large JSON: 28.3% → h=124.5, y=125.5 -->
+                <rect x="153" y="125.5" width="52" height="124.5" fill="url(#barGrad)" rx="3"/>
+                <text x="179" y="119" text-anchor="middle" font-size="11" font-weight="600" fill="#51cf66">28.3%</text>
+                <text x="179" y="272" text-anchor="middle" font-size="9" fill="rgba(255,255,255,0.5)">Large</text>
+                <text x="179" y="283" text-anchor="middle" font-size="9" fill="rgba(255,255,255,0.5)">JSON</text>
+                <!-- Tabular: 48.7% → h=214.3, y=35.7 -->
+                <rect x="228" y="35.7" width="52" height="214.3" fill="url(#barGrad)" rx="3"/>
+                <text x="254" y="29" text-anchor="middle" font-size="11" font-weight="600" fill="#51cf66">48.7%</text>
+                <text x="254" y="272" text-anchor="middle" font-size="9" fill="rgba(255,255,255,0.5)">Tabular</text>
+                <text x="254" y="283" text-anchor="middle" font-size="9" fill="rgba(255,255,255,0.5)">Data</text>
+                <!-- Source Code: 0% -->
+                <rect x="303" y="249" width="52" height="1" fill="rgba(255,255,255,0.15)" rx="3"/>
+                <text x="329" y="243" text-anchor="middle" font-size="11" font-weight="500" fill="rgba(255,255,255,0.35)">0%</text>
+                <text x="329" y="272" text-anchor="middle" font-size="9" fill="rgba(255,255,255,0.5)">Source</text>
+                <text x="329" y="283" text-anchor="middle" font-size="9" fill="rgba(255,255,255,0.5)">Code</text>
+                <!-- Multi-turn: 23.0% → h=101.2, y=148.8 -->
+                <rect x="378" y="148.8" width="52" height="101.2" fill="url(#barGrad)" rx="3"/>
+                <text x="404" y="142" text-anchor="middle" font-size="11" font-weight="600" fill="#51cf66">23.0%</text>
+                <text x="404" y="272" text-anchor="middle" font-size="9" fill="rgba(255,255,255,0.5)">Multi-</text>
+                <text x="404" y="283" text-anchor="middle" font-size="9" fill="rgba(255,255,255,0.5)">turn</text>
+                <!-- Line-Numbered: 31.7% → h=139.5, y=110.5 -->
+                <rect x="453" y="110.5" width="52" height="139.5" fill="url(#barGrad)" rx="3"/>
+                <text x="479" y="104" text-anchor="middle" font-size="11" font-weight="600" fill="#51cf66">31.7%</text>
+                <text x="479" y="272" text-anchor="middle" font-size="9" fill="rgba(255,255,255,0.5)">Line-</text>
+                <text x="479" y="283" text-anchor="middle" font-size="9" fill="rgba(255,255,255,0.5)">Numbered</text>
+                <!-- Error Result: 0% -->
+                <rect x="528" y="249" width="52" height="1" fill="rgba(255,255,255,0.15)" rx="3"/>
+                <text x="554" y="243" text-anchor="middle" font-size="11" font-weight="500" fill="rgba(255,255,255,0.35)">0%</text>
+                <text x="554" y="272" text-anchor="middle" font-size="9" fill="rgba(255,255,255,0.5)">Error</text>
+                <text x="554" y="283" text-anchor="middle" font-size="9" fill="rgba(255,255,255,0.5)">Result</text>
+                <!-- Y-axis title -->
+                <text x="14" y="150" text-anchor="middle" font-size="10" fill="rgba(255,255,255,0.4)" transform="rotate(-90 14 150)">Token Reduction</text>
+            </svg>
+        </div>
+
+        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; margin-top: 1rem;" class="grid-3">
+            <div class="db-card" style="padding: 1.25rem; text-align: center;">
+                <p class="stat-big" style="font-size: clamp(1.5rem, 4vw, 2.5rem);">48.7%</p>
+                <p class="db-caption">on tabular data<br><span style="opacity: 0.5;">TOON columnar encoding</span></p>
+            </div>
+            <div class="db-card" style="padding: 1.25rem; text-align: center;">
+                <p class="stat-big" style="font-size: clamp(1.5rem, 4vw, 2.5rem);">0%</p>
+                <p class="db-caption">on source code &amp; errors<br><span style="opacity: 0.5;">safe passthrough by design</span></p>
+            </div>
+            <div class="db-card" style="padding: 1.25rem; text-align: center;">
+                <p class="stat-big" style="font-size: clamp(1.5rem, 4vw, 2.5rem);">&lt;1ms</p>
+                <p class="db-caption">compression overhead<br><span style="opacity: 0.5;">per request</span></p>
+            </div>
+        </div>
+
+        <div class="db-card" style="padding: 1.25rem; margin-top: 1.5rem;">
+            <p class="db-body" style="margin-bottom: 0.5rem;"><strong>How we tested.</strong>
+                Each of 7 scenarios was sent to Claude Sonnet 4 via OpenRouter 5 times &mdash; once raw (control), once after Tamp compression (treatment). OpenRouter reports exact <code>input_tokens</code> for both, giving us a clean A/B comparison with no estimation.</p>
+            <p class="db-body" style="margin-bottom: 0.5rem;"><strong>What compresses.</strong>
+                Pretty-printed JSON (minify whitespace), homogeneous arrays like file listings and route tables (TOON columnar encoding), and line-numbered Read tool output (strip prefixes + minify). These are the bulk of tool_result traffic in real Claude Code sessions.</p>
+            <p class="db-body"><strong>What doesn't.</strong>
+                Source code, error results, already-minified JSON, and TOON-encoded content all pass through untouched. Tamp classifies content first and only compresses when it's safe and effective.</p>
+        </div>
+
+        <p class="db-caption" style="margin-top: 1rem; text-align: center; opacity: 0.6;">
+            <a href="whitepaper.pdf" style="color: var(--db-accent, var(--tamp-espresso));">Read the full white paper (PDF) &rarr;</a>
+            &middot;
+            <a href="https://github.com/sliday/tamp/tree/main/bench" style="color: var(--db-accent, var(--tamp-espresso));">Reproduce the benchmark &rarr;</a>
+        </p>
+    </div>
+</section>
+
+<div class="section-inner"><div class="db-separator"></div></div>
 
 <!-- ============================
      THE PROBLEM
