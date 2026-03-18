@@ -3,8 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Tamp — Save up to 50% on input tokens.</title>
-    <meta name="description" content="Tamp is a token compression proxy for Claude Code. 50% fewer tokens, zero behavior change.">
+    <title>Tamp — Token compression proxy for Claude Code</title>
+    <meta name="description" content="Tamp is a token compression proxy for Claude Code. 33.9% fewer input tokens, zero behavior change.">
     <link rel="icon" href="favicon.ico" sizes="any">
     <link rel="icon" href="tamper-icon.png" type="image/png">
     <link rel="apple-touch-icon" href="apple-touch-icon.png">
@@ -245,10 +245,9 @@
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
     </button>
     <ul class="db-nav__links">
-      <li><a href="#whitepaper">Benchmark</a></li>
-      <li><a href="#savings">Savings</a></li>
       <li><a href="#how-it-works">How it works</a></li>
-      <li><a href="#results">Results</a></li>
+      <li><a href="#benchmark">Benchmark</a></li>
+      <li><a href="#savings">Savings</a></li>
       <li><a href="#architecture">Architecture</a></li>
       <li><a href="#roadmap">Roadmap</a></li>
       <li>
@@ -264,13 +263,16 @@
 <main>
 
 <!-- ============================
-     HERO
+     1. HERO — Hook
      ============================ -->
 <section class="hero-section" id="hero">
     <div class="hero-inner">
         <h1 class="db-h1">Tamp</h1>
-        <p class="db-body" style="margin-top: 0.75rem; opacity: 0.7; font-size: 1.25rem;">
-            Save up to 50% on input tokens.
+        <p class="db-body" style="margin-top: 0.5rem; opacity: 0.6; font-size: 1.1rem;">
+            Token compression proxy for Claude Code.
+        </p>
+        <p class="db-body" style="margin-top: 0.5rem; font-size: 1.25rem;">
+            33.9% fewer input tokens. Zero code changes.
         </p>
 
         <div class="install-card db-card db-surface--raised" style="margin-top: 2rem;">
@@ -278,12 +280,8 @@
         </div>
 
         <p class="db-caption" style="margin-top: 0.75rem; opacity: 0.5;">
-            Starts the proxy on port 7778. Set <code>ANTHROPIC_BASE_URL=http://localhost:7778</code> and go.
+            Set <code>ANTHROPIC_BASE_URL=http://localhost:7778</code> and go. That's it.
         </p>
-
-        <div style="margin-top: 1rem;">
-            <span class="db-badge db-badge--new">~50% compression on real traffic</span>
-        </div>
 
         <details style="margin-top: 1.5rem; text-align: left; max-width: 720px; width: 100%; margin-left: auto; margin-right: auto;">
             <summary class="db-caption" style="cursor: pointer; opacity: 0.5;">Other installation methods</summary>
@@ -301,14 +299,162 @@
 </section>
 
 <!-- ============================
-     WHITEPAPER SUMMARY
+     2. THE PROBLEM — Pain
      ============================ -->
-<section id="whitepaper" style="padding-top: 2rem;">
+<section id="problem">
     <div class="section-inner">
-        <p class="db-caption" style="opacity: 0.5; margin-bottom: 0.25rem;">Independent A/B Benchmark</p>
-        <h2 class="db-h2">33.9% fewer input tokens. Measured.</h2>
-        <p class="db-body" style="margin-top: 0.75rem; max-width: 640px;">
-            We sent identical requests through OpenRouter &mdash; once raw, once compressed by Tamp &mdash; and compared the exact token counts reported by the API. Six compressible scenarios plus one error-passthrough control, five runs each, 70 API calls total.
+        <h2 class="db-h2">Tokens pile up. Fast.</h2>
+
+        <div style="margin: 2rem auto; max-width: 620px;">
+            <svg viewBox="0 0 620 200" xmlns="http://www.w3.org/2000/svg" style="width:100%; font-family: var(--db-font-ui, system-ui, sans-serif);">
+                <defs>
+                    <linearGradient id="tokenFill" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stop-color="#ff6b6b" stop-opacity="0.3"/>
+                        <stop offset="100%" stop-color="#ff6b6b" stop-opacity="0.02"/>
+                    </linearGradient>
+                </defs>
+                <path d="M40,175 C100,172 140,165 180,150 S260,110 320,85 S420,40 500,25 L580,20 L580,180 L40,180 Z" fill="url(#tokenFill)" stroke="none"/>
+                <path d="M40,175 C100,172 140,165 180,150 S260,110 320,85 S420,40 500,25 L580,20" fill="none" stroke="#ff6b6b" stroke-width="2.5" stroke-linecap="round"/>
+                <circle cx="40" cy="175" r="3" fill="#ff6b6b" opacity="0.6"/>
+                <circle cx="120" cy="168" r="3" fill="#ff6b6b" opacity="0.6"/>
+                <circle cx="200" cy="148" r="3" fill="#ff6b6b" opacity="0.7"/>
+                <circle cx="280" cy="118" r="3" fill="#ff6b6b" opacity="0.7"/>
+                <circle cx="360" cy="78" r="3" fill="#ff6b6b" opacity="0.8"/>
+                <circle cx="440" cy="48" r="3" fill="#ff6b6b" opacity="0.9"/>
+                <circle cx="540" cy="22" r="3" fill="#ff6b6b" opacity="1"/>
+                <text x="40" y="195" text-anchor="middle" font-size="8" fill="rgba(255,255,255,0.4)">Turn 1</text>
+                <text x="200" y="195" text-anchor="middle" font-size="8" fill="rgba(255,255,255,0.4)">Turn 10</text>
+                <text x="360" y="195" text-anchor="middle" font-size="8" fill="rgba(255,255,255,0.4)">Turn 20</text>
+                <text x="540" y="195" text-anchor="middle" font-size="8" fill="rgba(255,255,255,0.4)">Turn 30</text>
+                <text x="120" y="158" font-size="9" fill="rgba(255,255,255,0.5)">5K tokens</text>
+                <text x="280" y="108" font-size="9" fill="rgba(255,255,255,0.6)">25K</text>
+                <text x="440" y="38" font-size="10" font-weight="600" fill="#ff6b6b">80K</text>
+                <text x="555" y="14" font-size="11" font-weight="700" fill="#ff6b6b">100K+</text>
+                <text x="12" y="105" text-anchor="middle" font-size="9" fill="rgba(255,255,255,0.3)" transform="rotate(-90 12 105)">input tokens</text>
+            </svg>
+        </div>
+
+        <div class="grid-3" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; margin-top: 0.5rem;">
+            <div class="db-card" style="padding: 1.25rem; text-align: center; border-top: 2px solid #ff6b6b;">
+                <p style="font-size: 1.75rem; font-weight: 700; color: #ff6b6b;">200+</p>
+                <p class="db-caption">API calls per session<br><span style="opacity: 0.5;">each sends full history</span></p>
+            </div>
+            <div class="db-card" style="padding: 1.25rem; text-align: center; border-top: 2px solid #ff6b6b;">
+                <p style="font-size: 1.75rem; font-weight: 700; color: #ff6b6b;">60%</p>
+                <p class="db-caption">is tool_result bloat<br><span style="opacity: 0.5;">pretty JSON, raw files, CLI output</span></p>
+            </div>
+            <div class="db-card" style="padding: 1.25rem; text-align: center; border-top: 2px solid #ff6b6b;">
+                <p style="font-size: 1.75rem; font-weight: 700; color: #ff6b6b;">$6&ndash;15</p>
+                <p class="db-caption">per coding session<br><span style="opacity: 0.5;">at $3/Mtok input pricing</span></p>
+            </div>
+        </div>
+
+        <p class="db-caption" style="margin-top: 1.25rem; opacity: 0.5; text-align: center;">
+            Every turn re-sends everything. Tamp compresses before it leaves your machine.
+        </p>
+    </div>
+</section>
+
+<div class="section-inner"><div class="db-separator"></div></div>
+
+<!-- ============================
+     3. HOW IT WORKS — Solution (merged pipeline + stages)
+     ============================ -->
+<section id="how-it-works">
+    <div class="section-inner">
+        <h2 class="db-h2" style="text-align: center;">3-Stage Compression Pipeline</h2>
+
+        <div class="flow-diagram" style="margin-top: 1.5rem;">
+            <span class="db-chip">Claude Code</span>
+            <span class="flow-arrow">&rarr;</span>
+            <span class="db-chip db-chip--amber">tamp:7778</span>
+            <span class="flow-arrow">&rarr;</span>
+            <span class="db-chip">Anthropic API</span>
+        </div>
+
+        <!-- Stage 1 -->
+        <div class="db-card" style="padding: 1.25rem; margin-top: 2rem;">
+            <div style="display: flex; align-items: baseline; gap: 0.75rem; margin-bottom: 0.75rem;">
+                <span class="db-badge">1</span>
+                <p class="db-body" style="font-weight: 600;">JSON Minify</p>
+                <span class="db-caption" style="opacity: 0.5;">&mdash; strip whitespace, lossless</span>
+            </div>
+            <div class="comparison-grid">
+                <div>
+                    <p class="db-label" style="margin-bottom: 0.5rem; color: #ff6b6b;">Before</p>
+                    <div class="code-sample">{
+  "name": "tamp",
+  "version": "0.1.0",
+  "type": "module",
+  "dependencies": {
+    "@toon-format/toon": "^2.1.0"
+  }
+}</div>
+                </div>
+                <div>
+                    <p class="db-label" style="margin-bottom: 0.5rem; color: #51cf66;">After</p>
+                    <div class="code-sample">{"name":"tamp","version":"0.1.0","type":"module","dependencies":{"@toon-format/toon":"^2.1.0"}}</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Stage 2 -->
+        <div class="db-card" style="padding: 1.25rem; margin-top: 0.75rem;">
+            <div style="display: flex; align-items: baseline; gap: 0.75rem; margin-bottom: 0.75rem;">
+                <span class="db-badge">2</span>
+                <p class="db-body" style="font-weight: 600;">TOON Encoding</p>
+                <span class="db-caption" style="opacity: 0.5;">&mdash; objects &rarr; columnar format</span>
+            </div>
+            <div class="comparison-grid">
+                <div>
+                    <p class="db-label" style="margin-bottom: 0.5rem; color: #ff6b6b;">JSON (334 chars)</p>
+                    <div class="code-sample">[{"name":"a.js","size":1024},
+ {"name":"b.js","size":2048},
+ {"name":"c.js","size":512}]</div>
+                </div>
+                <div>
+                    <p class="db-label" style="margin-bottom: 0.5rem; color: #51cf66;">TOON (165 chars)</p>
+                    <div class="code-sample">name[3]{a.js|b.js|c.js}
+size[3]{1024|2048|512}</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Stage 3 -->
+        <div class="db-card" style="padding: 1.25rem; margin-top: 0.75rem;">
+            <div style="display: flex; align-items: baseline; gap: 0.75rem; margin-bottom: 0.75rem;">
+                <span class="db-badge">3</span>
+                <p class="db-body" style="font-weight: 600;">LLMLingua-2</p>
+                <span class="db-caption" style="opacity: 0.5;">&mdash; ML token pruning for text content</span>
+            </div>
+            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem;">
+                <div>
+                    <p class="db-caption">compress.js source code</p>
+                    <p class="db-body" style="font-family: monospace;">
+                        <span style="color: #ff6b6b;">4,630</span> chars &rarr;
+                        <span style="color: #51cf66;">2,214</span> chars
+                    </p>
+                </div>
+                <span class="stat-big" style="font-size: clamp(1.5rem, 4vw, 2.5rem);">-52.2%</span>
+            </div>
+        </div>
+
+        <p class="db-caption" style="margin-top: 1rem; text-align: center; opacity: 0.5;">
+            Each stage runs only when effective. Error results are never compressed.
+        </p>
+    </div>
+</section>
+
+<div class="section-inner"><div class="db-separator"></div></div>
+
+<!-- ============================
+     4. BENCHMARK — Proof (single unified section)
+     ============================ -->
+<section id="benchmark">
+    <div class="section-inner">
+        <h2 class="db-h2">Measured: 33.9% fewer tokens</h2>
+        <p class="db-body" style="margin-top: 0.5rem; opacity: 0.7;">
+            A/B tested via OpenRouter with Claude Sonnet 4. Seven scenarios, five runs each, 70 API calls total.
         </p>
 
         <!-- DAUB native bar chart -->
@@ -341,382 +487,9 @@
                 <span>Multi-turn</span>
                 <span>Line-Num</span>
             </div>
-            <p class="db-caption" style="text-align: center; opacity: 0.45; margin-top: var(--db-space-2);">
-                Error results (<code>is_error: true</code>) are never compressed &mdash; diagnostic info must stay intact.
-            </p>
         </div>
 
-        <div class="db-grid db-grid--3 db-gap-4" style="max-width: 720px; margin: var(--db-space-5) auto 0;">
-            <div class="db-card tamp-stat-card">
-                <div class="db-stat">
-                    <span class="db-stat__label">Weighted Average</span>
-                    <span class="db-stat__value">33.9%</span>
-                    <span class="db-stat__change">input token reduction</span>
-                </div>
-            </div>
-            <div class="db-card tamp-stat-card">
-                <div class="db-stat">
-                    <span class="db-stat__label">Per 200-req Session</span>
-                    <span class="db-stat__value">$0.23</span>
-                    <span class="db-stat__change">saved</span>
-                </div>
-            </div>
-            <div class="db-card tamp-stat-card">
-                <div class="db-stat">
-                    <span class="db-stat__label">Compression Overhead</span>
-                    <span class="db-stat__value">&lt;1ms</span>
-                    <span class="db-stat__change">sub-millisecond</span>
-                </div>
-            </div>
-        </div>
-
-        <div class="db-grid db-grid--3 db-gap-4" style="max-width: 800px; margin: var(--db-space-5) auto 0;">
-            <div class="db-card" style="padding: 1.25rem;">
-                <div style="margin-bottom: 0.75rem;">
-                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--db-color-accent, currentColor)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/><path d="M9 14l2 2 4-4"/></svg>
-                </div>
-                <p class="db-body" style="font-weight: 600; margin-bottom: 0.25rem;">How we tested</p>
-                <p class="db-caption">7 scenarios sent to Claude Sonnet 4 via OpenRouter, 5 runs each. Raw vs. compressed, exact <code>input_tokens</code> compared. Clean A/B, no estimation.</p>
-            </div>
-            <div class="db-card" style="padding: 1.25rem;">
-                <div style="margin-bottom: 0.75rem;">
-                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--db-color-accent, currentColor)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
-                </div>
-                <p class="db-body" style="font-weight: 600; margin-bottom: 0.25rem;">What compresses</p>
-                <p class="db-caption">Pretty-printed JSON (minify), homogeneous arrays (TOON columnar), line-numbered output (strip + minify), natural-language text (LLMLingua-2 neural).</p>
-            </div>
-            <div class="db-card" style="padding: 1.25rem;">
-                <div style="margin-bottom: 0.75rem;">
-                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--db-color-accent, currentColor)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-                </div>
-                <p class="db-body" style="font-weight: 600; margin-bottom: 0.25rem;">What doesn't</p>
-                <p class="db-caption">Error results, already-minified JSON, and TOON-encoded content pass through untouched. Tamp classifies first, compresses only when safe.</p>
-            </div>
-        </div>
-
-        <div style="display: flex; gap: 0.75rem; justify-content: center; flex-wrap: wrap; margin-top: 1.5rem;">
-            <a href="whitepaper.pdf" class="db-card" style="display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.75rem 1.25rem; text-decoration: none; color: inherit; transition: transform 0.15s;" onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform='none'">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
-                <span class="db-body" style="font-weight: 600;">Read the white paper</span>
-            </a>
-            <a href="https://github.com/sliday/tamp/tree/main/bench" class="db-card" style="display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.75rem 1.25rem; text-decoration: none; color: inherit; transition: transform 0.15s;" onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform='none'">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
-                <span class="db-body" style="font-weight: 600;">Reproduce the benchmark</span>
-            </a>
-        </div>
-    </div>
-</section>
-
-<div class="section-inner"><div class="db-separator"></div></div>
-
-<!-- ============================
-     COST SAVINGS
-     ============================ -->
-<section id="savings">
-    <div class="section-inner" style="text-align: center;">
-        <p class="db-caption" style="opacity: 0.5; margin-bottom: 0.25rem;">What that means for your wallet</p>
-        <h2 class="db-h2">Save $2&ndash;5 per session. Automatically.</h2>
-        <p class="db-body" style="margin-top: 0.75rem; max-width: 640px; margin-left: auto; margin-right: auto; opacity: 0.7;">
-            Claude Sonnet 4 charges $3 per million input tokens. Tamp cuts 33.9% of those tokens before they reach the API.
-        </p>
-
-        <div class="db-grid db-grid--4 db-gap-4" style="max-width: 800px; margin: var(--db-space-5) auto 0;">
-            <div class="db-card" style="padding: 1.25rem; text-align: center;">
-                <p class="stat-big" style="font-size: clamp(1.25rem, 3.5vw, 2rem);">$0.23</p>
-                <p class="db-caption">saved per session<br><span style="opacity: 0.5;">200 requests</span></p>
-            </div>
-            <div class="db-card" style="padding: 1.25rem; text-align: center;">
-                <p class="stat-big" style="font-size: clamp(1.25rem, 3.5vw, 2rem);">$1.15</p>
-                <p class="db-caption">saved per day<br><span style="opacity: 0.5;">5 sessions</span></p>
-            </div>
-            <div class="db-card" style="padding: 1.25rem; text-align: center;">
-                <p class="stat-big" style="font-size: clamp(1.25rem, 3.5vw, 2rem);">$35</p>
-                <p class="db-caption">saved per month<br><span style="opacity: 0.5;">per developer</span></p>
-            </div>
-            <div class="db-card" style="padding: 1.25rem; text-align: center;">
-                <p class="stat-big" style="font-size: clamp(1.25rem, 3.5vw, 2rem);">$420</p>
-                <p class="db-caption">saved per year<br><span style="opacity: 0.5;">per developer</span></p>
-            </div>
-        </div>
-
-        <div class="db-card" style="max-width: 640px; margin: var(--db-space-4) auto 0; padding: 1.25rem; text-align: left;">
-            <p class="db-body" style="margin-bottom: 0.5rem;"><strong>For teams, it adds up fast.</strong>
-                A 10-person engineering team saves <strong>~$4,200/year</strong>. A 50-person org saves <strong>~$21,000/year</strong>.
-                Tamp pays for itself in the first hour &mdash; it's free and open source.</p>
-            <p class="db-caption" style="opacity: 0.5;">
-                Based on Sonnet 4 input pricing ($3/Mtok), 200 req/session, 60% compressible, 5 sessions/day.
-                Actual savings depend on your usage patterns. Opus/Haiku have different per-token rates.
-            </p>
-        </div>
-    </div>
-</section>
-
-<div class="section-inner"><div class="db-separator"></div></div>
-
-<!-- ============================
-     THE PROBLEM
-     ============================ -->
-<section id="problem">
-    <div class="section-inner">
-        <h2 class="db-h2">Tokens pile up. Fast.</h2>
-
-        <!-- Animated token accumulation visualization -->
-        <div style="margin: 2rem auto; max-width: 620px;">
-            <svg viewBox="0 0 620 200" xmlns="http://www.w3.org/2000/svg" style="width:100%; font-family: var(--db-font-ui, system-ui, sans-serif);">
-                <!-- Background area chart showing token growth -->
-                <defs>
-                    <linearGradient id="tokenFill" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stop-color="#ff6b6b" stop-opacity="0.3"/>
-                        <stop offset="100%" stop-color="#ff6b6b" stop-opacity="0.02"/>
-                    </linearGradient>
-                </defs>
-                <!-- Growth curve -->
-                <path d="M40,175 C100,172 140,165 180,150 S260,110 320,85 S420,40 500,25 L580,20 L580,180 L40,180 Z" fill="url(#tokenFill)" stroke="none"/>
-                <path d="M40,175 C100,172 140,165 180,150 S260,110 320,85 S420,40 500,25 L580,20" fill="none" stroke="#ff6b6b" stroke-width="2.5" stroke-linecap="round"/>
-                <!-- Turn markers -->
-                <circle cx="40" cy="175" r="3" fill="#ff6b6b" opacity="0.6"/>
-                <circle cx="120" cy="168" r="3" fill="#ff6b6b" opacity="0.6"/>
-                <circle cx="200" cy="148" r="3" fill="#ff6b6b" opacity="0.7"/>
-                <circle cx="280" cy="118" r="3" fill="#ff6b6b" opacity="0.7"/>
-                <circle cx="360" cy="78" r="3" fill="#ff6b6b" opacity="0.8"/>
-                <circle cx="440" cy="48" r="3" fill="#ff6b6b" opacity="0.9"/>
-                <circle cx="540" cy="22" r="3" fill="#ff6b6b" opacity="1"/>
-                <!-- Labels -->
-                <text x="40" y="195" text-anchor="middle" font-size="8" fill="rgba(255,255,255,0.4)">Turn 1</text>
-                <text x="200" y="195" text-anchor="middle" font-size="8" fill="rgba(255,255,255,0.4)">Turn 10</text>
-                <text x="360" y="195" text-anchor="middle" font-size="8" fill="rgba(255,255,255,0.4)">Turn 20</text>
-                <text x="540" y="195" text-anchor="middle" font-size="8" fill="rgba(255,255,255,0.4)">Turn 30</text>
-                <!-- Token count labels at key points -->
-                <text x="120" y="158" font-size="9" fill="rgba(255,255,255,0.5)">5K tokens</text>
-                <text x="280" y="108" font-size="9" fill="rgba(255,255,255,0.6)">25K</text>
-                <text x="440" y="38" font-size="10" font-weight="600" fill="#ff6b6b">80K</text>
-                <text x="555" y="14" font-size="11" font-weight="700" fill="#ff6b6b">100K+</text>
-                <!-- Y axis -->
-                <text x="12" y="105" text-anchor="middle" font-size="9" fill="rgba(255,255,255,0.3)" transform="rotate(-90 12 105)">input tokens</text>
-            </svg>
-        </div>
-
-        <div class="grid-3" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; margin-top: 0.5rem;">
-            <div class="db-card" style="padding: 1.25rem; text-align: center; border-top: 2px solid #ff6b6b;">
-                <p style="font-size: 1.75rem; font-weight: 700; color: #ff6b6b;">200+</p>
-                <p class="db-caption">API calls per session<br><span style="opacity: 0.5;">each sends full history</span></p>
-            </div>
-            <div class="db-card" style="padding: 1.25rem; text-align: center; border-top: 2px solid #ff6b6b;">
-                <p style="font-size: 1.75rem; font-weight: 700; color: #ff6b6b;">60%</p>
-                <p class="db-caption">is tool_result bloat<br><span style="opacity: 0.5;">pretty JSON, raw files, CLI output</span></p>
-            </div>
-            <div class="db-card" style="padding: 1.25rem; text-align: center; border-top: 2px solid #ff6b6b;">
-                <p style="font-size: 1.75rem; font-weight: 700; color: #ff6b6b;">$6&ndash;15</p>
-                <p class="db-caption">per coding session<br><span style="opacity: 0.5;">at $3/Mtok input pricing</span></p>
-            </div>
-        </div>
-
-        <p class="db-caption" style="margin-top: 1.25rem; opacity: 0.5; text-align: center;">
-            Every turn re-sends everything. Tamp compresses before it leaves your machine.
-        </p>
-    </div>
-</section>
-
-<div class="section-inner"><div class="db-separator"></div></div>
-
-<!-- ============================
-     PIPELINE OVERVIEW
-     ============================ -->
-<section id="how-it-works">
-    <div class="section-inner" style="text-align: center;">
-        <h2 class="db-h2">3-Stage Compression Pipeline</h2>
-        <div class="db-stepper" style="margin-top: 2rem;">
-            <div class="db-stepper__step db-stepper__step--completed">
-                <div class="db-stepper__indicator">1</div>
-                <div class="db-stepper__content">
-                    <div class="db-stepper__title">JSON Minify</div>
-                    <div class="db-stepper__description">Strip whitespace. Lossless.</div>
-                </div>
-            </div>
-            <div class="db-stepper__step db-stepper__step--completed">
-                <div class="db-stepper__indicator">2</div>
-                <div class="db-stepper__content">
-                    <div class="db-stepper__title">TOON Encode</div>
-                    <div class="db-stepper__description">Objects &rarr; columnar format.</div>
-                </div>
-            </div>
-            <div class="db-stepper__step db-stepper__step--active">
-                <div class="db-stepper__indicator">3</div>
-                <div class="db-stepper__content">
-                    <div class="db-stepper__title">LLMLingua-2</div>
-                    <div class="db-stepper__description">ML token pruning.</div>
-                </div>
-            </div>
-        </div>
-    </div>
-</section>
-
-<div class="section-inner"><div class="db-separator"></div></div>
-
-<!-- ============================
-     STAGE 1 — JSON MINIFY
-     ============================ -->
-<section id="stage-1">
-    <div class="section-inner">
-        <p class="db-caption" style="opacity: 0.5; margin-bottom: 0.25rem;">Stage 1</p>
-        <h2 class="db-h2">JSON Minify</h2>
-        <p class="db-body" style="margin-top: 0.5rem;">Strip whitespace. Instant, lossless.</p>
-        <div class="comparison-grid" style="margin-top: 1.5rem;">
-            <div>
-                <p class="db-label" style="margin-bottom: 0.5rem; color: #ff6b6b;">Before</p>
-                <div class="code-sample">{
-  "name": "tamp",
-  "version": "0.1.0",
-  "type": "module",
-  "dependencies": {
-    "@toon-format/toon": "^2.1.0"
-  }
-}</div>
-            </div>
-            <div>
-                <p class="db-label" style="margin-bottom: 0.5rem; color: #51cf66;">After</p>
-                <div class="code-sample">{"name":"tamp","version":"0.1.0","type":"module","dependencies":{"@toon-format/toon":"^2.1.0"}}</div>
-            </div>
-        </div>
-        <p class="db-body" style="margin-top: 1rem; text-align: center;">
-            Typical saving: <strong>~30-50%</strong> on structured data
-        </p>
-    </div>
-</section>
-
-<div class="section-inner"><div class="db-separator"></div></div>
-
-<!-- ============================
-     STAGE 2 — TOON ENCODING
-     ============================ -->
-<section id="stage-2">
-    <div class="section-inner">
-        <p class="db-caption" style="opacity: 0.5; margin-bottom: 0.25rem;">Stage 2</p>
-        <h2 class="db-h2">TOON Encoding</h2>
-        <p class="db-body" style="margin-top: 0.5rem;">Array-of-objects &rarr; columnar. Huge wins on tabular data.</p>
-        <div class="comparison-grid" style="margin-top: 1.5rem;">
-            <div>
-                <p class="db-label" style="margin-bottom: 0.5rem; color: #ff6b6b;">JSON (334 chars)</p>
-                <div class="code-sample">[{"name":"a.js","size":1024},
- {"name":"b.js","size":2048},
- {"name":"c.js","size":512}]</div>
-            </div>
-            <div>
-                <p class="db-label" style="margin-bottom: 0.5rem; color: #51cf66;">TOON (165 chars)</p>
-                <div class="code-sample">name[3]{a.js|b.js|c.js}
-size[3]{1024|2048|512}</div>
-            </div>
-        </div>
-        <div style="text-align: center; margin-top: 1.5rem;">
-            <span class="stat-big">-50.6%</span>
-            <p class="db-caption">on real package.json tool result</p>
-        </div>
-    </div>
-</section>
-
-<div class="section-inner"><div class="db-separator"></div></div>
-
-<!-- ============================
-     STAGE 3 — LLMLINGUA-2
-     ============================ -->
-<section id="stage-3">
-    <div class="section-inner">
-        <p class="db-caption" style="opacity: 0.5; margin-bottom: 0.25rem;">Stage 3</p>
-        <h2 class="db-h2">LLMLingua-2</h2>
-        <p class="db-body" style="margin-top: 0.5rem;">ML token pruning. Preserves meaning, drops the rest.</p>
-        <div class="db-card" style="padding: 1.25rem; margin-top: 1.5rem;">
-            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem;">
-                <div>
-                    <p class="db-caption">Input: compress.js source code</p>
-                    <p class="db-body" style="font-family: monospace;">
-                        <span style="color: #ff6b6b;">4,630</span> chars &rarr;
-                        <span style="color: #51cf66;">2,214</span> chars
-                    </p>
-                </div>
-                <span class="stat-big" style="font-size: clamp(1.5rem, 4vw, 2.5rem);">-52.2%</span>
-            </div>
-        </div>
-        <div class="db-card" style="padding: 1.25rem; margin-top: 0.75rem;">
-            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem;">
-                <div>
-                    <p class="db-caption">Input: ls -la command output</p>
-                    <p class="db-body" style="font-family: monospace;">
-                        <span style="color: #ff6b6b;">1,046</span> chars &rarr;
-                        <span style="color: #51cf66;">516</span> chars
-                    </p>
-                </div>
-                <span class="stat-big" style="font-size: clamp(1.5rem, 4vw, 2.5rem);">-50.7%</span>
-            </div>
-        </div>
-        <p class="db-caption" style="margin-top: 1rem; text-align: center; opacity: 0.6;">
-            Python sidecar via Microsoft LLMLingua-2, running on CPU
-        </p>
-    </div>
-</section>
-
-<div class="section-inner"><div class="db-separator"></div></div>
-
-<!-- ============================
-     BENCHMARK RESULTS
-     ============================ -->
-<section id="results">
-    <div class="section-inner">
-        <h2 class="db-h2">Benchmark Results</h2>
-        <p class="db-body" style="margin-top: 0.5rem; opacity: 0.7;">
-            A/B tested via OpenRouter with Claude Sonnet 4. 7 scenarios, 5 runs each, 70 API calls total.
-        </p>
-
-        <div style="display: flex; gap: 1rem; flex-wrap: wrap; justify-content: center; margin-top: 2rem;">
-            <div class="db-card" style="padding: 1.5rem; text-align: center; flex: 1; min-width: 180px;">
-                <div class="stat-big">33.9%</div>
-                <p class="db-caption">weighted avg token reduction</p>
-            </div>
-            <div class="db-card" style="padding: 1.5rem; text-align: center; flex: 1; min-width: 180px;">
-                <div class="stat-big">48.7%</div>
-                <p class="db-caption">on tabular data (TOON)</p>
-            </div>
-            <div class="db-card" style="padding: 1.5rem; text-align: center; flex: 1; min-width: 180px;">
-                <div class="stat-big">0%</div>
-                <p class="db-caption">impact on model output</p>
-            </div>
-        </div>
-
-        <!-- Compact bar chart -->
-        <div style="margin: 2rem auto; max-width: 620px;">
-            <svg viewBox="0 0 620 170" xmlns="http://www.w3.org/2000/svg" style="width:100%; font-family: var(--db-font-ui, system-ui, sans-serif);">
-                <defs>
-                    <linearGradient id="barGrad2" x1="1" y1="0" x2="0" y2="0">
-                        <stop offset="0%" stop-color="#51cf66"/>
-                        <stop offset="100%" stop-color="#2d7d46"/>
-                    </linearGradient>
-                </defs>
-                <!-- Horizontal bars: width = (pct/50) * 380 -->
-                <text x="110" y="24" text-anchor="end" font-size="10" fill="rgba(255,255,255,0.6)">Small JSON</text>
-                <rect x="115" y="14" width="166" height="16" fill="url(#barGrad2)" rx="2"/>
-                <text x="287" y="26" font-size="10" fill="#51cf66" font-weight="600">21.9%</text>
-
-                <text x="110" y="49" text-anchor="end" font-size="10" fill="rgba(255,255,255,0.6)">Large JSON</text>
-                <rect x="115" y="39" width="215" height="16" fill="url(#barGrad2)" rx="2"/>
-                <text x="336" y="51" font-size="10" fill="#51cf66" font-weight="600">28.3%</text>
-
-                <text x="110" y="74" text-anchor="end" font-size="10" fill="rgba(255,255,255,0.6)">Tabular Data</text>
-                <rect x="115" y="64" width="370" height="16" fill="url(#barGrad2)" rx="2"/>
-                <text x="491" y="76" font-size="10" fill="#51cf66" font-weight="600">48.7%</text>
-
-                <text x="110" y="99" text-anchor="end" font-size="10" fill="rgba(255,255,255,0.6)">Source Code</text>
-                <rect x="115" y="89" width="302" height="16" fill="url(#barGrad2)" rx="2"/>
-                <text x="423" y="101" font-size="10" fill="#51cf66" font-weight="600">39.8%</text>
-
-                <text x="110" y="124" text-anchor="end" font-size="10" fill="rgba(255,255,255,0.6)">Multi-turn</text>
-                <rect x="115" y="114" width="175" height="16" fill="url(#barGrad2)" rx="2"/>
-                <text x="296" y="126" font-size="10" fill="#51cf66" font-weight="600">23.0%</text>
-
-                <text x="110" y="149" text-anchor="end" font-size="10" fill="rgba(255,255,255,0.6)">Line-Numbered</text>
-                <rect x="115" y="139" width="241" height="16" fill="url(#barGrad2)" rx="2"/>
-                <text x="362" y="151" font-size="10" fill="#51cf66" font-weight="600">31.7%</text>
-            </svg>
-        </div>
-
+        <!-- Data table -->
         <div style="margin-top: 2rem; overflow-x: auto;">
             <table style="width: 100%; border-collapse: collapse; font-size: 0.85rem; font-family: var(--db-font-ui, inherit);">
                 <thead>
@@ -774,11 +547,83 @@ size[3]{1024|2048|512}</div>
             </table>
         </div>
 
-        <p class="db-caption" style="margin-top: 1.25rem; opacity: 0.5; text-align: center;">
-            Token counts from OpenRouter. Error results pass through untouched by design. Source code gets LLMLingua-2 neural compression.
-            <a href="whitepaper.pdf" style="color: var(--db-accent, var(--tamp-espresso));">Read the white paper (PDF) &rarr;</a>
-            &middot;
-            <a href="https://github.com/sliday/tamp/tree/main/bench" style="color: var(--db-accent, var(--tamp-espresso));">Reproduce it yourself &rarr;</a>
+        <!-- Methodology cards -->
+        <div class="db-grid db-grid--3 db-gap-4" style="max-width: 800px; margin: var(--db-space-5) auto 0;">
+            <div class="db-card" style="padding: 1.25rem;">
+                <div style="margin-bottom: 0.75rem;">
+                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--db-color-accent, currentColor)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/><path d="M9 14l2 2 4-4"/></svg>
+                </div>
+                <p class="db-body" style="font-weight: 600; margin-bottom: 0.25rem;">How we tested</p>
+                <p class="db-caption">Identical requests via OpenRouter. Raw vs. compressed. Exact <code>input_tokens</code> from the API. No estimation.</p>
+            </div>
+            <div class="db-card" style="padding: 1.25rem;">
+                <div style="margin-bottom: 0.75rem;">
+                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--db-color-accent, currentColor)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+                </div>
+                <p class="db-body" style="font-weight: 600; margin-bottom: 0.25rem;">What compresses</p>
+                <p class="db-caption">Pretty JSON (minify), arrays (TOON columnar), line-numbered output (strip), text (LLMLingua-2 neural).</p>
+            </div>
+            <div class="db-card" style="padding: 1.25rem;">
+                <div style="margin-bottom: 0.75rem;">
+                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--db-color-accent, currentColor)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                </div>
+                <p class="db-body" style="font-weight: 600; margin-bottom: 0.25rem;">What doesn't</p>
+                <p class="db-caption">Error results, already-minified JSON, and TOON content pass through untouched. Safety first.</p>
+            </div>
+        </div>
+
+        <div style="display: flex; gap: 0.75rem; justify-content: center; flex-wrap: wrap; margin-top: 1.5rem;">
+            <a href="whitepaper.pdf" class="db-card" style="display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.75rem 1.25rem; text-decoration: none; color: inherit; transition: transform 0.15s;" onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform='none'">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+                <span class="db-body" style="font-weight: 600;">Read the white paper</span>
+            </a>
+            <a href="https://github.com/sliday/tamp/tree/main/bench" class="db-card" style="display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.75rem 1.25rem; text-decoration: none; color: inherit; transition: transform 0.15s;" onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform='none'">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+                <span class="db-body" style="font-weight: 600;">Reproduce the benchmark</span>
+            </a>
+        </div>
+    </div>
+</section>
+
+<div class="section-inner"><div class="db-separator"></div></div>
+
+<!-- ============================
+     5. SAVINGS — Value
+     ============================ -->
+<section id="savings">
+    <div class="section-inner" style="text-align: center;">
+        <h2 class="db-h2">~$35/month saved per developer</h2>
+        <p class="db-body" style="margin-top: 0.75rem; max-width: 640px; margin-left: auto; margin-right: auto; opacity: 0.7;">
+            At Sonnet 4 pricing ($3/Mtok input), Tamp saves ~$0.23 per 200-request session.
+            Heavy users running 5 sessions/day see ~$35/month. For a 10-person team: ~$4,200/year.
+        </p>
+
+        <div class="db-grid db-grid--3 db-gap-4" style="max-width: 720px; margin: var(--db-space-5) auto 0;">
+            <div class="db-card tamp-stat-card">
+                <div class="db-stat">
+                    <span class="db-stat__label">Per Session</span>
+                    <span class="db-stat__value">$0.23</span>
+                    <span class="db-stat__change">200 requests</span>
+                </div>
+            </div>
+            <div class="db-card tamp-stat-card">
+                <div class="db-stat">
+                    <span class="db-stat__label">Per Developer</span>
+                    <span class="db-stat__value">$35/mo</span>
+                    <span class="db-stat__change">5 sessions/day</span>
+                </div>
+            </div>
+            <div class="db-card tamp-stat-card">
+                <div class="db-stat">
+                    <span class="db-stat__label">10-Person Team</span>
+                    <span class="db-stat__value">$4,200/yr</span>
+                    <span class="db-stat__change">free and open source</span>
+                </div>
+            </div>
+        </div>
+
+        <p class="db-caption" style="margin-top: var(--db-space-3); opacity: 0.4;">
+            Based on 60% compressible traffic. Actual savings depend on usage. Opus/Haiku have different rates.
         </p>
     </div>
 </section>
@@ -786,18 +631,11 @@ size[3]{1024|2048|512}</div>
 <div class="section-inner"><div class="db-separator"></div></div>
 
 <!-- ============================
-     ARCHITECTURE
+     6. ARCHITECTURE — Details
      ============================ -->
 <section id="architecture">
     <div class="section-inner" style="text-align: center;">
         <h2 class="db-h2">Transparent HTTP Proxy</h2>
-        <div class="flow-diagram" style="margin-top: 2rem;">
-            <span class="db-chip">Claude Code</span>
-            <span class="flow-arrow">&rarr;</span>
-            <span class="db-chip db-chip--amber">tamp:7778</span>
-            <span class="flow-arrow">&rarr;</span>
-            <span class="db-chip">Anthropic API</span>
-        </div>
         <div class="grid-2" style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 2rem; text-align: left;">
             <div class="db-card" style="padding: 1.25rem;">
                 <p class="db-label">Intercept</p>
@@ -822,7 +660,7 @@ size[3]{1024|2048|512}</div>
 <div class="section-inner"><div class="db-separator"></div></div>
 
 <!-- ============================
-     ROADMAP
+     7. ROADMAP + CTA — Action
      ============================ -->
 <section id="roadmap">
     <div class="section-inner">
@@ -833,6 +671,14 @@ size[3]{1024|2048|512}</div>
             <div class="db-list__item"><div class="db-list__title">Per-session dashboards with live stats</div></div>
             <div class="db-list__item"><div class="db-list__title">Configurable compression aggressiveness</div></div>
             <div class="db-list__item"><div class="db-list__title">Cloudflare Workers edge deployment</div></div>
+        </div>
+
+        <!-- Bottom CTA -->
+        <div style="text-align: center; margin-top: 3rem;">
+            <p class="db-body" style="font-weight: 600; margin-bottom: 1rem;">Try it now</p>
+            <div class="install-card db-card db-surface--raised" style="max-width: 480px; margin: 0 auto;">
+                <pre style="position: relative;"><span class="prompt">$</span> <span class="cmd">npx @sliday/tamp</span><button onclick="navigator.clipboard.writeText('npx @sliday/tamp').then(()=>{this.textContent='Copied!';setTimeout(()=>this.textContent='Copy',1500)})" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);color:#ebdbb2;padding:4px 10px;border-radius:4px;font-size:0.75rem;cursor:pointer;transition:background 0.15s;">Copy</button></pre>
+            </div>
         </div>
     </div>
 </section>
