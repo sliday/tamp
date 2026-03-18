@@ -2,7 +2,8 @@ import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import http from 'node:http'
-import { compressText, compressMessages } from '../compress.js'
+import { compressText, compressMessages, compressRequest } from '../compress.js'
+import { openai } from '../providers.js'
 
 const fixtures = JSON.parse(readFileSync(new URL('./fixtures/sample-messages.json', import.meta.url), 'utf-8'))
 
@@ -193,5 +194,50 @@ describe('compressMessages with llmlingua', () => {
     const original = body.messages[0].content[0].content
     const { body: compressed } = await compressMessages(body, cfg)
     assert.equal(compressed.messages[0].content[0].content, original)
+  })
+})
+
+describe('compressRequest with OpenAI format', () => {
+  const cfg = { minSize: 50, stages: ['minify'], llmLinguaUrl: null }
+
+  it('compresses tool message content in OpenAI format', async () => {
+    const body = {
+      model: 'gpt-4',
+      messages: [
+        { role: 'user', content: 'read the file' },
+        { role: 'assistant', content: null, tool_calls: [{ id: 'call_1', type: 'function', function: { name: 'read', arguments: '{"path":"package.json"}' } }] },
+        { role: 'tool', tool_call_id: 'call_1', content: JSON.stringify({ name: 'tamp', version: '0.1.0', type: 'module', main: 'index.js', scripts: { start: 'node index.js' } }, null, 2) },
+      ],
+    }
+    const { body: compressed, stats } = await compressRequest(body, cfg, openai)
+    assert.ok(stats.some(s => s.method === 'minify'))
+    assert.ok(!compressed.messages[2].content.includes('\n'), 'should be minified')
+    assert.equal(JSON.parse(compressed.messages[2].content).name, 'tamp')
+  })
+
+  it('returns empty stats when no tool_calls in OpenAI format', async () => {
+    const body = {
+      model: 'gpt-4',
+      messages: [
+        { role: 'user', content: 'hello' },
+        { role: 'assistant', content: 'hi' },
+      ],
+    }
+    const { stats } = await compressRequest(body, cfg, openai)
+    assert.equal(stats.length, 0)
+  })
+
+  it('compresses multiple tool messages', async () => {
+    const body = {
+      model: 'gpt-4',
+      messages: [
+        { role: 'assistant', content: null, tool_calls: [{ id: 'call_1' }, { id: 'call_2' }] },
+        { role: 'tool', tool_call_id: 'call_1', content: JSON.stringify({ a: 1, b: 2, c: 3, description: 'long enough to compress' }, null, 2) },
+        { role: 'tool', tool_call_id: 'call_2', content: JSON.stringify({ x: 'hello', y: 'world', details: 'more content for compression' }, null, 2) },
+      ],
+    }
+    const { stats } = await compressRequest(body, cfg, openai)
+    const compressed = stats.filter(s => s.method)
+    assert.equal(compressed.length, 2)
   })
 })

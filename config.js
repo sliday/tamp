@@ -3,6 +3,11 @@ export function loadConfig(env = process.env) {
   return Object.freeze({
     port: parseInt(env.TOONA_PORT, 10) || 7778,
     upstream: env.TOONA_UPSTREAM || 'https://api.anthropic.com',
+    upstreams: Object.freeze({
+      anthropic: env.TOONA_UPSTREAM || 'https://api.anthropic.com',
+      openai: env.TOONA_UPSTREAM_OPENAI || 'https://api.openai.com',
+      gemini: env.TOONA_UPSTREAM_GEMINI || 'https://generativelanguage.googleapis.com',
+    }),
     minSize: parseInt(env.TOONA_MIN_SIZE, 10) || 200,
     stages,
     log: env.TOONA_LOG !== 'false',

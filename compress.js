@@ -1,6 +1,7 @@
 import { encode } from '@toon-format/toon'
 import { countTokens } from '@anthropic-ai/tokenizer'
 import { tryParseJSON, classifyContent, stripLineNumbers } from './detect.js'
+import { anthropic } from './providers.js'
 
 export function compressText(text, config) {
   if (text.length < config.minSize) return null
@@ -62,54 +63,22 @@ async function compressBlock(text, config) {
   return sync
 }
 
-export async function compressMessages(body, config) {
+export async function compressRequest(body, config, provider) {
+  const targets = provider.extract(body)
   const stats = []
-  if (!body?.messages?.length) return { body, stats }
-
-  let lastUserIdx = -1
-  for (let i = body.messages.length - 1; i >= 0; i--) {
-    if (body.messages[i].role === 'user') { lastUserIdx = i; break }
-  }
-  if (lastUserIdx === -1) return { body, stats }
-
-  const msg = body.messages[lastUserIdx]
-  const debug = config.log
-
-  if (typeof msg.content === 'string') {
-    const result = await compressBlock(msg.content, config)
+  for (const target of targets) {
+    if (target.skip) { stats.push({ index: target.index, skipped: target.skip }); continue }
+    const result = await compressBlock(target.text, config)
     if (result) {
-      msg.content = result.text
-      stats.push({ index: lastUserIdx, ...result })
-    }
-  } else if (Array.isArray(msg.content)) {
-    for (let i = 0; i < msg.content.length; i++) {
-      const block = msg.content[i]
-      if (block.type !== 'tool_result') continue
-      if (block.is_error) { stats.push({ index: i, skipped: 'error' }); continue }
-
-      if (typeof block.content === 'string') {
-        if (debug) {
-          const cls = classifyContent(block.content)
-          const len = block.content.length
-          console.error(`[toona] debug block[${i}]: type=${cls} len=${len} tool_use_id=${block.tool_use_id || '?'}`)
-        }
-        const result = await compressBlock(block.content, config)
-        if (result) { block.content = result.text; stats.push({ index: i, ...result }) }
-      } else if (Array.isArray(block.content)) {
-        for (const sub of block.content) {
-          if (sub.type === 'text') {
-            if (debug) {
-              const cls = classifyContent(sub.text)
-              const len = sub.text.length
-              console.error(`[toona] debug sub-block: type=${cls} len=${len}`)
-            }
-            const result = await compressBlock(sub.text, config)
-            if (result) { sub.text = result.text; stats.push({ index: i, ...result }) }
-          }
-        }
-      }
+      target.compressed = result.text
+      stats.push({ index: target.index, ...result })
     }
   }
-
+  provider.apply(body, targets)
   return { body, stats }
+}
+
+export async function compressMessages(body, config) {
+  if (!body?.messages?.length) return { body, stats: [] }
+  return compressRequest(body, config, anthropic)
 }

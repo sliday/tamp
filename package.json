@@ -6,6 +6,7 @@
     "compress.js",
     "config.js",
     "detect.js",
+    "providers.js",
     "stats.js"
   ],
   "version": "0.1.1",

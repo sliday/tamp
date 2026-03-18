@@ -3,8 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Tamp — Token compression proxy for Claude Code</title>
-    <meta name="description" content="Tamp is a token compression proxy for Claude Code. 33.9% fewer input tokens, zero behavior change.">
+    <title>Tamp — Token compression proxy for coding agents</title>
+    <meta name="description" content="Tamp is a token compression proxy for coding agents. Works with Claude Code, Aider, Cursor, Cline, Windsurf. 33.9% fewer input tokens, zero behavior change.">
     <link rel="icon" href="favicon.ico" sizes="any">
     <link rel="icon" href="tamper-icon.png" type="image/png">
     <link rel="apple-touch-icon" href="apple-touch-icon.png">
@@ -269,7 +269,7 @@
     <div class="hero-inner">
         <h1 class="db-h1">Tamp</h1>
         <p class="db-body" style="margin-top: 0.5rem; opacity: 0.6; font-size: 1.1rem;">
-            Token compression proxy for Claude Code.
+            Token compression proxy for coding agents.
         </p>
         <p class="db-body" style="margin-top: 0.5rem; font-size: 1.25rem;">
             33.9% fewer input tokens. Zero code changes.
@@ -280,7 +280,7 @@
         </div>
 
         <p class="db-caption" style="margin-top: 0.75rem; opacity: 0.5;">
-            Set <code>ANTHROPIC_BASE_URL=http://localhost:7778</code> and go. That's it.
+            Works with Claude Code, Aider, Cursor, Cline, and any OpenAI-compatible agent.
         </p>
 
         <details style="margin-top: 1.5rem; text-align: left; max-width: 720px; width: 100%; margin-left: auto; margin-right: auto;">
@@ -365,11 +365,11 @@
         <h2 class="db-h2" style="text-align: center;">3-Stage Compression Pipeline</h2>
 
         <div class="flow-diagram" style="margin-top: 1.5rem;">
-            <span class="db-chip">Claude Code</span>
+            <span class="db-chip">Claude Code / Aider / Cursor</span>
             <span class="flow-arrow">&rarr;</span>
             <span class="db-chip db-chip--amber">tamp:7778</span>
             <span class="flow-arrow">&rarr;</span>
-            <span class="db-chip">Anthropic API</span>
+            <span class="db-chip">Anthropic / OpenAI / Gemini</span>
         </div>
 
         <!-- Stage 1 -->

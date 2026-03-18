@@ -1,6 +1,6 @@
 # Tamp
 
-**Token compression proxy for Claude Code.** 33.9% fewer input tokens, zero code changes. Sits between your client and the Anthropic API.
+**Token compression proxy for coding agents.** 33.9% fewer input tokens, zero code changes. Works with Claude Code, Aider, Cursor, Cline, Windsurf, and any OpenAI-compatible agent.
 
 ```
 npx @sliday/tamp
@@ -14,17 +14,27 @@ curl -fsSL https://tamp.dev/setup.sh | bash
 
 ## How It Works
 
-Tamp intercepts `POST /v1/messages` requests and compresses `tool_result` blocks before forwarding them upstream. Source code, error results, and non-JSON content pass through untouched.
+Tamp auto-detects your agent's API format and compresses tool result blocks before forwarding upstream. Source code, error results, and non-JSON content pass through untouched.
 
 ```
 Claude Code ──► Tamp (localhost:7778) ──► Anthropic API
-                  │
-                  ├─ JSON → minify whitespace
-                  ├─ Arrays → TOON columnar encoding
-                  ├─ Line-numbered → strip prefixes + minify
-                  ├─ Source code → passthrough
-                  └─ Errors → skip
+Aider/Cursor ──►          │          ──► OpenAI API
+Gemini CLI ────►          │          ──► Google AI API
+                          │
+                          ├─ JSON → minify whitespace
+                          ├─ Arrays → TOON columnar encoding
+                          ├─ Line-numbered → strip prefixes + minify
+                          ├─ Source code → passthrough
+                          └─ Errors → skip
 ```
+
+### Supported API Formats
+
+| Format | Endpoint | Agents |
+|--------|----------|--------|
+| Anthropic Messages | `POST /v1/messages` | Claude Code |
+| OpenAI Chat Completions | `POST /v1/chat/completions` | Aider, Cursor, Cline, Windsurf, OpenCode |
+| Google Gemini | `POST .../generateContent` | Gemini CLI |
 
 ### Compression Stages
 
@@ -45,24 +55,36 @@ npx @sliday/tamp
 ```
 
 ```
-  ┌─ Tamp ─────────────────────────────┐
-  │  Proxy: http://localhost:7778      │
-  │  Status: ● Ready                   │
-  │                                    │
-  │  In another terminal:              │
-  │  export ANTHROPIC_BASE_URL=http://localhost:7778
-  │  claude                            │
-  └────────────────────────────────────┘
+  ┌─ Tamp ─────────────────────────────────┐
+  │  Proxy: http://localhost:7778          │
+  │  Status: ● Ready                       │
+  │                                        │
+  │  Claude Code:                          │
+  │    ANTHROPIC_BASE_URL=http://localhost:7778
+  │                                        │
+  │  Aider / Cursor / Cline:              │
+  │    OPENAI_BASE_URL=http://localhost:7778
+  └────────────────────────────────────────┘
 ```
 
-### 2. Point Claude Code at the proxy
+### 2. Point your agent at the proxy
 
+**Claude Code:**
 ```bash
 export ANTHROPIC_BASE_URL=http://localhost:7778
 claude
 ```
 
-That's it. Use Claude Code as normal — Tamp compresses silently in the background.
+**Aider:**
+```bash
+export OPENAI_API_BASE=http://localhost:7778
+aider
+```
+
+**Cursor / Cline / Windsurf:**
+Set the API base URL to `http://localhost:7778` in your editor's settings.
+
+That's it. Use your agent as normal — Tamp compresses silently in the background.
 
 ## Configuration
 
@@ -71,7 +93,9 @@ All configuration via environment variables:
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `TOONA_PORT` | `7778` | Proxy listen port |
-| `TOONA_UPSTREAM` | `https://api.anthropic.com` | Upstream API URL |
+| `TOONA_UPSTREAM` | `https://api.anthropic.com` | Default upstream API URL |
+| `TOONA_UPSTREAM_OPENAI` | `https://api.openai.com` | Upstream for OpenAI-format requests |
+| `TOONA_UPSTREAM_GEMINI` | `https://generativelanguage.googleapis.com` | Upstream for Gemini-format requests |
 | `TOONA_STAGES` | `minify` | Comma-separated compression stages |
 | `TOONA_MIN_SIZE` | `200` | Minimum content size (chars) to attempt compression |
 | `TOONA_LOG` | `true` | Enable request logging to stderr |
@@ -136,7 +160,8 @@ Tamp only compresses the **last user message** in each request (the most recent 
 ```
 bin/tamp.js          CLI entry point
 index.js             HTTP proxy server
-compress.js          Compression pipeline (compressMessages, compressText)
+providers.js         API format adapters (Anthropic, OpenAI, Gemini) + auto-detection
+compress.js          Compression pipeline (compressRequest, compressText)
 detect.js            Content classification (classifyContent, tryParseJSON, stripLineNumbers)
 config.js            Environment-based configuration
 stats.js             Session statistics and request logging
@@ -145,11 +170,12 @@ setup.sh             One-line installer script
 
 ### How the proxy works
 
-1. Non-`/v1/messages` requests are piped through unmodified
-2. `POST /v1/messages` bodies are buffered and parsed as JSON
-3. The last user message's `tool_result` blocks are classified and compressed
-4. The modified body is forwarded upstream with updated `Content-Length`
-5. The upstream response is streamed back to the client unmodified
+1. `detectProvider()` auto-detects the API format from the request path
+2. Unrecognized requests are piped through unmodified
+3. Matched requests are buffered, parsed, and tool results are extracted via the provider adapter
+4. Extracted blocks are classified and compressed
+5. The modified body is forwarded to the correct upstream with updated `Content-Length`
+6. The upstream response is streamed back to the client unmodified
 
 Bodies exceeding `TOONA_MAX_BODY` are piped through without buffering.
 
@@ -183,7 +209,8 @@ node --test test/compress.test.js
 ### Test files
 
 ```
-test/compress.test.js    Compression pipeline tests
+test/compress.test.js    Compression pipeline tests (Anthropic + OpenAI formats)
+test/providers.test.js   Provider adapter + auto-detection tests
 test/detect.test.js      Content classification tests
 test/config.test.js      Configuration loading tests
 test/proxy.test.js       HTTP proxy integration tests

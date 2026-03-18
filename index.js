@@ -1,11 +1,16 @@
 import http from 'node:http'
 import https from 'node:https'
 import { loadConfig } from './config.js'
-import { compressMessages } from './compress.js'
+import { compressRequest } from './compress.js'
+import { detectProvider } from './providers.js'
 import { createSession, formatRequestLog } from './stats.js'
 
 export function createProxy(overrides = {}) {
-  const config = { ...loadConfig(), ...overrides }
+  const base = loadConfig()
+  const config = { ...base, ...overrides }
+  if (overrides.upstream && !overrides.upstreams) {
+    config.upstreams = { anthropic: overrides.upstream, openai: overrides.upstream, gemini: overrides.upstream }
+  }
   const session = createSession()
   return { config, session, server: _createServer(config, session) }
 }
@@ -81,12 +86,15 @@ function pipeRequest(req, res, upstreamUrl, prefixChunks) {
 
 return http.createServer(async (req, res) => {
   if (config.log) console.error(`[tamp] ${req.method} ${req.url}`)
-  const upstreamUrl = new URL(req.url, config.upstream)
-  const isMessages = req.method === 'POST' && req.url.startsWith('/v1/messages')
+  const provider = detectProvider(req.method, req.url)
 
-  if (!isMessages) {
+  if (!provider) {
+    const upstreamUrl = new URL(req.url, config.upstream)
     return pipeRequest(req, res, upstreamUrl)
   }
+
+  const upstream = config.upstreams?.[provider.name] || config.upstream
+  const upstreamUrl = new URL(req.url, upstream)
 
   const chunks = []
   let size = 0
@@ -113,12 +121,12 @@ return http.createServer(async (req, res) => {
 
   try {
     const parsed = JSON.parse(rawBody.toString('utf-8'))
-    const { body, stats } = await compressMessages(parsed, config)
+    const { body, stats } = await compressRequest(parsed, config, provider)
     finalBody = Buffer.from(JSON.stringify(body), 'utf-8')
 
     if (config.log && stats.length) {
       session.record(stats)
-      console.error(formatRequestLog(stats, session))
+      console.error(formatRequestLog(stats, session, provider.name, req.url))
     }
   } catch (err) {
     if (config.log) console.error(`[tamp] passthrough (parse error): ${err.message}`)

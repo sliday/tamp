@@ -1,7 +1,9 @@
-export function formatRequestLog(stats, session) {
+export function formatRequestLog(stats, session, providerName, url) {
   const compressed = stats.filter(s => s.method)
   const skipped = stats.filter(s => s.skipped)
-  const lines = [`[toona] POST /v1/messages — ${stats.length} blocks, ${compressed.length} compressed`]
+  const label = providerName || 'anthropic'
+  const path = url || '/v1/messages'
+  const lines = [`[toona] ${label} ${path} — ${stats.length} blocks, ${compressed.length} compressed`]
 
   for (const s of stats) {
     if (s.skipped) {
