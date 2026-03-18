@@ -3,6 +3,7 @@ __pycache__/
 .venv/
 video/*.mp4
 video/node_modules/
+bench/results/
 .playwright-mcp/
 *.png
 !site/favicon.ico

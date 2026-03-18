@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tamp: Measured Token Savings for Agentic Coding Assistants</title>
+<style>
+  @page { size: A4; margin: 2.5cm 2cm; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: Georgia, 'Times New Roman', serif;
+    font-size: 11pt;
+    line-height: 1.6;
+    color: #1a1a1a;
+    max-width: 750px;
+    margin: 0 auto;
+    padding: 2rem 1.5rem;
+  }
+  h1, h2, h3 { font-family: system-ui, -apple-system, sans-serif; color: #111; }
+  h1 { font-size: 22pt; line-height: 1.2; margin-bottom: 0.5rem; text-align: center; }
+  .subtitle { text-align: center; font-size: 11pt; color: #555; margin-bottom: 0.3rem; }
+  .date { text-align: center; font-size: 10pt; color: #777; margin-bottom: 2rem; }
+  h2 { font-size: 14pt; margin-top: 1.8rem; margin-bottom: 0.6rem; border-bottom: 1px solid #ddd; padding-bottom: 0.3rem; }
+  h3 { font-size: 12pt; margin-top: 1.2rem; margin-bottom: 0.4rem; }
+  p { margin-bottom: 0.8rem; text-align: justify; }
+  .abstract { background: #f8f8f8; padding: 1rem 1.2rem; border-left: 3px solid #333; margin-bottom: 1.5rem; }
+  .abstract p { margin-bottom: 0; font-style: italic; }
+  table { width: 100%; border-collapse: collapse; margin: 1rem 0; font-size: 9.5pt; }
+  th, td { border: 1px solid #ccc; padding: 5px 8px; text-align: right; }
+  th { background: #f0f0f0; font-family: system-ui, sans-serif; font-weight: 600; }
+  td:first-child, th:first-child { text-align: left; }
+  caption { font-weight: bold; font-family: system-ui, sans-serif; margin-bottom: 0.3rem; font-size: 10pt; }
+  .figure { margin: 1.5rem 0; text-align: center; }
+  .figure svg { max-width: 100%; }
+  .figure-caption { font-size: 9.5pt; font-style: italic; color: #555; margin-top: 0.3rem; }
+  code { font-family: 'SF Mono', Menlo, monospace; font-size: 9.5pt; background: #f4f4f4; padding: 1px 4px; border-radius: 3px; }
+  .methodology-list { padding-left: 1.5rem; margin-bottom: 0.8rem; }
+  .methodology-list li { margin-bottom: 0.3rem; }
+  @media print {
+    body { padding: 0; max-width: none; }
+    .abstract { break-inside: avoid; }
+    table { break-inside: avoid; }
+    .figure { break-inside: avoid; }
+    h2 { break-after: avoid; }
+  }
+</style>
+</head>
+<body>
+
+<h1>Tamp: Measured Token Savings for Agentic Coding Assistants</h1>
+<p class="subtitle">Stas Kulesh &mdash; sliday.com</p>
+<p class="date">{{DATE}}</p>
+
+<div class="abstract">
+<p><strong>Abstract.</strong> {{ABSTRACT}}</p>
+</div>
+
+<h2>1. Introduction</h2>
+
+<p>Agentic coding assistants like Claude Code operate through iterative cycles of tool invocations: reading files, running commands, inspecting outputs, and generating code. Each cycle accumulates context in the conversation window&mdash;tool results carrying file contents, directory listings, error messages, and configuration data&mdash;all of which count toward input token usage on every subsequent API call.</p>
+
+<p>In a typical coding session of 200+ API requests, the same file contents may be re-sent dozens of times as conversation context grows. The financial impact is significant: at $3.00 per million input tokens for Claude Sonnet 4, a heavy coding session can easily consume 2&ndash;5 million input tokens, costing $6&ndash;15 per session. For teams with multiple developers, monthly API costs can reach thousands of dollars.</p>
+
+<p>Tamp is a transparent compression proxy that sits between Claude Code and the Anthropic API. It inspects tool_result blocks in the message payload and applies content-aware compression: JSON minification removes whitespace, TOON encoding compresses homogeneous arrays into columnar format, and line-number stripping removes Read-tool prefixes before further processing. Crucially, Tamp only compresses structured data&mdash;source code and error results pass through untouched, preserving semantic fidelity.</p>
+
+<p>This paper presents a controlled A/B benchmark measuring Tamp's actual token savings across seven representative scenarios, using OpenRouter as an independent measurement oracle that reports exact token counts for both compressed and uncompressed payloads.</p>
+
+<h2>2. Methodology</h2>
+
+<p>We designed an A/B experiment with seven test scenarios representing common Claude Code usage patterns. Each scenario contains a complete Anthropic Messages API payload with realistic tool_result content.</p>
+
+<h3>2.1 Test Scenarios</h3>
+
+<p>The scenarios span the full range of content types encountered in agentic coding:</p>
+
+<ol class="methodology-list">
+<li><strong>Small JSON</strong> &mdash; A package.json file (~500 characters), representing the most common tool_result type.</li>
+<li><strong>Large JSON</strong> &mdash; A deep dependency tree (~10KB), testing compression at scale.</li>
+<li><strong>Tabular Data</strong> &mdash; An array of 50 homogeneous file entries (~5KB), ideal for TOON columnar encoding.</li>
+<li><strong>Source Code</strong> &mdash; A TypeScript file (~3KB), which should pass through uncompressed.</li>
+<li><strong>Multi-turn Conversation</strong> &mdash; A 5-turn dialogue with multiple tool_results (~8KB), testing selective compression.</li>
+<li><strong>Line-Numbered Output</strong> &mdash; Read tool output with line-number prefixes (~2KB), testing strip+minify.</li>
+<li><strong>Error Result</strong> &mdash; An <code>is_error: true</code> tool_result (~300 characters), which should be skipped entirely.</li>
+</ol>
+
+<h3>2.2 Experimental Protocol</h3>
+
+<p>For each scenario, we perform 5 independent runs. Each run consists of two API calls through OpenRouter (<code>anthropic/claude-sonnet-4-20250514</code>):</p>
+
+<ol class="methodology-list">
+<li><strong>Control:</strong> The raw, unmodified payload is sent directly. OpenRouter reports <code>input_tokens</code> and <code>output_tokens</code>.</li>
+<li><strong>Treatment:</strong> The payload is first processed by <code>compressMessages()</code> with stages <code>[minify, toon]</code>, then sent. The same metrics are recorded.</li>
+</ol>
+
+<p>All payloads use <code>max_tokens: 10</code> with system prompt <code>"Respond with OK."</code> to minimize output cost (~$0.20 total for 70 API calls). A 1-second sleep between requests prevents rate limiting.</p>
+
+<h3>2.3 Statistical Analysis</h3>
+
+<p>Per scenario, we compute: mean token savings with standard deviation, percentage reduction with 95% confidence interval (Student's t-distribution, df=4, t*=2.776), character-level compression ratio, cost savings per request, and a semantic check verifying identical output token counts between control and treatment.</p>
+
+<h2>3. Results</h2>
+
+<h3>3.1 Token Savings by Scenario</h3>
+
+{{TABLE_1}}
+
+<h3>3.2 Character vs Token Compression</h3>
+
+{{TABLE_2}}
+
+<h3>3.3 Cost Analysis</h3>
+
+{{TABLE_3}}
+
+<div class="figure">
+{{FIGURE_1}}
+<p class="figure-caption">Figure 1. Percentage reduction in input tokens by scenario, with 95% confidence intervals.</p>
+</div>
+
+<div class="figure">
+{{FIGURE_2}}
+<p class="figure-caption">Figure 2. Control payload size (bytes) vs. compression ratio, showing larger payloads benefit more.</p>
+</div>
+
+<h2>4. Discussion</h2>
+
+<p>{{DISCUSSION}}</p>
+
+<h2>5. Conclusion</h2>
+
+<p>{{CONCLUSION}}</p>
+
+</body>
+</html>
