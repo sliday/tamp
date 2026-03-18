@@ -235,16 +235,16 @@
             <span class="db-badge db-badge--new">~50% compression on real traffic</span>
         </div>
 
-        <details style="margin-top: 1.5rem; text-align: left; max-width: 560px; width: 100; margin-left: auto; margin-right: auto;">
+        <details style="margin-top: 1.5rem; text-align: left; max-width: 720px; width: 100%; margin-left: auto; margin-right: auto;">
             <summary class="db-caption" style="cursor: pointer; opacity: 0.5;">Other installation methods</summary>
             <div class="install-card" style="margin-top: 0.75rem;">
-                <pre><span class="comment"># Shell installer</span>
-<span class="prompt">$</span> <span class="cmd">curl -fsSL https://raw.githubusercontent.com/sliday/tamp/main/setup.sh | bash</span>
+                <pre style="position: relative;"><span class="comment"># Shell installer</span>
+<span class="prompt">$</span> <span class="cmd">curl -fsSL tamp.dev/setup.sh | bash</span>
 
 <span class="comment"># Manual</span>
 <span class="prompt">$</span> <span class="cmd">git clone https://github.com/sliday/tamp ~/.tamp</span>
 <span class="prompt">$</span> <span class="cmd">cd ~/.tamp && npm install</span>
-<span class="prompt">$</span> <span class="cmd">node index.js</span></pre>
+<span class="prompt">$</span> <span class="cmd">node index.js</span><button onclick="navigator.clipboard.writeText('curl -fsSL tamp.dev/setup.sh | bash').then(()=>{this.textContent='Copied!';setTimeout(()=>this.textContent='Copy',1500)})" style="position:absolute;right:12px;top:12px;background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);color:#ebdbb2;padding:4px 10px;border-radius:4px;font-size:0.75rem;cursor:pointer;transition:background 0.15s;">Copy</button></pre>
             </div>
         </details>
     </div>
