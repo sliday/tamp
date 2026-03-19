@@ -2,7 +2,12 @@ import { describe, it, before, after } from 'node:test'
 import assert from 'node:assert/strict'
 import http from 'node:http'
 import zlib from 'node:zlib'
+import { execFileSync } from 'node:child_process'
 import { createProxy } from '../index.js'
+
+function zstdCompress(buf) {
+  return execFileSync('zstd', ['-c', '--no-progress'], { input: buf, maxBuffer: 10 * 1024 * 1024 })
+}
 
 let mockUpstream, mockPort, proxy, proxyPort
 
@@ -189,6 +194,146 @@ describe('proxy integration', () => {
     assert.equal(res.status, 200)
     // Original gzipped body passed through unchanged
     assert.deepEqual(res.body, gzipped)
+  })
+
+  it('decompresses brotli request body', async () => {
+    const jsonBody = JSON.stringify({
+      model: 'claude-sonnet-4-20250514',
+      messages: [{
+        role: 'user',
+        content: [{
+          type: 'tool_result',
+          tool_use_id: 'tu_br',
+          content: JSON.stringify({ key: 'value', description: 'brotli compressed content for testing' }, null, 2),
+        }],
+      }],
+    })
+    const compressed = zlib.brotliCompressSync(Buffer.from(jsonBody))
+
+    const res = await request(proxyPort, 'POST', '/v1/messages', compressed, {
+      'Content-Type': 'application/json',
+      'Content-Encoding': 'br',
+    })
+    assert.equal(res.status, 200)
+    const received = JSON.parse(res.body.toString())
+    const content = received.messages[0].content[0].content
+    assert.ok(!content.includes('\n'), 'brotli tool_result should be minified')
+  })
+
+  it('removes content-encoding header after decompressing', async () => {
+    const jsonBody = JSON.stringify({
+      model: 'claude-sonnet-4-20250514',
+      messages: [{
+        role: 'user',
+        content: [{
+          type: 'tool_result',
+          tool_use_id: 'tu_hdr',
+          content: JSON.stringify({ name: 'test', value: 'checking header removal works properly' }, null, 2),
+        }],
+      }],
+    })
+    const gzipped = zlib.gzipSync(Buffer.from(jsonBody))
+
+    // Mock upstream echoes back request headers as JSON
+    const headerEcho = http.createServer((req, res) => {
+      const chunks = []
+      req.on('data', c => chunks.push(c))
+      req.on('end', () => {
+        res.writeHead(200, { 'Content-Type': 'application/json' })
+        res.end(JSON.stringify({ receivedEncoding: req.headers['content-encoding'] || null }))
+      })
+    })
+    await new Promise(r => headerEcho.listen(0, r))
+    const echoPort = headerEcho.address().port
+
+    const { server: echoProxy } = createProxy({
+      port: 0, upstream: `http://127.0.0.1:${echoPort}`, log: false, minSize: 50, stages: ['minify'],
+    })
+    await new Promise(r => echoProxy.listen(0, r))
+    const echoProxyPort = echoProxy.address().port
+
+    const res = await request(echoProxyPort, 'POST', '/v1/messages', gzipped, {
+      'Content-Type': 'application/json',
+      'Content-Encoding': 'gzip',
+    })
+    const received = JSON.parse(res.body.toString())
+    assert.equal(received.receivedEncoding, null, 'content-encoding should be removed after decompression')
+
+    echoProxy.close()
+    headerEcho.close()
+  })
+
+  it('decompresses gzip for OpenAI chat completions format', async () => {
+    const jsonBody = JSON.stringify({
+      model: 'gpt-4',
+      messages: [
+        { role: 'assistant', tool_calls: [{ id: 'call_1', type: 'function', function: { name: 'read', arguments: '{}' } }] },
+        { role: 'tool', tool_call_id: 'call_1', content: JSON.stringify({ file: 'contents', extra: 'padding for minimum size threshold' }, null, 2) },
+      ],
+    })
+    const gzipped = zlib.gzipSync(Buffer.from(jsonBody))
+
+    const res = await request(proxyPort, 'POST', '/v1/chat/completions', gzipped, {
+      'Content-Type': 'application/json',
+      'Content-Encoding': 'gzip',
+    })
+    assert.equal(res.status, 200)
+    const received = JSON.parse(res.body.toString())
+    const toolContent = received.messages[1].content
+    assert.ok(!toolContent.includes('\n'), 'gzipped OpenAI tool content should be minified')
+  })
+
+  it('passes through gzip body for /responses endpoint', async () => {
+    const jsonBody = JSON.stringify({ model: 'gpt-4', input: 'hello from codex' })
+    const gzipped = zlib.gzipSync(Buffer.from(jsonBody))
+
+    const res = await request(proxyPort, 'POST', '/v1/responses', gzipped, {
+      'Content-Type': 'application/json',
+      'Content-Encoding': 'gzip',
+    })
+    assert.equal(res.status, 200)
+    // Should decompress and parse, but no tool content to compress — passthrough
+    const received = JSON.parse(res.body.toString())
+    assert.equal(received.model, 'gpt-4')
+    assert.equal(received.input, 'hello from codex')
+  })
+
+  it('decompresses zstd request body and compresses content', async () => {
+    const jsonBody = JSON.stringify({
+      model: 'claude-sonnet-4-20250514',
+      messages: [{
+        role: 'user',
+        content: [{
+          type: 'tool_result',
+          tool_use_id: 'tu_zstd',
+          content: JSON.stringify({ name: 'codex', version: '0.115.0', type: 'module', main: 'index.js' }, null, 2),
+        }],
+      }],
+    })
+    const compressed = zstdCompress(Buffer.from(jsonBody))
+
+    const res = await request(proxyPort, 'POST', '/v1/messages', compressed, {
+      'Content-Type': 'application/json',
+      'Content-Encoding': 'zstd',
+    })
+    assert.equal(res.status, 200)
+    const received = JSON.parse(res.body.toString())
+    const content = received.messages[0].content[0].content
+    assert.ok(!content.includes('\n'), 'zstd tool_result should be minified')
+  })
+
+  it('decompresses zstd for /responses endpoint', async () => {
+    const jsonBody = JSON.stringify({ model: 'gpt-4', input: 'hello from codex via zstd' })
+    const compressed = zstdCompress(Buffer.from(jsonBody))
+
+    const res = await request(proxyPort, 'POST', '/v1/responses', compressed, {
+      'Content-Type': 'application/json',
+      'Content-Encoding': 'zstd',
+    })
+    assert.equal(res.status, 200)
+    const received = JSON.parse(res.body.toString())
+    assert.equal(received.model, 'gpt-4')
+    assert.equal(received.input, 'hello from codex via zstd')
   })
 
   it('routes /v1/responses to openai upstream', async () => {

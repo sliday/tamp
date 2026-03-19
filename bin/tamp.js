@@ -1,12 +1,13 @@
 #!/usr/bin/env node
 import { createProxy } from '../index.js'
-import { existsSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import { spawn } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const root = join(__dirname, '..')
+const pkg = JSON.parse(readFileSync(join(root, 'package.json'), 'utf-8'))
 
 // ANSI colors
 const c = {
@@ -28,7 +29,7 @@ function printBanner(config) {
   const url = `http://localhost:${config.port}`
 
   log('')
-  log(`  ${c.bold}${c.cyan}┌─ Tamp ─────────────────────────────────┐${c.reset}`)
+  log(`  ${c.bold}${c.cyan}┌─ Tamp ${c.dim}v${pkg.version}${c.reset}${c.bold}${c.cyan} ───────────────────────────────┐${c.reset}`)
   log(`  ${c.cyan}│${c.reset}  Proxy: ${c.bold}${c.green}${url}${c.reset}${c.cyan}              │${c.reset}`)
   log(`  ${c.cyan}│${c.reset}  Status: ${c.bgGreen}${c.bold} ● READY ${c.reset}${c.cyan}                    │${c.reset}`)
   log(`  ${c.cyan}│${c.reset}                                        ${c.cyan}│${c.reset}`)

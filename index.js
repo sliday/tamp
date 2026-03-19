@@ -1,6 +1,7 @@
 import http from 'node:http'
 import https from 'node:https'
 import zlib from 'node:zlib'
+import * as fzstd from 'fzstd'
 import { loadConfig } from './config.js'
 import { compressRequest } from './compress.js'
 import { detectProvider } from './providers.js'
@@ -139,21 +140,36 @@ return http.createServer(async (req, res) => {
   const headers = { ...req.headers }
   delete headers.host
 
-  // Decompress gzip/deflate/br if needed
+  // Decompress request body if content-encoding is set
   const encoding = (req.headers['content-encoding'] || '').toLowerCase()
   let textBody
+  let decompressed = false
   try {
     if (encoding === 'gzip') {
       textBody = zlib.gunzipSync(rawBody)
+      decompressed = true
     } else if (encoding === 'deflate') {
       textBody = zlib.inflateSync(rawBody)
+      decompressed = true
     } else if (encoding === 'br') {
       textBody = zlib.brotliDecompressSync(rawBody)
+      decompressed = true
+    } else if (encoding === 'zstd') {
+      textBody = Buffer.from(fzstd.decompress(new Uint8Array(rawBody)))
+      decompressed = true
+    } else if (encoding && encoding !== 'identity') {
+      // Unknown encoding — can't decompress, passthrough as-is
+      if (config.log) console.error(`[tamp] passthrough (unsupported encoding: ${encoding})`)
+      forwardRequest(req.method, upstreamUrl, headers, rawBody, res)
+      return
     } else {
       textBody = rawBody
     }
   } catch {
-    textBody = rawBody
+    // Decompression failed — passthrough original body
+    if (config.log) console.error(`[tamp] passthrough (decompression failed)`)
+    forwardRequest(req.method, upstreamUrl, headers, rawBody, res)
+    return
   }
 
   try {
@@ -161,7 +177,7 @@ return http.createServer(async (req, res) => {
     const { body, stats } = await compressRequest(parsed, config, provider)
     finalBody = Buffer.from(JSON.stringify(body), 'utf-8')
     // Send uncompressed — simpler and content-length is accurate
-    delete headers['content-encoding']
+    if (decompressed) delete headers['content-encoding']
 
     if (config.log && stats.length) {
       session.record(stats)
