@@ -15,5 +15,6 @@ export function loadConfig(env = process.env) {
     maxBody: parseInt(env.TAMP_MAX_BODY, 10) || 10_485_760,
     cacheSafe: true,
     llmLinguaUrl: env.TAMP_LLMLINGUA_URL || null,
+    tokenCost: parseFloat(env.TAMP_TOKEN_COST) || 3,
   })
 }

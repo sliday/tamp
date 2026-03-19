@@ -181,7 +181,7 @@ return http.createServer(async (req, res) => {
 
     if (config.log) {
       session.record(stats)
-      console.error(formatRequestLog(stats, session, provider.name, req.url, textBody.length))
+      console.error(formatRequestLog(stats, session, provider.name, req.url, textBody.length, config.tokenCost))
     }
   } catch (err) {
     if (config.log) console.error(`[tamp] passthrough (parse error): ${err.message}`)

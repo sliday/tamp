@@ -9,7 +9,7 @@ const c = {
   red: '\x1b[31m',
 }
 
-export function formatRequestLog(stats, session, providerName, url, bodySize) {
+export function formatRequestLog(stats, session, providerName, url, bodySize, tokenCost) {
   const compressed = stats.filter(s => s.method)
   const label = providerName || 'anthropic'
   const path = url || '/v1/messages'
@@ -49,7 +49,10 @@ export function formatRequestLog(stats, session, providerName, url, bodySize) {
   if (session) {
     const t = session.getTotals()
     const sessionPct = t.totalOriginal > 0 ? (((t.totalSaved) / t.totalOriginal) * 100).toFixed(1) : '0.0'
-    lines.push(`[tamp]   ${c.magenta}session${c.reset} ${fmtSize(t.totalSaved)} saved across ${t.compressionCount} blocks ${c.dim}(${sessionPct}% avg)${c.reset}`)
+    const costPerM = tokenCost || 3
+    const dollarsSaved = (t.totalTokensSaved / 1_000_000) * costPerM
+    const moneyInfo = t.totalTokensSaved > 0 ? ` ${c.green}$${dollarsSaved.toFixed(4)} saved${c.reset} ${c.dim}@ $${costPerM}/Mtok${c.reset}` : ''
+    lines.push(`[tamp]   ${c.magenta}session${c.reset} ${fmtSize(t.totalSaved)} chars, ${t.totalTokensSaved} tokens saved across ${t.compressionCount} blocks ${c.dim}(${sessionPct}% avg)${c.reset}${moneyInfo}`)
   }
 
   return lines.join('\n')

@@ -63,6 +63,25 @@ describe('formatRequestLog', () => {
     assert.ok(output.includes('session'))
     assert.ok(output.includes('avg'))
   })
+
+  it('shows dollar savings when tokens are saved', () => {
+    const session = createSession()
+    session.record([{ index: 0, method: 'minify', originalLen: 1000, compressedLen: 600, originalTokens: 500, compressedTokens: 300 }])
+    const stats = [{ index: 1, method: 'minify', originalLen: 500, compressedLen: 300, originalTokens: 250, compressedTokens: 150 }]
+    session.record(stats)
+    const output = formatRequestLog(stats, session, 'anthropic', '/v1/messages', 1500, 3)
+    assert.ok(output.includes('$'))
+    assert.ok(output.includes('saved'))
+    assert.ok(output.includes('$3/Mtok'))
+  })
+
+  it('uses custom token cost', () => {
+    const session = createSession()
+    const stats = [{ index: 0, method: 'minify', originalLen: 1000, compressedLen: 600, originalTokens: 100000, compressedTokens: 60000 }]
+    session.record(stats)
+    const output = formatRequestLog(stats, session, 'openai', '/v1/chat/completions', 1000, 15)
+    assert.ok(output.includes('$15/Mtok'))
+  })
 })
 
 describe('createSession', () => {

@@ -61,6 +61,16 @@ describe('loadConfig', () => {
     assert.equal(cfg.logFile, '/tmp/tamp.log')
   })
 
+  it('sets tokenCost from TAMP_TOKEN_COST', () => {
+    const cfg = loadConfig({ TAMP_TOKEN_COST: '15' })
+    assert.equal(cfg.tokenCost, 15)
+  })
+
+  it('defaults tokenCost to 3', () => {
+    const cfg = loadConfig({})
+    assert.equal(cfg.tokenCost, 3)
+  })
+
   it('falls back to defaults for invalid numeric env vars', () => {
     const cfg = loadConfig({ TAMP_PORT: 'abc', TAMP_MIN_SIZE: '', TAMP_MAX_BODY: 'xyz' })
     assert.equal(cfg.port, 7778)
