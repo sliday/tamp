@@ -51,10 +51,16 @@ const anthropic = {
 const openai = {
   name: 'openai',
   match(method, url) {
-    return method === 'POST' && (url.startsWith('/v1/chat/completions') || url.startsWith('/chat/completions'))
+    return method === 'POST' && (
+      url.startsWith('/v1/chat/completions') ||
+      url.startsWith('/chat/completions') ||
+      url.startsWith('/v1/responses') ||
+      url.startsWith('/responses')
+    )
   },
   normalizeUrl(url) {
     if (url.startsWith('/chat/completions')) return '/v1' + url
+    if (url.startsWith('/responses')) return '/v1' + url
     return url
   },
   extract(body) {
