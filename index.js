@@ -179,9 +179,9 @@ return http.createServer(async (req, res) => {
     // Send uncompressed — simpler and content-length is accurate
     if (decompressed) delete headers['content-encoding']
 
-    if (config.log && stats.length) {
+    if (config.log) {
       session.record(stats)
-      console.error(formatRequestLog(stats, session, provider.name, req.url))
+      console.error(formatRequestLog(stats, session, provider.name, req.url, textBody.length))
     }
   } catch (err) {
     if (config.log) console.error(`[tamp] passthrough (parse error): ${err.message}`)

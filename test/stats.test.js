@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { formatRequestLog, createSession } from '../stats.js'
 
 describe('formatRequestLog', () => {
-  it('produces expected multi-line output', () => {
+  it('shows compression details for compressed blocks', () => {
     const stats = [
       { index: 2, method: 'toon', originalLen: 12847, compressedLen: 7708 },
       { index: 4, skipped: 'error' },
@@ -11,21 +11,57 @@ describe('formatRequestLog', () => {
     const session = createSession()
     session.record(stats)
     const output = formatRequestLog(stats, session)
-    assert.ok(output.includes('[tamp] anthropic /v1/messages — 2 blocks, 1 compressed'))
-    assert.ok(output.includes('block[2]: 12847->7708 chars (-40.0%)'))
-    assert.ok(output.includes('[toon]'))
-    assert.ok(output.includes('block[4]: skipped (error)'))
-    assert.ok(output.includes('total: 12847->7708 chars (-40.0%)'))
-    assert.ok(output.includes('session:'))
-    assert.ok(output.includes('5139 chars'))
-    assert.ok(output.includes('1 compressions'))
+    assert.ok(output.includes('anthropic'))
+    assert.ok(output.includes('1 compressed'))
+    assert.ok(output.includes('-40.0%'))
+    assert.ok(output.includes('block[2]'))
+    assert.ok(output.includes('toon'))
+    assert.ok(output.includes('block[4]'))
+    assert.ok(output.includes('skipped'))
+    assert.ok(output.includes('session'))
+  })
+
+  it('shows no tool blocks when stats empty', () => {
+    const output = formatRequestLog([], null)
+    assert.ok(output.includes('no tool blocks'))
+  })
+
+  it('shows nothing to compress when all skipped', () => {
+    const stats = [{ index: 0, skipped: 'error' }]
+    const output = formatRequestLog(stats, null)
+    assert.ok(output.includes('1 blocks'))
+    assert.ok(output.includes('skipped'))
   })
 
   it('works without session', () => {
     const stats = [{ index: 0, method: 'minify', originalLen: 1000, compressedLen: 800 }]
     const output = formatRequestLog(stats, null)
-    assert.ok(output.includes('1 blocks, 1 compressed'))
-    assert.ok(!output.includes('session:'))
+    assert.ok(output.includes('1 compressed'))
+    assert.ok(!output.includes('session'))
+  })
+
+  it('includes body size when provided', () => {
+    const stats = [{ index: 0, method: 'minify', originalLen: 1000, compressedLen: 800 }]
+    const output = formatRequestLog(stats, null, 'anthropic', '/v1/messages', 2048)
+    assert.ok(output.includes('2.0k'))
+  })
+
+  it('formats sizes in k for large values', () => {
+    const stats = [{ index: 0, method: 'minify', originalLen: 5120, compressedLen: 3072 }]
+    const output = formatRequestLog(stats, null)
+    assert.ok(output.includes('5.0k'))
+    assert.ok(output.includes('3.0k'))
+  })
+
+  it('shows session avg percentage', () => {
+    const session = createSession()
+    session.record([{ index: 0, method: 'minify', originalLen: 1000, compressedLen: 600 }])
+    session.record([{ index: 1, method: 'toon', originalLen: 2000, compressedLen: 1000 }])
+    const stats = [{ index: 2, method: 'minify', originalLen: 500, compressedLen: 300 }]
+    session.record(stats)
+    const output = formatRequestLog(stats, session)
+    assert.ok(output.includes('session'))
+    assert.ok(output.includes('avg'))
   })
 })
 
@@ -35,7 +71,8 @@ describe('createSession', () => {
     session.record([{ index: 0, method: 'minify', originalLen: 1000, compressedLen: 800 }])
     session.record([{ index: 1, method: 'toon', originalLen: 2000, compressedLen: 1200 }])
     const totals = session.getTotals()
-    assert.equal(totals.totalSaved, 1000) // (200 + 800)
+    assert.equal(totals.totalSaved, 1000)
+    assert.equal(totals.totalOriginal, 3000)
     assert.equal(totals.compressionCount, 2)
   })
 
