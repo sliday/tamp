@@ -12,16 +12,16 @@ const toonConfig = { minSize: 50, stages: ['minify', 'toon'], llmLinguaUrl: null
 
 describe('compressText', () => {
   it('minifies pretty-printed JSON object', () => {
-    const input = JSON.stringify({ name: 'toona', version: '0.1.0', type: 'module', main: 'index.js', scripts: { start: 'node index.js', test: 'node --test' } }, null, 2)
+    const input = JSON.stringify({ name: 'tamp', version: '0.1.0', type: 'module', main: 'index.js', scripts: { start: 'node index.js', test: 'node --test' } }, null, 2)
     const result = compressText(input, defaultConfig)
     assert.ok(result)
     assert.equal(result.method, 'minify')
     assert.ok(result.compressedLen < result.originalLen)
-    assert.equal(JSON.parse(result.text).name, 'toona')
+    assert.equal(JSON.parse(result.text).name, 'tamp')
   })
 
   it('returns null for already minified JSON', () => {
-    const input = JSON.stringify({ name: 'toona', version: '0.1.0', description: 'A proxy for compressing tokens between Claude Code and the Anthropic API' })
+    const input = JSON.stringify({ name: 'tamp', version: '0.1.0', description: 'A proxy for compressing tokens between Claude Code and the Anthropic API' })
     const result = compressText(input, defaultConfig)
     assert.equal(result, null)
   })

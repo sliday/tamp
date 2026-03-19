@@ -87,12 +87,12 @@ describe('classifyContent', () => {
   })
 
   it('classifies line-numbered JSON as json-lined', () => {
-    const input = '     1\t{\n     2\t  "name": "toona",\n     3\t  "version": "0.1.0"\n     4\t}'
+    const input = '     1\t{\n     2\t  "name": "tamp",\n     3\t  "version": "0.1.0"\n     4\t}'
     assert.equal(classifyContent(input), 'json-lined')
   })
 
   it('classifies line-numbered JSON with arrow separator as json-lined', () => {
-    const input = '     1→{\n     2→  "name": "toona",\n     3→  "version": "0.1.0"\n     4→}'
+    const input = '     1→{\n     2→  "name": "tamp",\n     3→  "version": "0.1.0"\n     4→}'
     assert.equal(classifyContent(input), 'json-lined')
   })
 

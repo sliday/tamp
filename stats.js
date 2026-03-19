@@ -3,15 +3,15 @@ export function formatRequestLog(stats, session, providerName, url) {
   const skipped = stats.filter(s => s.skipped)
   const label = providerName || 'anthropic'
   const path = url || '/v1/messages'
-  const lines = [`[toona] ${label} ${path} — ${stats.length} blocks, ${compressed.length} compressed`]
+  const lines = [`[tamp] ${label} ${path} — ${stats.length} blocks, ${compressed.length} compressed`]
 
   for (const s of stats) {
     if (s.skipped) {
-      lines.push(`[toona]   block[${s.index}]: skipped (${s.skipped})`)
+      lines.push(`[tamp]   block[${s.index}]: skipped (${s.skipped})`)
     } else if (s.method) {
       const pct = (((s.originalLen - s.compressedLen) / s.originalLen) * 100).toFixed(1)
       const tokInfo = s.originalTokens ? ` ${s.originalTokens}->${s.compressedTokens} tok` : ''
-      lines.push(`[toona]   block[${s.index}]: ${s.originalLen}->${s.compressedLen} chars (-${pct}%)${tokInfo} [${s.method}]`)
+      lines.push(`[tamp]   block[${s.index}]: ${s.originalLen}->${s.compressedLen} chars (-${pct}%)${tokInfo} [${s.method}]`)
     }
   }
 
@@ -22,12 +22,12 @@ export function formatRequestLog(stats, session, providerName, url) {
   if (compressed.length > 0) {
     const pct = (((totalOrig - totalComp) / totalOrig) * 100).toFixed(1)
     const tokPct = totalOrigTok > 0 ? (((totalOrigTok - totalCompTok) / totalOrigTok) * 100).toFixed(1) : '0.0'
-    lines.push(`[toona]   total: ${totalOrig}->${totalComp} chars (-${pct}%), ${totalOrigTok}->${totalCompTok} tokens (-${tokPct}%)`)
+    lines.push(`[tamp]   total: ${totalOrig}->${totalComp} chars (-${pct}%), ${totalOrigTok}->${totalCompTok} tokens (-${tokPct}%)`)
   }
 
   if (session) {
     const totals = session.getTotals()
-    lines.push(`[toona]   session: ${totals.totalSaved} chars, ${totals.totalTokensSaved} tokens saved across ${totals.compressionCount} compressions`)
+    lines.push(`[tamp]   session: ${totals.totalSaved} chars, ${totals.totalTokensSaved} tokens saved across ${totals.compressionCount} compressions`)
   }
 
   return lines.join('\n')

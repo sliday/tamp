@@ -30,14 +30,23 @@ function forwardRequest(method, upstreamUrl, headers, body, res) {
   const upstream = mod.request(opts, (upstreamRes) => {
     res.writeHead(upstreamRes.statusCode, upstreamRes.headers)
     upstreamRes.pipe(res)
+    upstreamRes.on('error', (err) => {
+      console.error(`[tamp] response stream error: ${err.code || ''} ${err.message}`)
+      res.destroy()
+    })
   })
 
   upstream.on('error', (err) => {
-    console.error(`[tamp] upstream error: ${err.message}`)
+    console.error(`[tamp] upstream error: ${err.code || ''} ${err.message}`)
     if (!res.headersSent) {
       res.writeHead(502, { 'Content-Type': 'application/json' })
     }
     res.end(JSON.stringify({ error: 'upstream_error', message: err.message }))
+  })
+
+  res.on('error', (err) => {
+    console.error(`[tamp] client disconnect: ${err.code || ''} ${err.message}`)
+    upstream.destroy()
   })
 
   if (body) {
@@ -65,14 +74,23 @@ function pipeRequest(req, res, upstreamUrl, prefixChunks) {
   const upstream = mod.request(opts, (upstreamRes) => {
     res.writeHead(upstreamRes.statusCode, upstreamRes.headers)
     upstreamRes.pipe(res)
+    upstreamRes.on('error', (err) => {
+      console.error(`[tamp] response stream error: ${err.code || ''} ${err.message}`)
+      res.destroy()
+    })
   })
 
   upstream.on('error', (err) => {
-    console.error(`[tamp] upstream error: ${err.message}`)
+    console.error(`[tamp] upstream error: ${err.code || ''} ${err.message}`)
     if (!res.headersSent) {
       res.writeHead(502, { 'Content-Type': 'application/json' })
     }
     res.end(JSON.stringify({ error: 'upstream_error', message: err.message }))
+  })
+
+  res.on('error', (err) => {
+    console.error(`[tamp] client disconnect: ${err.code || ''} ${err.message}`)
+    upstream.destroy()
   })
 
   if (prefixChunks) {

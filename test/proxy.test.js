@@ -68,7 +68,7 @@ describe('proxy integration', () => {
         content: [{
           type: 'tool_result',
           tool_use_id: 'tu_1',
-          content: JSON.stringify({ name: 'toona', version: '0.1.0', type: 'module', main: 'index.js' }, null, 2),
+          content: JSON.stringify({ name: 'tamp', version: '0.1.0', type: 'module', main: 'index.js' }, null, 2),
         }],
       }],
     })

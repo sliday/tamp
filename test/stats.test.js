@@ -11,7 +11,7 @@ describe('formatRequestLog', () => {
     const session = createSession()
     session.record(stats)
     const output = formatRequestLog(stats, session)
-    assert.ok(output.includes('[toona] anthropic /v1/messages — 2 blocks, 1 compressed'))
+    assert.ok(output.includes('[tamp] anthropic /v1/messages — 2 blocks, 1 compressed'))
     assert.ok(output.includes('block[2]: 12847->7708 chars (-40.0%)'))
     assert.ok(output.includes('[toon]'))
     assert.ok(output.includes('block[4]: skipped (error)'))

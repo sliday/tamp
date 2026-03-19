@@ -27,7 +27,7 @@
           {
             "type": "tool_result",
             "tool_use_id": "tu_1",
-            "content": "{\n  \"name\": \"toona\",\n  \"version\": \"0.1.0\",\n  \"type\": \"module\",\n  \"main\": \"index.js\",\n  \"scripts\": {\n    \"start\": \"node index.js\",\n    \"test\": \"node --test\"\n  }\n}"
+            "content": "{\n  \"name\": \"tamp\",\n  \"version\": \"0.1.0\",\n  \"type\": \"module\",\n  \"main\": \"index.js\",\n  \"scripts\": {\n    \"start\": \"node index.js\",\n    \"test\": \"node --test\"\n  }\n}"
           }
         ]
       }

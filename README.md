@@ -44,7 +44,7 @@ Gemini CLI ────►          │          ──► Google AI API
 | `toon` | Columnar [TOON encoding](https://github.com/nicholasgasior/toon-format) | Homogeneous arrays (file listings, routes, deps) |
 | `llmlingua` | Neural text compression via [LLMLingua](https://github.com/microsoft/LLMLingua) sidecar | Natural language text (requires sidecar) |
 
-Only `minify` is enabled by default. Enable more with `TOONA_STAGES=minify,toon`.
+Only `minify` is enabled by default. Enable more with `TAMP_STAGES=minify,toon`.
 
 ## Quick Start
 
@@ -92,22 +92,22 @@ All configuration via environment variables:
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `TOONA_PORT` | `7778` | Proxy listen port |
-| `TOONA_UPSTREAM` | `https://api.anthropic.com` | Default upstream API URL |
-| `TOONA_UPSTREAM_OPENAI` | `https://api.openai.com` | Upstream for OpenAI-format requests |
-| `TOONA_UPSTREAM_GEMINI` | `https://generativelanguage.googleapis.com` | Upstream for Gemini-format requests |
-| `TOONA_STAGES` | `minify` | Comma-separated compression stages |
-| `TOONA_MIN_SIZE` | `200` | Minimum content size (chars) to attempt compression |
-| `TOONA_LOG` | `true` | Enable request logging to stderr |
-| `TOONA_LOG_FILE` | _(none)_ | Write logs to file |
-| `TOONA_MAX_BODY` | `10485760` | Max request body size (bytes) before passthrough |
-| `TOONA_LLMLINGUA_URL` | _(none)_ | LLMLingua sidecar URL for text compression |
+| `TAMP_PORT` | `7778` | Proxy listen port |
+| `TAMP_UPSTREAM` | `https://api.anthropic.com` | Default upstream API URL |
+| `TAMP_UPSTREAM_OPENAI` | `https://api.openai.com` | Upstream for OpenAI-format requests |
+| `TAMP_UPSTREAM_GEMINI` | `https://generativelanguage.googleapis.com` | Upstream for Gemini-format requests |
+| `TAMP_STAGES` | `minify` | Comma-separated compression stages |
+| `TAMP_MIN_SIZE` | `200` | Minimum content size (chars) to attempt compression |
+| `TAMP_LOG` | `true` | Enable request logging to stderr |
+| `TAMP_LOG_FILE` | _(none)_ | Write logs to file |
+| `TAMP_MAX_BODY` | `10485760` | Max request body size (bytes) before passthrough |
+| `TAMP_LLMLINGUA_URL` | _(none)_ | LLMLingua sidecar URL for text compression |
 
 ### Recommended setup
 
 ```bash
 # Maximum compression
-TOONA_STAGES=minify,toon npx @sliday/tamp
+TAMP_STAGES=minify,toon npx @sliday/tamp
 ```
 
 ## Installation Methods
@@ -177,7 +177,7 @@ setup.sh             One-line installer script
 5. The modified body is forwarded to the correct upstream with updated `Content-Length`
 6. The upstream response is streamed back to the client unmodified
 
-Bodies exceeding `TOONA_MAX_BODY` are piped through without buffering.
+Bodies exceeding `TAMP_MAX_BODY` are piped through without buffering.
 
 ## Benchmarking
 

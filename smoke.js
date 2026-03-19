@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Self-checking smoke test for toona proxy.
+ * Self-checking smoke test for tamp proxy.
  * Spins up echo server + proxy, sends requests, validates compression.
  * Exit 0 = all checks pass, exit 1 = failure.
  */
@@ -62,14 +62,14 @@ const { server: proxy } = createProxy({
 await new Promise(r => proxy.listen(0, r))
 const proxyPort = proxy.address().port
 
-console.log(`\ntoona smoke test (proxy :${proxyPort} -> echo :${echoPort})\n`)
+console.log(`\ntamp smoke test (proxy :${proxyPort} -> echo :${echoPort})\n`)
 
 // ============================================================
 // Test 1: Pretty-printed JSON gets minified
 // ============================================================
 console.log('Test 1: JSON minification')
 const prettyJSON = JSON.stringify({
-  name: 'toona', version: '0.1.0', type: 'module',
+  name: 'tamp', version: '0.1.0', type: 'module',
   main: 'index.js',
   scripts: { start: 'node index.js', test: 'node --test test/*.test.js' },
   dependencies: { '@toon-format/toon': '^2.1.0' },
