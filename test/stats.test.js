@@ -12,7 +12,7 @@ describe('formatRequestLog', () => {
     session.record(stats)
     const output = formatRequestLog(stats, session)
     assert.ok(output.includes('anthropic'))
-    assert.ok(output.includes('1 compressed'))
+    assert.ok(output.includes('1 block compressed'))
     assert.ok(output.includes('-40.0%'))
     assert.ok(output.includes('block[2]'))
     assert.ok(output.includes('toon'))
@@ -21,22 +21,22 @@ describe('formatRequestLog', () => {
     assert.ok(output.includes('session'))
   })
 
-  it('shows no tool blocks when stats empty', () => {
+  it('shows passthrough when stats empty', () => {
     const output = formatRequestLog([], null)
-    assert.ok(output.includes('no tool blocks'))
+    assert.ok(output.includes('passthrough'))
   })
 
   it('shows nothing to compress when all skipped', () => {
     const stats = [{ index: 0, skipped: 'error' }]
     const output = formatRequestLog(stats, null)
-    assert.ok(output.includes('1 blocks'))
+    assert.ok(output.includes('1 block'))
     assert.ok(output.includes('skipped'))
   })
 
   it('works without session', () => {
     const stats = [{ index: 0, method: 'minify', originalLen: 1000, compressedLen: 800 }]
     const output = formatRequestLog(stats, null)
-    assert.ok(output.includes('1 compressed'))
+    assert.ok(output.includes('compressed'))
     assert.ok(!output.includes('session'))
   })
 

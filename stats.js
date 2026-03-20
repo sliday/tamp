@@ -16,13 +16,14 @@ export function formatRequestLog(stats, session, providerName, url, bodySize, to
   const sizeInfo = bodySize ? ` ${c.dim}${fmtSize(bodySize)}${c.reset}` : ''
 
   if (!compressed.length && !stats.length) {
-    return `[tamp] ${c.cyan}${label}${c.reset} ${path}${sizeInfo} ${c.dim}— no tool blocks${c.reset}`
+    return `[tamp] ${c.cyan}${label}${c.reset} ${path}${sizeInfo} ${c.dim}— passthrough${c.reset}`
   }
 
   if (!compressed.length) {
     const skipCount = stats.filter(s => s.skipped).length
+    const n = stats.length
     const reason = skipCount ? `${skipCount} skipped` : 'nothing to compress'
-    return `[tamp] ${c.cyan}${label}${c.reset} ${path}${sizeInfo} ${c.dim}— ${stats.length} blocks, ${reason}${c.reset}`
+    return `[tamp] ${c.cyan}${label}${c.reset} ${path}${sizeInfo} ${c.dim}— ${n} block${n !== 1 ? 's' : ''}, ${reason}${c.reset}`
   }
 
   const totalOrig = compressed.reduce((a, s) => a + s.originalLen, 0)
@@ -34,7 +35,8 @@ export function formatRequestLog(stats, session, providerName, url, bodySize, to
   const tokSaved = totalOrigTok - totalCompTok
 
   const lines = []
-  lines.push(`[tamp] ${c.cyan}${label}${c.reset} ${path}${sizeInfo} ${c.green}— ${compressed.length} compressed, -${pct}%${c.reset}`)
+  const n = compressed.length
+  lines.push(`[tamp] ${c.cyan}${label}${c.reset} ${path}${sizeInfo} ${c.green}— ${n} block${n !== 1 ? 's' : ''} compressed, -${pct}%${c.reset}`)
 
   for (const s of compressed) {
     const sPct = (((s.originalLen - s.compressedLen) / s.originalLen) * 100).toFixed(1)

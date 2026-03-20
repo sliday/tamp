@@ -105,10 +105,10 @@ function pipeRequest(req, res, upstreamUrl, prefixChunks) {
 }
 
 return http.createServer(async (req, res) => {
-  if (config.log) console.error(`[tamp] ${req.method} ${req.url}`)
   const provider = detectProvider(req.method, req.url)
 
   if (!provider) {
+    if (config.log) console.error(`[tamp] ${req.method} ${req.url}`)
     const upstreamUrl = new URL(req.url, config.upstream)
     return pipeRequest(req, res, upstreamUrl)
   }
