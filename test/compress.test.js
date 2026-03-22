@@ -197,6 +197,33 @@ describe('compressMessages with llmlingua', () => {
   })
 })
 
+describe('compressRequest with OpenAI Responses API format', () => {
+  const cfg = { minSize: 50, stages: ['minify'], llmLinguaUrl: null }
+
+  it('compresses function_call_output in Responses API body', async () => {
+    const body = {
+      model: 'gpt-4.1',
+      input: [
+        { role: 'user', content: 'check the output' },
+        { type: 'function_call_output', call_id: 'call_abc', output: JSON.stringify({ name: 'tamp', version: '0.1.0', type: 'module', main: 'index.js', scripts: { start: 'node index.js' } }, null, 2) },
+      ],
+    }
+    const { body: compressed, stats } = await compressRequest(body, cfg, openai)
+    assert.ok(stats.some(s => s.method === 'minify'))
+    assert.ok(!compressed.input[1].output.includes('\n'), 'should be minified')
+    assert.equal(JSON.parse(compressed.input[1].output).name, 'tamp')
+  })
+
+  it('returns empty stats when no function_call_output in Responses API body', async () => {
+    const body = {
+      model: 'gpt-4.1',
+      input: [{ role: 'user', content: 'hello' }],
+    }
+    const { stats } = await compressRequest(body, cfg, openai)
+    assert.equal(stats.length, 0)
+  })
+})
+
 describe('compressRequest with OpenAI format', () => {
   const cfg = { minSize: 50, stages: ['minify'], llmLinguaUrl: null }
 

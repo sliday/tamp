@@ -65,6 +65,19 @@ const openai = {
   },
   extract(body) {
     const targets = []
+
+    // Responses API format: body.input with function_call_output items
+    if (body?.input?.length) {
+      for (let i = 0; i < body.input.length; i++) {
+        const item = body.input[i]
+        if (item.type === 'function_call_output' && typeof item.output === 'string') {
+          targets.push({ path: ['input', i, 'output'], text: item.output, index: i })
+        }
+      }
+      return targets
+    }
+
+    // Chat Completions format
     if (!body?.messages?.length) return targets
 
     // Find last assistant message with tool_calls

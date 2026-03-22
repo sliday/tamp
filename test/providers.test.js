@@ -238,6 +238,80 @@ describe('gemini adapter', () => {
   })
 })
 
+describe('openai adapter — Responses API (body.input)', () => {
+  it('extracts function_call_output items from input array', () => {
+    const body = {
+      model: 'gpt-4.1',
+      input: [
+        { role: 'user', content: 'read the file' },
+        { type: 'function_call_output', call_id: 'call_abc', output: '{"file":"contents","lines":100}' },
+        { type: 'function_call_output', call_id: 'call_def', output: '{"other":"data"}' },
+      ],
+    }
+    const targets = openai.extract(body)
+    assert.equal(targets.length, 2)
+    assert.equal(targets[0].text, '{"file":"contents","lines":100}')
+    assert.deepEqual(targets[0].path, ['input', 1, 'output'])
+    assert.equal(targets[1].text, '{"other":"data"}')
+    assert.deepEqual(targets[1].path, ['input', 2, 'output'])
+  })
+
+  it('returns empty when no function_call_output in input', () => {
+    const body = {
+      model: 'gpt-4.1',
+      input: [
+        { role: 'user', content: 'hello' },
+      ],
+    }
+    assert.deepEqual(openai.extract(body), [])
+  })
+
+  it('returns empty for missing input', () => {
+    assert.deepEqual(openai.extract({}), [])
+    assert.deepEqual(openai.extract({ input: [] }), [])
+  })
+
+  it('skips non-string output fields', () => {
+    const body = {
+      input: [
+        { type: 'function_call_output', call_id: 'call_1', output: 123 },
+        { type: 'function_call_output', call_id: 'call_2', output: '{"valid":"json"}' },
+      ],
+    }
+    const targets = openai.extract(body)
+    assert.equal(targets.length, 1)
+    assert.equal(targets[0].text, '{"valid":"json"}')
+  })
+
+  it('apply replaces output field via path', () => {
+    const body = {
+      input: [
+        { role: 'user', content: 'hi' },
+        { type: 'function_call_output', call_id: 'call_abc', output: 'original' },
+      ],
+    }
+    const targets = [{ path: ['input', 1, 'output'], compressed: 'compressed' }]
+    openai.apply(body, targets)
+    assert.equal(body.input[1].output, 'compressed')
+  })
+})
+
+describe('openai adapter — Responses API round-trip', () => {
+  it('extract, compress, apply produces valid body', () => {
+    const body = {
+      model: 'gpt-4.1',
+      input: [
+        { role: 'user', content: 'check the output' },
+        { type: 'function_call_output', call_id: 'call_1', output: '{\n  "result": "ok",\n  "data": "value"\n}' },
+      ],
+    }
+    const targets = openai.extract(body)
+    for (const t of targets) { if (!t.skip) t.compressed = '{"result":"ok","data":"value"}' }
+    openai.apply(body, targets)
+    assert.equal(body.input[1].output, '{"result":"ok","data":"value"}')
+  })
+})
+
 describe('round-trip extract -> apply', () => {
   it('anthropic: extract, compress, apply produces valid body', () => {
     const body = {
