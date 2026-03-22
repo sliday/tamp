@@ -72,10 +72,12 @@ export async function compressRequest(body, config, provider) {
     if (result) {
       target.compressed = result.text
       stats.push({ index: target.index, ...result })
+    } else {
+      stats.push({ index: target.index, skipped: 'not-compressible' })
     }
   }
   provider.apply(body, targets)
-  return { body, stats }
+  return { body, stats, targetCount: targets.length }
 }
 
 export async function compressMessages(body, config) {
