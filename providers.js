@@ -66,12 +66,21 @@ const openai = {
   extract(body) {
     const targets = []
 
-    // Responses API format: body.input with function_call_output items
+    // Responses API format: body.input array
     if (body?.input?.length) {
       for (let i = 0; i < body.input.length; i++) {
         const item = body.input[i]
         if (item.type === 'function_call_output' && typeof item.output === 'string') {
           targets.push({ path: ['input', i, 'output'], text: item.output, index: i })
+          continue
+        }
+        if (item.type === 'message' && Array.isArray(item.content)) {
+          for (let j = 0; j < item.content.length; j++) {
+            const part = item.content[j]
+            if ((part.type === 'input_text' || part.type === 'output_text') && typeof part.text === 'string') {
+              targets.push({ path: ['input', i, 'content', j, 'text'], text: part.text, index: i })
+            }
+          }
         }
       }
       return targets

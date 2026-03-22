@@ -222,6 +222,24 @@ describe('compressRequest with OpenAI Responses API format', () => {
     const { stats } = await compressRequest(body, cfg, openai)
     assert.equal(stats.length, 0)
   })
+
+  it('compresses input_text in message content parts', async () => {
+    const body = {
+      model: 'gpt-4.1',
+      input: [
+        { type: 'message', role: 'developer', content: [
+          { type: 'input_text', text: JSON.stringify({ tools: ['read', 'write', 'edit'], config: { minSize: 50, stages: ['minify'] } }, null, 2) },
+        ]},
+        { type: 'message', role: 'user', content: [
+          { type: 'input_text', text: 'run the tests' },
+        ]},
+      ],
+    }
+    const { body: compressed, stats } = await compressRequest(body, cfg, openai)
+    assert.ok(stats.some(s => s.method === 'minify'))
+    assert.ok(!compressed.input[0].content[0].text.includes('\n'), 'developer content should be minified')
+    assert.equal(compressed.input[1].content[0].text, 'run the tests', 'user text unchanged')
+  })
 })
 
 describe('compressRequest with OpenAI format', () => {

@@ -175,23 +175,6 @@ return http.createServer(async (req, res) => {
   try {
     const parsed = JSON.parse(textBody.toString('utf-8'))
 
-    // DEBUG: log Responses API body structure
-    if (req.url.includes('/responses') && config.log) {
-      const keys = Object.keys(parsed)
-      const inputType = parsed.input ? (Array.isArray(parsed.input) ? 'array' : typeof parsed.input) : 'missing'
-      const inputLen = Array.isArray(parsed.input) ? parsed.input.length : 0
-      const types = Array.isArray(parsed.input) ? [...new Set(parsed.input.map(i => i.type || i.role || 'unknown'))] : []
-      console.error(`[tamp] DEBUG /responses keys=${keys.join(',')} input=${inputType}(${inputLen}) types=[${types.join(',')}]`)
-      if (Array.isArray(parsed.input) && parsed.input.length > 0) {
-        // Log first 3 items structure (no content)
-        for (let di = 0; di < Math.min(3, parsed.input.length); di++) {
-          const item = parsed.input[di]
-          const itemKeys = Object.keys(item)
-          console.error(`[tamp] DEBUG   input[${di}] keys=${itemKeys.join(',')} type=${item.type} role=${item.role}`)
-        }
-      }
-    }
-
     const { body, stats } = await compressRequest(parsed, config, provider)
     finalBody = Buffer.from(JSON.stringify(body), 'utf-8')
     // Send uncompressed — simpler and content-length is accurate

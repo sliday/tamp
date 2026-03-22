@@ -256,7 +256,7 @@ describe('openai adapter — Responses API (body.input)', () => {
     assert.deepEqual(targets[1].path, ['input', 2, 'output'])
   })
 
-  it('returns empty when no function_call_output in input', () => {
+  it('returns empty when no extractable content in input', () => {
     const body = {
       model: 'gpt-4.1',
       input: [
@@ -283,6 +283,68 @@ describe('openai adapter — Responses API (body.input)', () => {
     assert.equal(targets[0].text, '{"valid":"json"}')
   })
 
+  it('extracts input_text from message content parts', () => {
+    const body = {
+      input: [
+        { type: 'message', role: 'developer', content: [
+          { type: 'input_text', text: '{"config": "value"}' },
+          { type: 'input_text', text: '{"tools": ["read", "write"]}' },
+        ]},
+        { type: 'message', role: 'user', content: [
+          { type: 'input_text', text: 'do the thing' },
+        ]},
+      ],
+    }
+    const targets = openai.extract(body)
+    assert.equal(targets.length, 3)
+    assert.deepEqual(targets[0].path, ['input', 0, 'content', 0, 'text'])
+    assert.equal(targets[0].text, '{"config": "value"}')
+    assert.deepEqual(targets[1].path, ['input', 0, 'content', 1, 'text'])
+    assert.deepEqual(targets[2].path, ['input', 1, 'content', 0, 'text'])
+  })
+
+  it('extracts output_text from assistant message content', () => {
+    const body = {
+      input: [
+        { type: 'message', role: 'assistant', content: [
+          { type: 'output_text', text: '{"result": "data"}' },
+        ]},
+      ],
+    }
+    const targets = openai.extract(body)
+    assert.equal(targets.length, 1)
+    assert.deepEqual(targets[0].path, ['input', 0, 'content', 0, 'text'])
+  })
+
+  it('extracts both function_call_output and message content', () => {
+    const body = {
+      input: [
+        { type: 'message', role: 'developer', content: [
+          { type: 'input_text', text: '{"system": "prompt"}' },
+        ]},
+        { type: 'function_call_output', call_id: 'call_1', output: '{"file": "data"}' },
+      ],
+    }
+    const targets = openai.extract(body)
+    assert.equal(targets.length, 2)
+    assert.deepEqual(targets[0].path, ['input', 0, 'content', 0, 'text'])
+    assert.deepEqual(targets[1].path, ['input', 1, 'output'])
+  })
+
+  it('skips non-text content parts', () => {
+    const body = {
+      input: [
+        { type: 'message', role: 'user', content: [
+          { type: 'input_image', image_url: 'data:image/png;base64,...' },
+          { type: 'input_text', text: 'describe this' },
+        ]},
+      ],
+    }
+    const targets = openai.extract(body)
+    assert.equal(targets.length, 1)
+    assert.equal(targets[0].text, 'describe this')
+  })
+
   it('apply replaces output field via path', () => {
     const body = {
       input: [
@@ -294,10 +356,23 @@ describe('openai adapter — Responses API (body.input)', () => {
     openai.apply(body, targets)
     assert.equal(body.input[1].output, 'compressed')
   })
+
+  it('apply replaces message content text via path', () => {
+    const body = {
+      input: [
+        { type: 'message', role: 'developer', content: [
+          { type: 'input_text', text: 'original' },
+        ]},
+      ],
+    }
+    const targets = [{ path: ['input', 0, 'content', 0, 'text'], compressed: 'compressed' }]
+    openai.apply(body, targets)
+    assert.equal(body.input[0].content[0].text, 'compressed')
+  })
 })
 
 describe('openai adapter — Responses API round-trip', () => {
-  it('extract, compress, apply produces valid body', () => {
+  it('function_call_output: extract, compress, apply', () => {
     const body = {
       model: 'gpt-4.1',
       input: [
@@ -309,6 +384,21 @@ describe('openai adapter — Responses API round-trip', () => {
     for (const t of targets) { if (!t.skip) t.compressed = '{"result":"ok","data":"value"}' }
     openai.apply(body, targets)
     assert.equal(body.input[1].output, '{"result":"ok","data":"value"}')
+  })
+
+  it('message content: extract, compress, apply', () => {
+    const body = {
+      model: 'gpt-4.1',
+      input: [
+        { type: 'message', role: 'developer', content: [
+          { type: 'input_text', text: '{\n  "tools": [\n    "read",\n    "write"\n  ]\n}' },
+        ]},
+      ],
+    }
+    const targets = openai.extract(body)
+    for (const t of targets) { if (!t.skip) t.compressed = '{"tools":["read","write"]}' }
+    openai.apply(body, targets)
+    assert.equal(body.input[0].content[0].text, '{"tools":["read","write"]}')
   })
 })
 
