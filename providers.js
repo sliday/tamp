@@ -53,7 +53,8 @@ const openai = {
   match(method, url) {
     return method === 'POST' && (
       url.startsWith('/v1/chat/completions') ||
-      url.startsWith('/chat/completions')
+      url.startsWith('/chat/completions') ||
+      url.startsWith('/v1/responses')
     )
   },
   normalizeUrl(url) {
