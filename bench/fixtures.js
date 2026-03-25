@@ -2,7 +2,7 @@
 // Each has max_tokens:10 + system "Respond with OK." to minimize output cost
 // All tool_results have proper tool_use -> tool_result pairing
 
-const MODEL = 'anthropic/claude-sonnet-4-20250514'
+const MODEL = 'anthropic/claude-sonnet-4.6'
 
 function makeBody(messages) {
   return { model: MODEL, max_tokens: 10, system: 'Respond with OK.', messages }

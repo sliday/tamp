@@ -232,9 +232,26 @@ test/fixtures/           Sample API payloads
 
 Claude Code sends the full conversation history on every API call. As a session progresses, tool results accumulate — file contents, directory listings, command outputs — all re-sent as input tokens on each request.
 
-At $3/million input tokens (Sonnet 4), a 200-request session consuming 3M input tokens costs $9. If 60% of tool results are compressible JSON, and compression removes 30-50% of those tokens, that's $1.60-2.70 saved per session.
+At $3/million input tokens (Sonnet 4.6), a 200-request session consuming 3M input tokens costs $9. With 32% compression on 60% compressible traffic, that's ~63K tokens and $0.19 saved per session. For Opus 4.6 ($5/MTok), savings are $0.32/session.
 
-For teams with 5 developers doing 2 sessions/day, that's $500-800/month in savings.
+### Claude Max subscribers
+
+Max plans have fixed token budgets. With 32% fewer input tokens per request, you get **47% more requests** from the same budget:
+
+| Plan | Without Tamp | With Tamp |
+|------|-------------|-----------|
+| Max 5× ($100/mo) | 5× Pro | **7.4×** Pro |
+| Max 20× ($200/mo) | 20× Pro | **29.4×** Pro |
+
+### API cost savings
+
+| Model | Per dev/month | 10-person team/year |
+|-------|-------------|-------------------|
+| Sonnet 4.6 ($3/MTok) | $28 | $3,400 |
+| Opus 4.6 ($5/MTok) | $48 | $5,760 |
+| Opus 4.6 extended ($10/MTok) | $96 | $11,520 |
+
+Based on 5 sessions/day, 200 requests/session, 60% compressible traffic.
 
 ## License
 
