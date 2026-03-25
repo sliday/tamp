@@ -102,6 +102,17 @@ function pruneJSON(text) {
   return result
 }
 
+// --- Stage: strip-comments (opt-in, not in defaults) ---
+function stripComments(text) {
+  return text
+    .replace(/\/\*\*[\s\S]*?\*\//g, '')  // JSDoc /** ... */
+    .replace(/\/\*[\s\S]*?\*\//g, '')     // block /* ... */
+    .replace(/\/\/.*$/gm, '')             // line // ...
+    .replace(/^\s*#(?!!).*$/gm, '')       // Python/shell # (not #!)
+    .replace(/<!--[\s\S]*?-->/g, '')      // HTML <!-- ... -->
+    .replace(/\n\s*\n\s*\n/g, '\n\n')    // collapse resulting blank lines
+}
+
 // --- Core compression ---
 export function compressText(text, config) {
   if (text.length < config.minSize) return null
@@ -116,6 +127,9 @@ export function compressText(text, config) {
     }
     if (config.stages.includes('whitespace')) {
       processed = normalizeWhitespace(processed)
+    }
+    if (config.stages.includes('strip-comments')) {
+      processed = stripComments(processed)
     }
     if (processed.length < text.length * 0.9) {
       return { text: processed, method: 'normalize', originalLen: text.length, compressedLen: processed.length, originalTokens: countTokens(text), compressedTokens: countTokens(processed) }
