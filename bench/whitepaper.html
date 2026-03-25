@@ -61,13 +61,13 @@
 
 <p>In a typical coding session of 200+ API requests, the same file contents may be re-sent dozens of times as conversation context grows. The financial impact is significant: at $3.00 per million input tokens for Claude Sonnet 4, a heavy coding session can easily consume 2&ndash;5 million input tokens, costing $6&ndash;15 per session. For teams with multiple developers, monthly API costs can reach thousands of dollars.</p>
 
-<p>Tamp is a transparent compression proxy that sits between Claude Code and the Anthropic API. It inspects tool_result blocks in the message payload and applies content-aware compression through a three-stage pipeline: JSON minification removes whitespace, TOON encoding compresses homogeneous arrays into columnar format, and LLMLingua-2 neural compression reduces natural-language tool outputs using a fine-tuned XLM-RoBERTa model. Line-number stripping removes Read-tool prefixes before further processing. Crucially, Tamp classifies content first&mdash;source code and error results pass through untouched, preserving semantic fidelity.</p>
+<p>Tamp is a transparent compression proxy that sits between Claude Code and the Anthropic API. It inspects tool_result blocks in the message payload and applies content-aware compression through a five-stage pipeline: JSON minification removes whitespace, TOON encoding compresses homogeneous arrays into columnar format, line-number stripping removes Read-tool prefixes, whitespace normalization collapses blank lines and trims trailing spaces, and LLMLingua-2 neural compression reduces natural-language tool outputs using a fine-tuned XLM-RoBERTa model. All messages in the conversation are compressed, not just the most recent one. Crucially, Tamp classifies content first&mdash;source code and error results pass through untouched, preserving semantic fidelity.</p>
 
-<p>This paper presents a controlled A/B benchmark measuring Tamp's actual token savings across seven representative scenarios, using OpenRouter as an independent measurement oracle that reports exact token counts for both compressed and uncompressed payloads.</p>
+<p>This paper presents a controlled A/B benchmark measuring Tamp's actual token savings across ten representative scenarios, using OpenRouter as an independent measurement oracle that reports exact token counts for both compressed and uncompressed payloads.</p>
 
 <h2>2. Methodology</h2>
 
-<p>We designed an A/B experiment with seven test scenarios representing common Claude Code usage patterns. Each scenario contains a complete Anthropic Messages API payload with realistic tool_result content.</p>
+<p>We designed an A/B experiment with ten test scenarios representing common Claude Code usage patterns. Each scenario contains a complete Anthropic Messages API payload with realistic tool_result content.</p>
 
 <h3>2.1 Test Scenarios</h3>
 
@@ -85,14 +85,14 @@
 
 <h3>2.2 Experimental Protocol</h3>
 
-<p>For each scenario, we perform 5 independent runs. Each run consists of two API calls through OpenRouter (<code>anthropic/claude-sonnet-4-20250514</code>):</p>
+<p>For each scenario, we perform 5 independent runs. Each run consists of two API calls through OpenRouter (<code>anthropic/claude-sonnet-4.6</code>):</p>
 
 <ol class="methodology-list">
 <li><strong>Control:</strong> The raw, unmodified payload is sent directly. OpenRouter reports <code>input_tokens</code> and <code>output_tokens</code>.</li>
 <li><strong>Treatment:</strong> The payload is first processed by <code>compressMessages()</code> with stages <code>[minify, toon, llmlingua]</code>, then sent. The same metrics are recorded. Text content classified as natural language is routed through the LLMLingua-2 sidecar for neural compression.</li>
 </ol>
 
-<p>All payloads use <code>max_tokens: 10</code> with system prompt <code>"Respond with OK."</code> to minimize output cost (~$0.20 total for 70 API calls). A 1-second sleep between requests prevents rate limiting.</p>
+<p>All payloads use <code>max_tokens: 10</code> with system prompt <code>"Respond with OK."</code> to minimize output cost (~$0.30 total for 100 API calls). A 1-second sleep between requests prevents rate limiting.</p>
 
 <h3>2.3 Statistical Analysis</h3>
 

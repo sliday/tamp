@@ -78,7 +78,7 @@ async function main() {
   const results = {
     meta: {
       timestamp: new Date().toISOString(),
-      model: 'anthropic/claude-sonnet-4-20250514',
+      model: 'anthropic/claude-sonnet-4.6',
       pricing: { input_per_mtok: 3.00, output_per_mtok: 15.00 },
       runs: RUNS,
     },
