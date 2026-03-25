@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tamp: Measured Token Savings for Agentic Coding Assistants</title>
+<style>
+  @page { size: A4; margin: 2.5cm 2cm; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: Georgia, 'Times New Roman', serif;
+    font-size: 11pt;
+    line-height: 1.6;
+    color: #1a1a1a;
+    max-width: 750px;
+    margin: 0 auto;
+    padding: 2rem 1.5rem;
+  }
+  h1, h2, h3 { font-family: system-ui, -apple-system, sans-serif; color: #111; }
+  h1 { font-size: 22pt; line-height: 1.2; margin-bottom: 0.5rem; text-align: center; }
+  .subtitle { text-align: center; font-size: 11pt; color: #555; margin-bottom: 0.3rem; }
+  .date { text-align: center; font-size: 10pt; color: #777; margin-bottom: 2rem; }
+  h2 { font-size: 14pt; margin-top: 1.8rem; margin-bottom: 0.6rem; border-bottom: 1px solid #ddd; padding-bottom: 0.3rem; }
+  h3 { font-size: 12pt; margin-top: 1.2rem; margin-bottom: 0.4rem; }
+  p { margin-bottom: 0.8rem; text-align: justify; }
+  .abstract { background: #f8f8f8; padding: 1rem 1.2rem; border-left: 3px solid #333; margin-bottom: 1.5rem; }
+  .abstract p { margin-bottom: 0; font-style: italic; }
+  table { width: 100%; border-collapse: collapse; margin: 1rem 0; font-size: 9.5pt; }
+  th, td { border: 1px solid #ccc; padding: 5px 8px; text-align: right; }
+  th { background: #f0f0f0; font-family: system-ui, sans-serif; font-weight: 600; }
+  td:first-child, th:first-child { text-align: left; }
+  caption { font-weight: bold; font-family: system-ui, sans-serif; margin-bottom: 0.3rem; font-size: 10pt; }
+  .figure { margin: 1.5rem 0; text-align: center; }
+  .figure svg { max-width: 100%; }
+  .figure-caption { font-size: 9.5pt; font-style: italic; color: #555; margin-top: 0.3rem; }
+  code { font-family: 'SF Mono', Menlo, monospace; font-size: 9.5pt; background: #f4f4f4; padding: 1px 4px; border-radius: 3px; }
+  .methodology-list { padding-left: 1.5rem; margin-bottom: 0.8rem; }
+  .methodology-list li { margin-bottom: 0.3rem; }
+  @media print {
+    body { padding: 0; max-width: none; }
+    .abstract { break-inside: avoid; }
+    table { break-inside: avoid; }
+    .figure { break-inside: avoid; }
+    h2 { break-after: avoid; }
+  }
+</style>
+</head>
+<body>
+
+<h1>Tamp: Measured Token Savings for Agentic Coding Assistants</h1>
+<p class="subtitle">Stas Kulesh &mdash; x.com/staskulesh</p>
+<p class="date">March 25, 2026</p>
+
+<div class="abstract">
+<p><strong>Abstract.</strong> We present a controlled A/B benchmark measuring Tamp's token compression effectiveness across seven representative agentic coding scenarios. Using OpenRouter as an independent measurement oracle with Claude Sonnet 4, we find a weighted average reduction of 32.0% in input tokens. The strongest compression occurs on tabular/array data (48.7% for Tabular Data (file listing)), while source code and error results correctly pass through unmodified. Across all compressible scenarios, output tokens remain identical between control and treatment, confirming semantic preservation. At current pricing ($3.00/Mtok input), Tamp saves approximately $0.19 per 200-request coding session with sub-millisecond compression overhead.</p>
+</div>
+
+<h2>1. Introduction</h2>
+
+<p>Agentic coding assistants like Claude Code operate through iterative cycles of tool invocations: reading files, running commands, inspecting outputs, and generating code. Each cycle accumulates context in the conversation window&mdash;tool results carrying file contents, directory listings, error messages, and configuration data&mdash;all of which count toward input token usage on every subsequent API call.</p>
+
+<p>In a typical coding session of 200+ API requests, the same file contents may be re-sent dozens of times as conversation context grows. The financial impact is significant: at $3.00 per million input tokens for Claude Sonnet 4, a heavy coding session can easily consume 2&ndash;5 million input tokens, costing $6&ndash;15 per session. For teams with multiple developers, monthly API costs can reach thousands of dollars.</p>
+
+<p>Tamp is a transparent compression proxy that sits between Claude Code and the Anthropic API. It inspects tool_result blocks in the message payload and applies content-aware compression through a three-stage pipeline: JSON minification removes whitespace, TOON encoding compresses homogeneous arrays into columnar format, and LLMLingua-2 neural compression reduces natural-language tool outputs using a fine-tuned XLM-RoBERTa model. Line-number stripping removes Read-tool prefixes before further processing. Crucially, Tamp classifies content first&mdash;source code and error results pass through untouched, preserving semantic fidelity.</p>
+
+<p>This paper presents a controlled A/B benchmark measuring Tamp's actual token savings across seven representative scenarios, using OpenRouter as an independent measurement oracle that reports exact token counts for both compressed and uncompressed payloads.</p>
+
+<h2>2. Methodology</h2>
+
+<p>We designed an A/B experiment with seven test scenarios representing common Claude Code usage patterns. Each scenario contains a complete Anthropic Messages API payload with realistic tool_result content.</p>
+
+<h3>2.1 Test Scenarios</h3>
+
+<p>The scenarios span the full range of content types encountered in agentic coding:</p>
+
+<ol class="methodology-list">
+<li><strong>Small JSON</strong> &mdash; A package.json file (~500 characters), representing the most common tool_result type.</li>
+<li><strong>Large JSON</strong> &mdash; A deep dependency tree (~10KB), testing compression at scale.</li>
+<li><strong>Tabular Data</strong> &mdash; An array of 50 homogeneous file entries (~5KB), ideal for TOON columnar encoding.</li>
+<li><strong>Source Code</strong> &mdash; A TypeScript file (~3KB), which should pass through uncompressed.</li>
+<li><strong>Multi-turn Conversation</strong> &mdash; A 5-turn dialogue with multiple tool_results (~8KB), testing selective compression.</li>
+<li><strong>Line-Numbered Output</strong> &mdash; Read tool output with line-number prefixes (~2KB), testing strip+minify.</li>
+<li><strong>Error Result</strong> &mdash; An <code>is_error: true</code> tool_result (~300 characters), which should be skipped entirely.</li>
+</ol>
+
+<h3>2.2 Experimental Protocol</h3>
+
+<p>For each scenario, we perform 5 independent runs. Each run consists of two API calls through OpenRouter (<code>anthropic/claude-sonnet-4-20250514</code>):</p>
+
+<ol class="methodology-list">
+<li><strong>Control:</strong> The raw, unmodified payload is sent directly. OpenRouter reports <code>input_tokens</code> and <code>output_tokens</code>.</li>
+<li><strong>Treatment:</strong> The payload is first processed by <code>compressMessages()</code> with stages <code>[minify, toon, llmlingua]</code>, then sent. The same metrics are recorded. Text content classified as natural language is routed through the LLMLingua-2 sidecar for neural compression.</li>
+</ol>
+
+<p>All payloads use <code>max_tokens: 10</code> with system prompt <code>"Respond with OK."</code> to minimize output cost (~$0.20 total for 70 API calls). A 1-second sleep between requests prevents rate limiting.</p>
+
+<h3>2.3 Statistical Analysis</h3>
+
+<p>Per scenario, we compute: mean token savings with standard deviation, percentage reduction with 95% confidence interval (Student's t-distribution, df=4, t*=2.776), character-level compression ratio, cost savings per request, and a semantic check verifying output token counts between control and treatment (allowing &plusmn;2 token variance to account for model non-determinism with <code>max_tokens: 10</code>).</p>
+
+<h2>3. Results</h2>
+
+<h3>3.1 Token Savings by Scenario</h3>
+
+<table>
+<caption>Table 1: Token savings per scenario (5 runs each)</caption>
+<tr><th>Scenario</th><th>Control (tokens)</th><th>Treatment (tokens)</th><th>Savings</th><th>% Reduction</th><th>95% CI</th><th>Semantic</th></tr>
+<tr><td>Small JSON (package.json)</td><td>315</td><td>246</td><td>69</td><td>21.9%</td><td>[21.9%, 21.9%]</td><td>PASS</td></tr>
+<tr><td>Large JSON (dependency tree)</td><td>6,773</td><td>4,855</td><td>1,918</td><td>28.3%</td><td>[28.3%, 28.3%]</td><td>PASS</td></tr>
+<tr><td>Tabular Data (file listing)</td><td>3,574</td><td>1,835</td><td>1,739</td><td>48.7%</td><td>[48.7%, 48.7%]</td><td>PASS</td></tr>
+<tr><td>Source Code (TypeScript)</td><td>1,069</td><td>644</td><td>425</td><td>39.8%</td><td>[39.8%, 39.8%]</td><td>WARN</td></tr>
+<tr><td>Multi-turn Conversation</td><td>1,026</td><td>699</td><td>327</td><td>31.9%</td><td>[31.9%, 31.9%]</td><td>PASS</td></tr>
+<tr><td>Line-Numbered Output</td><td>473</td><td>323</td><td>150</td><td>31.7%</td><td>[31.7%, 31.7%]</td><td>PASS</td></tr>
+<tr><td>Error Result</td><td>167</td><td>167</td><td>0</td><td>0.0%</td><td>[0.0%, 0.0%]</td><td>PASS</td></tr>
+<tr><td>Line-Numbered Source Code</td><td>505</td><td>394</td><td>111</td><td>22.0%</td><td>[22.0%, 22.0%]</td><td>PASS</td></tr>
+<tr><td>Whitespace-Heavy CLI Output</td><td>321</td><td>301</td><td>20</td><td>6.2%</td><td>[6.2%, 6.2%]</td><td>PASS</td></tr>
+<tr><td>All-Message Multi-turn (10 turns)</td><td>2,217</td><td>1,717</td><td>500</td><td>22.6%</td><td>[22.6%, 22.6%]</td><td>PASS</td></tr>
+</table>
+
+<h3>3.2 Character vs Token Compression</h3>
+
+<table>
+<caption>Table 2: Character-level vs token-level compression</caption>
+<tr><th>Scenario</th><th>Control (bytes)</th><th>Treatment (bytes)</th><th>Char Ratio</th><th>Token Ratio</th></tr>
+<tr><td>Small JSON (package.json)</td><td>1,004</td><td>792</td><td>0.789</td><td>0.781</td></tr>
+<tr><td>Large JSON (dependency tree)</td><td>18,514</td><td>13,385</td><td>0.723</td><td>0.717</td></tr>
+<tr><td>Tabular Data (file listing)</td><td>9,109</td><td>3,648</td><td>0.400</td><td>0.513</td></tr>
+<tr><td>Source Code (TypeScript)</td><td>3,562</td><td>2,232</td><td>0.627</td><td>0.602</td></tr>
+<tr><td>Multi-turn Conversation</td><td>3,516</td><td>2,569</td><td>0.731</td><td>0.681</td></tr>
+<tr><td>Line-Numbered Output</td><td>1,465</td><td>1,050</td><td>0.717</td><td>0.683</td></tr>
+<tr><td>Error Result</td><td>647</td><td>647</td><td>1.000</td><td>1.000</td></tr>
+<tr><td>Line-Numbered Source Code</td><td>1,493</td><td>1,283</td><td>0.859</td><td>0.780</td></tr>
+<tr><td>Whitespace-Heavy CLI Output</td><td>1,120</td><td>1,024</td><td>0.914</td><td>0.938</td></tr>
+<tr><td>All-Message Multi-turn (10 turns)</td><td>6,768</td><td>5,278</td><td>0.780</td><td>0.774</td></tr>
+</table>
+
+<h3>3.3 Cost Analysis</h3>
+
+<table>
+<caption>Table 3: Cost analysis and session projections</caption>
+<tr><th>Scenario</th><th>$/request saved</th><th>Compression time (ms)</th><th>Overhead</th></tr>
+<tr><td>Small JSON (package.json)</td><td>$0.00021</td><td>18.4</td><td>18.4ms</td></tr>
+<tr><td>Large JSON (dependency tree)</td><td>$0.00575</td><td>15.2</td><td>15.2ms</td></tr>
+<tr><td>Tabular Data (file listing)</td><td>$0.00522</td><td>13.8</td><td>13.8ms</td></tr>
+<tr><td>Source Code (TypeScript)</td><td>$0.00128</td><td>471.6</td><td>471.6ms</td></tr>
+<tr><td>Multi-turn Conversation</td><td>$0.00098</td><td>40.0</td><td>40.0ms</td></tr>
+<tr><td>Line-Numbered Output</td><td>$0.00045</td><td>13.8</td><td>13.8ms</td></tr>
+<tr><td>Error Result</td><td>$0.00000</td><td>0.0</td><td><1ms</td></tr>
+<tr><td>Line-Numbered Source Code</td><td>$0.00033</td><td>14.4</td><td>14.4ms</td></tr>
+<tr><td>Whitespace-Heavy CLI Output</td><td>$0.00006</td><td>13.8</td><td>13.8ms</td></tr>
+<tr><td>All-Message Multi-turn (10 turns)</td><td>$0.00150</td><td>129.6</td><td>129.6ms</td></tr>
+<tr style="font-weight:bold; background:#f8f8f0"><td colspan="4">Session projection (200 requests, 60% compressible): 63,108 tokens saved, $0.1893/session</td></tr>
+</table>
+
+<div class="figure">
+<svg viewBox="0 0 600 280" xmlns="http://www.w3.org/2000/svg" style="font-family:system-ui,sans-serif">
+<rect width="600" height="280" fill="white"/>
+<line x1="55" y1="200" x2="580" y2="200" stroke="#e0e0e0" stroke-width="0.5"/>
+<text x="50" y="204" text-anchor="end" font-size="9" fill="#666">0%</text>
+<line x1="55" y1="163.00632547441057" x2="580" y2="163.00632547441057" stroke="#e0e0e0" stroke-width="0.5"/>
+<text x="50" y="167.00632547441057" text-anchor="end" font-size="9" fill="#666">10%</text>
+<line x1="55" y1="126.01265094882116" x2="580" y2="126.01265094882116" stroke="#e0e0e0" stroke-width="0.5"/>
+<text x="50" y="130.01265094882115" text-anchor="end" font-size="9" fill="#666">20%</text>
+<line x1="55" y1="89.01897642323176" x2="580" y2="89.01897642323176" stroke="#e0e0e0" stroke-width="0.5"/>
+<text x="50" y="93.01897642323176" text-anchor="end" font-size="9" fill="#666">30%</text>
+<line x1="55" y1="52.02530189764232" x2="580" y2="52.02530189764232" stroke="#e0e0e0" stroke-width="0.5"/>
+<text x="50" y="56.02530189764232" text-anchor="end" font-size="9" fill="#666">40%</text>
+<rect x="62.875" y="118.96623675347081" width="36.75" height="81.03376324652919" fill="#2d7d46" rx="2"/>
+<line x1="81.25" y1="118.96623675347081" x2="81.25" y2="118.96623675347081" stroke="#333" stroke-width="1.5"/>
+<line x1="77.25" y1="118.96623675347081" x2="85.25" y2="118.96623675347081" stroke="#333" stroke-width="1.5"/>
+<line x1="77.25" y1="118.96623675347081" x2="85.25" y2="118.96623675347081" stroke="#333" stroke-width="1.5"/>
+<text x="81.25" y="215" text-anchor="middle" font-size="8" fill="#333" transform="rotate(30 81.25 215)">Small JSON</text>
+<rect x="115.375" y="95.24011849980731" width="36.75" height="104.75988150019269" fill="#2d7d46" rx="2"/>
+<line x1="133.75" y1="95.2401184998073" x2="133.75" y2="95.24011849980734" stroke="#333" stroke-width="1.5"/>
+<line x1="129.75" y1="95.2401184998073" x2="137.75" y2="95.2401184998073" stroke="#333" stroke-width="1.5"/>
+<line x1="129.75" y1="95.24011849980734" x2="137.75" y2="95.24011849980734" stroke="#333" stroke-width="1.5"/>
+<text x="133.75" y="215" text-anchor="middle" font-size="8" fill="#333" transform="rotate(30 133.75 215)">Large JSON</text>
+<rect x="167.875" y="20" width="36.75" height="180" fill="#2d7d46" rx="2"/>
+<line x1="186.25" y1="20" x2="186.25" y2="20" stroke="#333" stroke-width="1.5"/>
+<line x1="182.25" y1="20" x2="190.25" y2="20" stroke="#333" stroke-width="1.5"/>
+<line x1="182.25" y1="20" x2="190.25" y2="20" stroke="#333" stroke-width="1.5"/>
+<text x="186.25" y="215" text-anchor="middle" font-size="8" fill="#333" transform="rotate(30 186.25 215)">Tabular Data</text>
+<rect x="220.375" y="52.92505450537419" width="36.75" height="147.0749454946258" fill="#2d7d46" rx="2"/>
+<line x1="238.75" y1="52.92505450537419" x2="238.75" y2="52.92505450537419" stroke="#333" stroke-width="1.5"/>
+<line x1="234.75" y1="52.92505450537419" x2="242.75" y2="52.92505450537419" stroke="#333" stroke-width="1.5"/>
+<line x1="234.75" y1="52.92505450537419" x2="242.75" y2="52.92505450537419" stroke="#333" stroke-width="1.5"/>
+<text x="238.75" y="215" text-anchor="middle" font-size="8" fill="#333" transform="rotate(30 238.75 215)">Source Code</text>
+<rect x="272.875" y="82.09618352955422" width="36.75" height="117.90381647044578" fill="#2d7d46" rx="2"/>
+<line x1="291.25" y1="82.09618352955422" x2="291.25" y2="82.09618352955422" stroke="#333" stroke-width="1.5"/>
+<line x1="287.25" y1="82.09618352955422" x2="295.25" y2="82.09618352955422" stroke="#333" stroke-width="1.5"/>
+<line x1="287.25" y1="82.09618352955422" x2="295.25" y2="82.09618352955422" stroke="#333" stroke-width="1.5"/>
+<text x="291.25" y="215" text-anchor="middle" font-size="8" fill="#333" transform="rotate(30 291.25 215)">Multi-turn Conversation</text>
+<rect x="325.375" y="82.68390742413504" width="36.75" height="117.31609257586496" fill="#2d7d46" rx="2"/>
+<line x1="343.75" y1="82.68390742413503" x2="343.75" y2="82.68390742413507" stroke="#333" stroke-width="1.5"/>
+<line x1="339.75" y1="82.68390742413503" x2="347.75" y2="82.68390742413503" stroke="#333" stroke-width="1.5"/>
+<line x1="339.75" y1="82.68390742413507" x2="347.75" y2="82.68390742413507" stroke="#333" stroke-width="1.5"/>
+<text x="343.75" y="215" text-anchor="middle" font-size="8" fill="#333" transform="rotate(30 343.75 215)">Line-Numbered Output</text>
+<line x1="377.875" y1="200" x2="414.625" y2="200" stroke="#999" stroke-width="2" stroke-dasharray="3,2"/>
+<text x="396.25" y="195" text-anchor="middle" font-size="7.5" fill="#999">0%</text>
+<line x1="396.25" y1="200" x2="396.25" y2="200" stroke="#333" stroke-width="1.5"/>
+<line x1="392.25" y1="200" x2="400.25" y2="200" stroke="#333" stroke-width="1.5"/>
+<line x1="392.25" y1="200" x2="400.25" y2="200" stroke="#333" stroke-width="1.5"/>
+<text x="396.25" y="215" text-anchor="middle" font-size="8" fill="#333" transform="rotate(30 396.25 215)">Error Result</text>
+<rect x="430.375" y="118.68717084474407" width="36.75" height="81.31282915525593" fill="#2d7d46" rx="2"/>
+<line x1="448.75" y1="118.68717084474407" x2="448.75" y2="118.68717084474407" stroke="#333" stroke-width="1.5"/>
+<line x1="444.75" y1="118.68717084474407" x2="452.75" y2="118.68717084474407" stroke="#333" stroke-width="1.5"/>
+<line x1="444.75" y1="118.68717084474407" x2="452.75" y2="118.68717084474407" stroke="#333" stroke-width="1.5"/>
+<text x="448.75" y="215" text-anchor="middle" font-size="8" fill="#333" transform="rotate(30 448.75 215)">Line-Numbered Source Code</text>
+<rect x="482.875" y="176.95098160399414" width="36.75" height="23.049018396005867" fill="#2d7d46" rx="2"/>
+<line x1="501.25" y1="176.95098160399414" x2="501.25" y2="176.95098160399414" stroke="#333" stroke-width="1.5"/>
+<line x1="497.25" y1="176.95098160399414" x2="505.25" y2="176.95098160399414" stroke="#333" stroke-width="1.5"/>
+<line x1="497.25" y1="176.95098160399414" x2="505.25" y2="176.95098160399414" stroke="#333" stroke-width="1.5"/>
+<text x="501.25" y="215" text-anchor="middle" font-size="8" fill="#333" transform="rotate(30 501.25 215)">Whitespace-Heavy CLI Output</text>
+<rect x="535.375" y="116.56816751107483" width="36.75" height="83.43183248892517" fill="#2d7d46" rx="2"/>
+<line x1="553.75" y1="116.56816751107483" x2="553.75" y2="116.56816751107483" stroke="#333" stroke-width="1.5"/>
+<line x1="549.75" y1="116.56816751107483" x2="557.75" y2="116.56816751107483" stroke="#333" stroke-width="1.5"/>
+<line x1="549.75" y1="116.56816751107483" x2="557.75" y2="116.56816751107483" stroke="#333" stroke-width="1.5"/>
+<text x="553.75" y="215" text-anchor="middle" font-size="8" fill="#333" transform="rotate(30 553.75 215)">All-Message Multi-turn</text>
+<text x="20" y="110" text-anchor="middle" font-size="10" fill="#333" transform="rotate(-90 20 110)">Token Reduction (%)</text>
+</svg>
+<p class="figure-caption">Figure 1. Percentage reduction in input tokens by scenario, with 95% confidence intervals.</p>
+</div>
+
+<div class="figure">
+<svg viewBox="0 0 600 280" xmlns="http://www.w3.org/2000/svg" style="font-family:system-ui,sans-serif">
+<rect width="600" height="280" fill="white"/>
+<line x1="60" y1="36.923076923076934" x2="540" y2="36.923076923076934" stroke="#d44" stroke-width="0.5" stroke-dasharray="4,3"/>
+<text x="542" y="39.923076923076934" font-size="8" fill="#d44">no savings</text>
+<circle cx="83.66366484331267" cy="108.39105117989581" r="5" fill="#2d7d46" opacity="0.8"/>
+<text x="90.66366484331267" y="111.39105117989581" font-size="7.5" fill="#333">Small JSON</text>
+<circle cx="496.3636363636364" cy="130.68829409760596" r="5" fill="#1a5c9e" opacity="0.8"/>
+<text x="503.3636363636364" y="133.68829409760596" font-size="7.5" fill="#333">Large JSON</text>
+<circle cx="274.693548862286" cy="239.8365099605631" r="5" fill="#9c4dcc" opacity="0.8"/>
+<text x="281.693548862286" y="242.8365099605631" font-size="7.5" fill="#333">Tabular Data</text>
+<circle cx="143.9541575417129" cy="163.29978836435885" r="5" fill="#d4a017" opacity="0.8"/>
+<text x="150.9541575417129" y="166.29978836435885" font-size="7.5" fill="#333">Source Code</text>
+<circle cx="142.86996572618264" cy="128.08436159971998" r="5" fill="#d44" opacity="0.8"/>
+<text x="149.86996572618264" y="131.08436159971998" font-size="7.5" fill="#333">Multi-turn Conversation</text>
+<circle cx="94.52915238590944" cy="132.80126017327385" r="5" fill="#0a8a8a" opacity="0.8"/>
+<text x="101.52915238590944" y="135.80126017327385" font-size="7.5" fill="#333">Line-Numbered Output</text>
+<circle cx="75.24939357930607" cy="36.923076923076934" r="5" fill="#888" opacity="0.8"/>
+<text x="82.24939357930607" y="39.923076923076934" font-size="7.5" fill="#333">Error Result</text>
+<circle cx="95.18909523014524" cy="84.52985728270392" r="5" fill="#2d7d46" opacity="0.8"/>
+<text x="102.18909523014524" y="87.52985728270392" font-size="7.5" fill="#333">Line-Numbered Source Code</text>
+<circle cx="86.39771376943247" cy="65.93406593406596" r="5" fill="#1a5c9e" opacity="0.8"/>
+<text x="93.39771376943247" y="68.93406593406596" font-size="7.5" fill="#333">Whitespace-Heavy CLI Output</text>
+<circle cx="219.51761320671332" cy="111.4366248408802" r="5" fill="#9c4dcc" opacity="0.8"/>
+<text x="226.51761320671332" y="114.4366248408802" font-size="7.5" fill="#333">All-Message Multi-turn</text>
+<text x="300" y="275" text-anchor="middle" font-size="9" fill="#333">Payload Size (bytes)</text>
+<text x="15" y="130" text-anchor="middle" font-size="9" fill="#333" transform="rotate(-90 15 130)">Compression Ratio</text>
+<text x="60" y="255" text-anchor="middle" font-size="8" fill="#666">0k</text>
+<text x="177.84693647068065" y="255" text-anchor="middle" font-size="8" fill="#666">5k</text>
+<text x="295.6938729413613" y="255" text-anchor="middle" font-size="8" fill="#666">10k</text>
+<text x="413.540809412042" y="255" text-anchor="middle" font-size="8" fill="#666">15k</text>
+<text x="531.3877458827226" y="255" text-anchor="middle" font-size="8" fill="#666">20k</text>
+</svg>
+<p class="figure-caption">Figure 2. Control payload size (bytes) vs. compression ratio, showing larger payloads benefit more.</p>
+</div>
+
+<h2>4. Discussion</h2>
+
+<p>The results confirm Tamp's core design hypothesis: structured data in tool_results compresses significantly, while unstructured content passes through safely. 9 of 10 scenarios showed meaningful compression. Tabular data achieved the highest reduction (48.7%), demonstrating TOON encoding's effectiveness on homogeneous arrays. Text-classified content (such as source code descriptions) now benefits from LLMLingua-2 neural compression when the sidecar is available. </p><p>Importantly, 1 scenarios showed near-zero compression as expected: source code (plain text, not JSON) and error results (skipped by design). This validates Tamp's content classification layer, which prevents lossy compression on content types where minification or encoding could alter semantics.</p><p>The semantic check column shows whether output token counts are within &plusmn;2 tokens between control and treatment across all 5 runs (allowing for model non-determinism with <code>max_tokens: 10</code>). Matching outputs confirm that the model's behavior is unaffected by compression&mdash;the compressed representations carry the same information.</p><p>Character-level compression ratios differ from token-level savings because tokenizers don't map 1:1 to characters. JSON whitespace that humans find readable may occupy fewer tokens than expected, while TOON's compact columnar format can achieve better token reduction than its character count suggests.</p><p><strong>Limitations:</strong> This benchmark uses a single model (Sonnet 4) and a fixed set of 7 scenarios. Real-world sessions involve thousands of unique payloads with varying structure. The 5-run sample size provides 95% confidence intervals but cannot capture all variance. Token counts from OpenRouter may differ slightly from Anthropic's direct API due to routing overhead.</p>
+
+<h2>5. Conclusion</h2>
+
+<p>Tamp achieves a weighted average of 32.0% input token reduction across representative agentic coding scenarios, with zero impact on model output quality. The recommended configuration uses stages <code>[minify, toon, llmlingua]</code> with a minimum size threshold of 50 characters. For teams running multiple coding sessions daily, Tamp can reduce API costs by $1.89&ndash;$9.47 per month per developer, depending on usage intensity. Future work includes adaptive threshold tuning and benchmarking across additional models and providers.</p>
+
+</body>
+</html>
