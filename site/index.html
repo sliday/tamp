@@ -181,7 +181,7 @@
       <li>
         <a href="https://github.com/sliday/tamp" class="db-nav__github" target="_blank" rel="noopener">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
-          GitHub
+          <span class="gh-star-count" style="display:none;"></span> GitHub
         </a>
       </li>
     </ul>
@@ -210,7 +210,7 @@
 
         <div class="trust-badges">
             <img src="https://img.shields.io/npm/v/@sliday/tamp?style=flat-square&color=8B6914&label=npm" alt="npm version">
-            <img src="https://img.shields.io/github/stars/sliday/tamp?style=flat-square&color=8B6914" alt="GitHub stars">
+            <a href="https://github.com/sliday/tamp" class="gh-stars-badge" target="_blank" rel="noopener" style="display:none; align-items:center; gap:4px; text-decoration:none; background:#8B6914; color:#fff; font-size:11px; font-weight:600; font-family:var(--db-font-ui,sans-serif); padding:3px 8px; border-radius:3px; line-height:1;">&#9733; <span class="gh-star-count">0</span></a>
             <img src="https://img.shields.io/badge/license-MIT-8B6914?style=flat-square" alt="MIT License">
             <img src="https://img.shields.io/badge/A%2FB%20tested-120%20calls-51cf66?style=flat-square" alt="A/B tested">
         </div>
@@ -562,7 +562,7 @@
 
         <div class="trust-badges" style="margin-top: 1.5rem;">
             <img src="https://img.shields.io/npm/v/@sliday/tamp?style=flat-square&color=8B6914&label=npm" alt="npm version">
-            <img src="https://img.shields.io/github/stars/sliday/tamp?style=flat-square&color=8B6914" alt="GitHub stars">
+            <a href="https://github.com/sliday/tamp" class="gh-stars-badge" target="_blank" rel="noopener" style="display:none; align-items:center; gap:4px; text-decoration:none; background:#8B6914; color:#fff; font-size:11px; font-weight:600; font-family:var(--db-font-ui,sans-serif); padding:3px 8px; border-radius:3px; line-height:1;">&#9733; <span class="gh-star-count">0</span></a>
             <img src="https://img.shields.io/badge/license-MIT-8B6914?style=flat-square" alt="MIT License">
         </div>
     </div>
@@ -573,5 +573,47 @@
 <footer style="text-align:center; padding:12px; background:var(--db-cream-dark); color:var(--db-warm-gray); margin-top:16px; font-family:var(--db-font-ui); font-size:0.75rem;">
     Made by <a href="https://x.com/staskulesh" target="_blank" rel="noopener" style="color:var(--db-terracotta); text-decoration:none;">@staskulesh</a> &middot; <a href="https://github.com/sliday/tamp" target="_blank" rel="noopener" style="color:var(--db-terracotta); text-decoration:none;">GitHub</a> &middot; <a href="whitepaper.pdf" style="color:var(--db-terracotta); text-decoration:none;">White paper</a>
 </footer>
+
+<script>
+(function() {
+  function countUp(el, target, duration) {
+    var start = 0, startTime = null;
+    function step(ts) {
+      if (!startTime) startTime = ts;
+      var t = Math.min((ts - startTime) / duration, 1);
+      var ease = 1 - Math.pow(1 - t, 3);
+      el.textContent = Math.floor(ease * target).toLocaleString();
+      if (t < 1) requestAnimationFrame(step);
+      else el.textContent = target.toLocaleString();
+    }
+    requestAnimationFrame(step);
+  }
+
+  fetch('https://api.github.com/repos/sliday/tamp', { headers: { Accept: 'application/vnd.github.v3+json' } })
+    .then(function(r) { return r.json(); })
+    .then(function(d) {
+      var stars = d.stargazers_count;
+      if (!stars || stars < 1) return;
+      document.querySelectorAll('.gh-star-count').forEach(function(el) {
+        el.textContent = '0';
+        el.style.display = '';
+      });
+      document.querySelectorAll('.gh-stars-badge').forEach(function(el) {
+        el.style.display = 'inline-flex';
+      });
+      var observed = new Set();
+      var obs = new IntersectionObserver(function(entries) {
+        entries.forEach(function(entry) {
+          if (entry.isIntersecting && !observed.has(entry.target)) {
+            observed.add(entry.target);
+            countUp(entry.target, stars, 800);
+          }
+        });
+      }, { threshold: 0.5 });
+      document.querySelectorAll('.gh-star-count').forEach(function(el) { obs.observe(el); });
+    })
+    .catch(function() {});
+})();
+</script>
 </body>
 </html>
