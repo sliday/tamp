@@ -7,6 +7,13 @@ import { compressRequest } from './compress.js'
 import { detectProvider } from './providers.js'
 import { createSession, formatRequestLog } from './stats.js'
 
+function buildUpstreamUrl(reqPath, base) {
+  const parsed = new URL(base)
+  const basePath = parsed.pathname.replace(/\/+$/, '')
+  parsed.pathname = basePath + reqPath
+  return parsed
+}
+
 export function createProxy(overrides = {}) {
   const base = loadConfig()
   const config = { ...base, ...overrides }
@@ -116,13 +123,13 @@ return http.createServer(async (req, res) => {
 
   if (!provider) {
     if (config.log) console.error(`[tamp] ${req.method} ${req.url}`)
-    const upstreamUrl = new URL(config.upstream + req.url)
+    const upstreamUrl = buildUpstreamUrl(req.url, config.upstream)
     return pipeRequest(req, res, upstreamUrl)
   }
 
   const upstream = config.upstreams?.[provider.name] || config.upstream
   const reqUrl = provider.normalizeUrl ? provider.normalizeUrl(req.url) : req.url
-  const upstreamUrl = new URL(upstream + reqUrl)
+  const upstreamUrl = buildUpstreamUrl(reqUrl, upstream)
 
   const chunks = []
   let size = 0
