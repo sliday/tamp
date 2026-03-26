@@ -80,16 +80,10 @@
         .hero-section {
             min-height: 100dvh;
             display: flex; align-items: center; justify-content: center;
-            padding: 6rem 1.5rem 4rem;
+            padding: 4rem 1.5rem 3rem;
         }
         .hero-inner { max-width: 720px; width: 100%; text-align: center; }
-        .hero-inner .db-h1 {
-            font-size: clamp(1.5rem, 4vw, 2.25rem);
-            letter-spacing: 0.15em;
-            text-transform: uppercase;
-            opacity: 0.45;
-            margin-bottom: 0.75rem;
-        }
+        .hero-inner .db-h1 { display: none; }
         .hero-headline {
             font-family: var(--db-font-heading, inherit);
             font-size: clamp(2.5rem, 7vw, 4.5rem);
@@ -201,11 +195,13 @@
      ============================================================ -->
 <section class="hero-section" id="hero">
     <div class="hero-inner">
-        <h1 class="db-h1">Tamp</h1>
         <p class="hero-headline"><em>52.6%</em> fewer<br>input tokens.</p>
         <p class="hero-sub">
-            Measured. A/B tested. Zero code changes.<br>
-            Token compression proxy for coding agents.
+            Token compression proxy for coding agents.<br>
+            Measured across 120 A/B API calls. Zero code changes.
+        </p>
+        <p class="db-caption" style="margin-top: 0.5rem; opacity: 0.45;">
+            Works with Claude Code, Aider, Cursor, Cline, &#129438;&nbsp;<a href="#openclaw" style="color: inherit; text-decoration: underline; text-underline-offset: 2px;">OpenClaw</a>, and any OpenAI-compatible agent.
         </p>
 
         <div class="install-card db-card db-surface--raised" style="margin-top: 2rem;">
