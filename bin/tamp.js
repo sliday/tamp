@@ -4,19 +4,11 @@ import { existsSync, readFileSync } from 'node:fs'
 import { spawn, execFileSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
-import { checkbox, Separator } from '@inquirer/prompts'
 import http from 'node:http'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const root = join(__dirname, '..')
 const pkg = JSON.parse(readFileSync(join(root, 'package.json'), 'utf-8'))
-
-const c = {
-  reset: '\x1b[0m', bold: '\x1b[1m', dim: '\x1b[2m',
-  green: '\x1b[32m', yellow: '\x1b[33m', blue: '\x1b[34m',
-  magenta: '\x1b[35m', cyan: '\x1b[36m', bgGreen: '\x1b[42m', red: '\x1b[31m',
-}
-function log(msg = '') { console.error(msg) }
 
 const DEFAULT_STAGES = ['minify', 'toon', 'strip-lines', 'whitespace', 'llmlingua', 'dedup', 'diff', 'prune']
 const EXTRA_STAGES = ['strip-comments', 'textpress']
@@ -34,55 +26,11 @@ const STAGE_DESC = {
   textpress:        'LLM semantic compression (Ollama/OpenRouter)',
 }
 
-// --- Determine stages ---
-const skipPrompt = process.argv.includes('-y') || process.argv.includes('--no-interactive') || !process.stdin.isTTY
-let selectedStages
+// --- Sidecar helpers (shared by both modes) ---
 
-// Determine pre-checked stages from env var (if set)
-const envStages = process.env.TAMP_STAGES
-  ? new Set(process.env.TAMP_STAGES.split(',').map(s => s.trim()).filter(Boolean))
-  : null
-
-if (skipPrompt) {
-  selectedStages = envStages ? [...envStages] : [...DEFAULT_STAGES]
-} else {
-  log('')
-  log(`  ${c.bold}${c.cyan}Tamp${c.reset} ${c.dim}v${pkg.version}${c.reset}`)
-  log(`  ${c.dim}Token compression proxy for coding agents${c.reset}`)
-  log('')
-
-  selectedStages = await checkbox({
-    message: 'Select compression stages:',
-    choices: [
-      new Separator(`${c.dim}── Default (lossless) ──${c.reset}`),
-      ...DEFAULT_STAGES.map(s => ({
-        name: `${c.cyan}${s.padEnd(15)}${c.reset} ${c.dim}${STAGE_DESC[s]}${c.reset}`,
-        value: s,
-        checked: envStages ? envStages.has(s) : true,
-      })),
-      new Separator(`${c.dim}── Extra (lossy, opt-in) ──${c.reset}`),
-      ...EXTRA_STAGES.map(s => ({
-        name: `${c.yellow}${s.padEnd(15)}${c.reset} ${c.dim}${STAGE_DESC[s]}${c.reset}`,
-        value: s,
-        checked: envStages ? envStages.has(s) : false,
-      })),
-    ],
-    pageSize: 15,
-    loop: false,
-  })
-
-  if (selectedStages.length === 0) {
-    log(`\n  ${c.red}No stages selected. At least one is required.${c.reset}`)
-    process.exit(1)
-  }
-}
-
-process.env.TAMP_STAGES = selectedStages.join(',')
-
-// --- Sidecar startup ---
 let sidecarProc = null
 
-async function checkPort(port) {
+function checkPort(port) {
   return new Promise(resolve => {
     const req = http.get(`http://127.0.0.1:${port}/health`, (res) => {
       res.resume(); resolve(res.statusCode === 200)
@@ -96,18 +44,28 @@ function hasCommand(cmd) {
   try { execFileSync('which', [cmd], { stdio: 'ignore' }); return true } catch { return false }
 }
 
-async function startSidecar() {
+function waitForSidecar(proc, port, timeout = 30000) {
+  return new Promise(resolve => {
+    const timer = setTimeout(() => resolve(null), timeout)
+    proc.stderr.on('data', (d) => {
+      if (d.toString().includes('Uvicorn running')) {
+        clearTimeout(timer)
+        resolve(`http://localhost:${port}`)
+      }
+    })
+    proc.on('exit', () => { clearTimeout(timer); resolve(null) })
+  })
+}
+
+export async function startSidecar() {
   const sidecarPort = 8788
   const sidecarDir = join(root, 'sidecar')
   const serverPy = join(sidecarDir, 'server.py')
 
   if (await checkPort(sidecarPort)) {
-    log(`  ${c.green}✓${c.reset} LLMLingua-2 sidecar already running on :${sidecarPort}`)
     return `http://localhost:${sidecarPort}`
   }
   if (!existsSync(serverPy)) return null
-
-  log(`  ${c.yellow}→${c.reset} Starting LLMLingua-2 sidecar ...`)
 
   if (hasCommand('uv')) {
     try {
@@ -135,69 +93,85 @@ async function startSidecar() {
   return null
 }
 
-function waitForSidecar(proc, port, timeout = 30000) {
-  return new Promise(resolve => {
-    const timer = setTimeout(() => resolve(null), timeout)
-    proc.stderr.on('data', (d) => {
-      if (d.toString().includes('Uvicorn running')) {
-        clearTimeout(timer)
-        log(`  ${c.green}✓${c.reset} LLMLingua-2 ready on :${c.bold}${port}${c.reset}`)
-        resolve(`http://localhost:${port}`)
-      }
-    })
-    proc.on('exit', () => { clearTimeout(timer); resolve(null) })
-  })
-}
+// --- Mode detection ---
+const skipPrompt = process.argv.includes('-y') || process.argv.includes('--no-interactive') || !process.stdin.isTTY
 
-if (selectedStages.includes('llmlingua')) {
-  const sidecarUrl = await startSidecar()
-  if (sidecarUrl) {
-    process.env.TAMP_LLMLINGUA_URL = sidecarUrl
-  } else {
-    log(`  ${c.yellow}!${c.reset} LLMLingua-2 not available`)
-    if (!hasCommand('uv')) log(`    ${c.dim}Install uv: curl -LsSf https://astral.sh/uv/install.sh | sh${c.reset}`)
-    log(`    ${c.dim}Continuing without neural compression.${c.reset}`)
-    selectedStages = selectedStages.filter(s => s !== 'llmlingua')
-    process.env.TAMP_STAGES = selectedStages.join(',')
-  }
-}
+const envStages = process.env.TAMP_STAGES
+  ? new Set(process.env.TAMP_STAGES.split(',').map(s => s.trim()).filter(Boolean))
+  : null
 
-// --- Start proxy ---
-const { config, server } = createProxy()
+if (skipPrompt) {
+  // --- Non-interactive mode (plain text, no Ink) ---
+  const { ANSI: c } = await import('./ui/theme.js')
 
-function printBanner() {
-  const url = `http://localhost:${config.port}`
-  const active = config.stages
-  const defaultActive = active.filter(s => DEFAULT_STAGES.includes(s))
-  const extraActive = active.filter(s => EXTRA_STAGES.includes(s))
+  let selectedStages = envStages ? [...envStages] : [...DEFAULT_STAGES]
+  process.env.TAMP_STAGES = selectedStages.join(',')
 
-  log('')
-  log(`  ${c.cyan}${c.bold}Tamp${c.reset} ${c.dim}v${pkg.version}${c.reset}  ${c.bgGreen}${c.bold} READY ${c.reset}  ${c.green}${url}${c.reset}`)
-  log('')
-  log(`  ${c.bold}Setup:${c.reset}`)
-  log(`    ${c.dim}Claude Code:${c.reset}  ANTHROPIC_BASE_URL=${c.yellow}${url}${c.reset}`)
-  log(`    ${c.dim}Aider/Cursor:${c.reset} OPENAI_BASE_URL=${c.yellow}${url}${c.reset}`)
-  log('')
-
-  log(`  ${c.bold}Stages${c.reset} ${c.dim}(${active.length} active)${c.reset}`)
-  for (const s of defaultActive) {
-    const extra = s === 'llmlingua' && config.llmLinguaUrl ? ` ${c.dim}(${config.llmLinguaUrl})${c.reset}` : ''
-    log(`    ${c.green}✓${c.reset} ${c.cyan}${s}${c.reset}${extra}`)
-  }
-  if (extraActive.length) {
-    for (const s of extraActive) {
-      log(`    ${c.yellow}✓${c.reset} ${c.yellow}${s}${c.reset} ${c.dim}(lossy)${c.reset}`)
+  if (selectedStages.includes('llmlingua')) {
+    const sidecarUrl = await startSidecar()
+    if (sidecarUrl) {
+      process.env.TAMP_LLMLINGUA_URL = sidecarUrl
+      console.error(`  ${c.green}\u2713${c.reset} LLMLingua-2 ready on :${c.bold}8788${c.reset}`)
+    } else {
+      console.error(`  ${c.yellow}!${c.reset} LLMLingua-2 not available`)
+      if (!hasCommand('uv')) console.error(`    ${c.dim}Install uv: curl -LsSf https://astral.sh/uv/install.sh | sh${c.reset}`)
+      console.error(`    ${c.dim}Continuing without neural compression.${c.reset}`)
+      selectedStages = selectedStages.filter(s => s !== 'llmlingua')
+      process.env.TAMP_STAGES = selectedStages.join(',')
     }
   }
-  const disabled = [...DEFAULT_STAGES, ...EXTRA_STAGES].filter(s => !active.includes(s))
-  if (disabled.length && disabled.length <= 4) {
-    log(`    ${c.dim}✗ ${disabled.join(', ')}${c.reset}`)
+
+  const { config, server } = createProxy()
+
+  function printBanner() {
+    const url = `http://localhost:${config.port}`
+    const active = config.stages
+    const defaultActive = active.filter(s => DEFAULT_STAGES.includes(s))
+    const extraActive = active.filter(s => EXTRA_STAGES.includes(s))
+
+    console.error('')
+    console.error(`  ${c.cyan}${c.bold}Tamp${c.reset} ${c.dim}v${pkg.version}${c.reset}  ${c.bgGreen}${c.bold} READY ${c.reset}  ${c.green}${url}${c.reset}`)
+    console.error('')
+    console.error(`  ${c.bold}Setup:${c.reset}`)
+    console.error(`    ${c.dim}Claude Code:${c.reset}  ANTHROPIC_BASE_URL=${c.yellow}${url}${c.reset}`)
+    console.error(`    ${c.dim}Aider/Cursor:${c.reset} OPENAI_BASE_URL=${c.yellow}${url}${c.reset}`)
+    console.error('')
+    console.error(`  ${c.bold}Stages${c.reset} ${c.dim}(${active.length} active)${c.reset}`)
+    for (const s of defaultActive) {
+      const extra = s === 'llmlingua' && config.llmLinguaUrl ? ` ${c.dim}(${config.llmLinguaUrl})${c.reset}` : ''
+      console.error(`    ${c.green}\u2713${c.reset} ${c.cyan}${s}${c.reset}${extra}`)
+    }
+    for (const s of extraActive) {
+      console.error(`    ${c.yellow}\u2713${c.reset} ${c.yellow}${s}${c.reset} ${c.dim}(lossy)${c.reset}`)
+    }
+    const disabled = [...DEFAULT_STAGES, ...EXTRA_STAGES].filter(s => !active.includes(s))
+    if (disabled.length && disabled.length <= 4) {
+      console.error(`    ${c.dim}\u2717 ${disabled.join(', ')}${c.reset}`)
+    }
+    console.error('')
   }
-  log('')
+
+  server.listen(config.port, () => { printBanner() })
+
+  process.on('exit', () => sidecarProc?.kill())
+  process.on('SIGINT', () => { sidecarProc?.kill(); process.exit() })
+  process.on('SIGTERM', () => { sidecarProc?.kill(); process.exit() })
+
+} else {
+  // --- Interactive mode (Ink TUI) ---
+  const { render } = await import('ink')
+  const React = await import('react')
+  const { App } = await import('./ui/App.js')
+
+  const h = React.createElement
+
+  const cleanup = () => { sidecarProc?.kill() }
+  process.on('exit', cleanup)
+
+  render(h(App, {
+    version: pkg.version,
+    envStages,
+    startSidecar,
+    createProxy,
+  }))
 }
-
-server.listen(config.port, () => { printBanner() })
-
-process.on('exit', () => sidecarProc?.kill())
-process.on('SIGINT', () => { sidecarProc?.kill(); process.exit() })
-process.on('SIGTERM', () => { sidecarProc?.kill(); process.exit() })
