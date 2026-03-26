@@ -116,13 +116,13 @@ return http.createServer(async (req, res) => {
 
   if (!provider) {
     if (config.log) console.error(`[tamp] ${req.method} ${req.url}`)
-    const upstreamUrl = new URL(req.url, config.upstream)
+    const upstreamUrl = new URL(config.upstream + req.url)
     return pipeRequest(req, res, upstreamUrl)
   }
 
   const upstream = config.upstreams?.[provider.name] || config.upstream
   const reqUrl = provider.normalizeUrl ? provider.normalizeUrl(req.url) : req.url
-  const upstreamUrl = new URL(reqUrl, upstream)
+  const upstreamUrl = new URL(upstream + reqUrl)
 
   const chunks = []
   let size = 0
