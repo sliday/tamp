@@ -589,24 +589,30 @@
     requestAnimationFrame(step);
   }
 
-  var stars = 33;
-  document.querySelectorAll('.gh-star-count').forEach(function(el) {
-    el.textContent = '00';
-    el.style.display = '';
-  });
-  document.querySelectorAll('.gh-stars-badge').forEach(function(el) {
-    el.style.display = 'inline-flex';
-  });
-  var observed = new Set();
-  var obs = new IntersectionObserver(function(entries) {
-    entries.forEach(function(entry) {
-      if (entry.isIntersecting && !observed.has(entry.target)) {
-        observed.add(entry.target);
-        countUp(entry.target, stars, 800);
-      }
-    });
-  }, { threshold: 0.5 });
-  document.querySelectorAll('.gh-star-count').forEach(function(el) { obs.observe(el); });
+  fetch('https://api.github.com/repos/sliday/tamp', { headers: { Accept: 'application/vnd.github.v3+json' } })
+    .then(function(r) { return r.json(); })
+    .then(function(d) {
+      var stars = d.stargazers_count;
+      if (!stars || stars < 1) return;
+      document.querySelectorAll('.gh-star-count').forEach(function(el) {
+        el.textContent = '00';
+        el.style.display = '';
+      });
+      document.querySelectorAll('.gh-stars-badge').forEach(function(el) {
+        el.style.display = 'inline-flex';
+      });
+      var observed = new Set();
+      var obs = new IntersectionObserver(function(entries) {
+        entries.forEach(function(entry) {
+          if (entry.isIntersecting && !observed.has(entry.target)) {
+            observed.add(entry.target);
+            countUp(entry.target, stars, 800);
+          }
+        });
+      }, { threshold: 0.5 });
+      document.querySelectorAll('.gh-star-count').forEach(function(el) { obs.observe(el); });
+    })
+    .catch(function() {});
 })();
 </script>
 </body>
