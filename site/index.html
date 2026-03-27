@@ -586,7 +586,7 @@
      ============================================================ -->
 <section>
     <div class="section-inner" style="text-align: center;">
-        <h2 class="db-h2">One command. No config.</h2>
+        <h2 class="db-h2">One command. Zero config.</h2>
         <p class="db-body" style="opacity: 0.7; margin-top: 0.5rem;">
             Point your agent at <code>localhost:7778</code> and go.
         </p>
@@ -594,6 +594,9 @@
         <div class="install-card db-card db-surface--raised" style="max-width: 480px; margin: 1.5rem auto 0;">
             <pre style="position: relative;"><span class="prompt">$</span> <span class="cmd">npx @sliday/tamp</span><button onclick="navigator.clipboard.writeText('npx @sliday/tamp').then(()=>{this.textContent='Copied!';setTimeout(()=>this.textContent='Copy',1500)})" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);color:#ebdbb2;padding:4px 10px;border-radius:4px;font-size:0.75rem;cursor:pointer;transition:background 0.15s;">Copy</button></pre>
         </div>
+        <p class="db-caption" style="margin-top: 0.75rem; opacity: 0.5;">
+            Or install as a service: <code style="background: rgba(0,0,0,0.15); padding: 2px 6px; border-radius: 3px;">tamp init && tamp install-service</code>
+        </p>
 
         <div class="trust-badges" style="margin-top: 1.5rem;">
             <img src="https://img.shields.io/npm/v/@sliday/tamp?style=flat-square&color=8B6914&label=npm" alt="npm version">

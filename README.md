@@ -9,7 +9,7 @@ npx @sliday/tamp
 Or install globally:
 
 ```bash
-npm i -g @sliday/tamp@0.3.9
+npm i -g @sliday/tamp
 ```
 
 ### 🦞 OpenClaw Quick Setup
@@ -30,7 +30,7 @@ TAMP_STAGES=minify,toon,strip-lines,whitespace,dedup,diff,prune tamp -y
 
 ## How It Works
 
-Tamp auto-detects your agent's API format and compresses tool result blocks before forwarding upstream. Source code, error results, and non-JSON content pass through untouched.
+Tamp auto-detects your agent's API format and compresses eligible tool output before forwarding upstream. Error results are skipped, JSON is compacted structurally, and text/code can be normalized or semantically compressed when those stages are enabled.
 
 ```
 Claude Code ──► Tamp (localhost:7778) ──► Anthropic API
@@ -63,8 +63,13 @@ Gemini CLI ────►          │          ──► Google AI API
 | `strip-lines` | Removes line-number prefixes | Read tool output (`  1→...`) |
 | `whitespace` | Collapses blank lines, trims trailing spaces | CLI output, source code |
 | `llmlingua` | Neural text compression via [LLMLingua-2](https://github.com/microsoft/LLMLingua) | Natural language text (auto-starts sidecar) |
+| `dedup` | Replaces repeated tool output with a short reference | Duplicate results in the eligible compression window |
+| `diff` | Replaces similar re-reads with unified diffs | Similar text blocks in the eligible compression window |
+| `prune` | Removes low-value lockfile/package metadata before minifying | npm metadata and registry URLs |
+| `strip-comments` | Removes comments from text/code | Opt-in lossy mode |
+| `textpress` | LLM semantic text compression via Ollama/OpenRouter | Opt-in lossy mode |
 
-All 5 stages enabled by default. On first launch, an interactive prompt lets you toggle methods. Use `-y` to skip the prompt.
+All 8 default stages are enabled by default. Two additional lossy stages are available via the interactive prompt or `TAMP_STAGES`. Use `-y` to skip the prompt.
 
 ## Quick Start
 
@@ -83,7 +88,7 @@ npx @sliday/tamp
   │    ANTHROPIC_BASE_URL=http://localhost:7778
   │                                        │
   │  Aider / Cursor / Cline:              │
-  │    OPENAI_BASE_URL=http://localhost:7778
+  │    OPENAI_API_BASE=http://localhost:7778
   └────────────────────────────────────────┘
 ```
 
@@ -108,7 +113,27 @@ That's it. Use your agent as normal — Tamp compresses silently in the backgrou
 
 ## Configuration
 
-All configuration via environment variables:
+### Config file
+
+Run `tamp init` to create a persistent config file:
+
+```bash
+tamp init
+# Creates ~/.config/tamp/config
+```
+
+Edit the file to set your defaults. All `TAMP_*` variables are supported. Environment variables still override the config file.
+
+```bash
+# ~/.config/tamp/config
+TAMP_PORT=7778
+TAMP_UPSTREAM=https://api.anthropic.com
+TAMP_STAGES=minify,toon,strip-lines,whitespace,dedup,diff,prune
+```
+
+### Environment variables
+
+All configuration also works via environment variables (override config file):
 
 | Variable | Default | Description |
 |----------|---------|-------------|
@@ -116,11 +141,12 @@ All configuration via environment variables:
 | `TAMP_UPSTREAM` | `https://api.anthropic.com` | Default upstream API URL |
 | `TAMP_UPSTREAM_OPENAI` | `https://api.openai.com` | Upstream for OpenAI-format requests |
 | `TAMP_UPSTREAM_GEMINI` | `https://generativelanguage.googleapis.com` | Upstream for Gemini-format requests |
-| `TAMP_STAGES` | `minify,toon,strip-lines,whitespace,llmlingua` | Comma-separated compression stages |
+| `TAMP_STAGES` | `minify,toon,strip-lines,whitespace,llmlingua,dedup,diff,prune` | Comma-separated compression stages |
 | `TAMP_MIN_SIZE` | `200` | Minimum content size (chars) to attempt compression |
 | `TAMP_LOG` | `true` | Enable request logging to stderr |
-| `TAMP_LOG_FILE` | _(none)_ | Write logs to file |
+| `TAMP_LOG_FILE` | _(none)_ | Append request logs to a file when `TAMP_LOG=true` |
 | `TAMP_MAX_BODY` | `10485760` | Max request body size (bytes) before passthrough |
+| `TAMP_CACHE_SAFE` | `true` | Only compress the newest eligible provider payload to preserve prompt-cache stability |
 | `TAMP_LLMLINGUA_URL` | _(none)_ | LLMLingua sidecar URL for text compression |
 
 ### Recommended setup
@@ -131,6 +157,9 @@ npx @sliday/tamp
 
 # Skip interactive prompt (CI/scripts):
 npx @sliday/tamp -y
+
+# Re-compress eligible history too:
+TAMP_CACHE_SAFE=false npx @sliday/tamp -y
 
 # Without LLMLingua (no Python needed):
 TAMP_STAGES=minify,toon,strip-lines,whitespace npx @sliday/tamp -y
@@ -159,6 +188,23 @@ cd tamp && npm install
 node bin/tamp.js
 ```
 
+### Systemd service (Ubuntu/Linux)
+
+```bash
+npm i -g @sliday/tamp
+tamp init                  # create config file
+tamp install-service       # install + start systemd user service
+```
+
+Manages itself via `systemctl --user`. Starts on login, restarts on crash.
+
+```bash
+tamp status                # check if running
+systemctl --user status tamp
+journalctl --user -u tamp -f
+tamp uninstall-service     # remove
+```
+
 ### One-line installer
 
 ```bash
@@ -169,7 +215,7 @@ The installer clones to `~/.tamp`, adds `ANTHROPIC_BASE_URL` to your shell profi
 
 ## What Gets Compressed
 
-Tamp compresses `tool_result` blocks in **all messages** — not just the latest. Since each API call re-sends the full conversation history uncompressed, this compounds savings with every turn. An in-memory cache ensures identical content is only compressed once per session.
+With the default `TAMP_CACHE_SAFE=true`, Tamp compresses only the newest eligible tool output or function response for the detected provider so prompt-cache prefixes stay byte-stable. Set `TAMP_CACHE_SAFE=false` to also compress eligible historical blocks across the full request. An in-memory cache ensures identical content is only compressed once per session.
 
 | Content Type | Action | Example |
 |-------------|--------|---------|
@@ -189,7 +235,7 @@ index.js             HTTP proxy server
 providers.js         API format adapters (Anthropic, OpenAI, Gemini) + auto-detection
 compress.js          Compression pipeline (compressRequest, compressText)
 detect.js            Content classification (classifyContent, tryParseJSON, stripLineNumbers)
-config.js            Environment-based configuration
+config.js            Configuration (env vars + ~/.config/tamp/config)
 stats.js             Session statistics and request logging
 setup.sh             One-line installer script
 ```

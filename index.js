@@ -1,5 +1,6 @@
 import http from 'node:http'
 import https from 'node:https'
+import { appendFileSync } from 'node:fs'
 import zlib from 'node:zlib'
 import * as fzstd from 'fzstd'
 import { loadConfig } from './config.js'
@@ -33,6 +34,7 @@ export function createProxy(overrides = {}) {
 }
 
 function _createServer(config, session) {
+const log = createRequestLogger(config)
 
 function forwardRequest(method, upstreamUrl, headers, body, res) {
   const mod = upstreamUrl.protocol === 'https:' ? https : http
@@ -48,13 +50,13 @@ function forwardRequest(method, upstreamUrl, headers, body, res) {
     res.writeHead(upstreamRes.statusCode, upstreamRes.headers)
     upstreamRes.pipe(res)
     upstreamRes.on('error', (err) => {
-      console.error(`[tamp] response stream error: ${err.code || ''} ${err.message}`)
+      log(`[tamp] response stream error: ${err.code || ''} ${err.message}`)
       res.destroy()
     })
   })
 
   upstream.on('error', (err) => {
-    console.error(`[tamp] upstream error: ${err.code || ''} ${err.message}`)
+    log(`[tamp] upstream error: ${err.code || ''} ${err.message}`)
     if (!res.headersSent) {
       res.writeHead(502, { 'Content-Type': 'application/json' })
     }
@@ -62,7 +64,7 @@ function forwardRequest(method, upstreamUrl, headers, body, res) {
   })
 
   res.on('error', (err) => {
-    console.error(`[tamp] client disconnect: ${err.code || ''} ${err.message}`)
+    log(`[tamp] client disconnect: ${err.code || ''} ${err.message}`)
     upstream.destroy()
   })
 
@@ -92,13 +94,13 @@ function pipeRequest(req, res, upstreamUrl, prefixChunks) {
     res.writeHead(upstreamRes.statusCode, upstreamRes.headers)
     upstreamRes.pipe(res)
     upstreamRes.on('error', (err) => {
-      console.error(`[tamp] response stream error: ${err.code || ''} ${err.message}`)
+      log(`[tamp] response stream error: ${err.code || ''} ${err.message}`)
       res.destroy()
     })
   })
 
   upstream.on('error', (err) => {
-    console.error(`[tamp] upstream error: ${err.code || ''} ${err.message}`)
+    log(`[tamp] upstream error: ${err.code || ''} ${err.message}`)
     if (!res.headersSent) {
       res.writeHead(502, { 'Content-Type': 'application/json' })
     }
@@ -106,7 +108,7 @@ function pipeRequest(req, res, upstreamUrl, prefixChunks) {
   })
 
   res.on('error', (err) => {
-    console.error(`[tamp] client disconnect: ${err.code || ''} ${err.message}`)
+    log(`[tamp] client disconnect: ${err.code || ''} ${err.message}`)
     upstream.destroy()
   })
 
@@ -122,7 +124,7 @@ function pipeRequest(req, res, upstreamUrl, prefixChunks) {
 return http.createServer(async (req, res) => {
   // Health check endpoint
   if (req.url === '/health' && (req.method === 'GET' || req.method === 'HEAD')) {
-    const body = JSON.stringify({ status: 'ok', version: config.version || '0.3.7', stages: config.stages })
+    const body = JSON.stringify({ status: 'ok', version: config.version, stages: config.stages })
     res.writeHead(200, { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body) })
     return res.end(req.method === 'HEAD' ? undefined : body)
   }
@@ -130,7 +132,7 @@ return http.createServer(async (req, res) => {
   const provider = detectProvider(req.method, req.url)
 
   if (!provider) {
-    if (config.log) console.error(`[tamp] ${req.method} ${req.url}`)
+    log(`[tamp] ${req.method} ${req.url}`)
     const upstreamUrl = buildUpstreamUrl(req.url, config.upstream)
     return pipeRequest(req, res, upstreamUrl)
   }
@@ -153,7 +155,7 @@ return http.createServer(async (req, res) => {
   }
 
   if (overflow) {
-    if (config.log) console.error('[tamp] passthrough (body too large)')
+    log('[tamp] passthrough (body too large)')
     return pipeRequest(req, res, upstreamUrl, chunks)
   }
 
@@ -181,7 +183,7 @@ return http.createServer(async (req, res) => {
       decompressed = true
     } else if (encoding && encoding !== 'identity') {
       // Unknown encoding — can't decompress, passthrough as-is
-      if (config.log) console.error(`[tamp] passthrough (unsupported encoding: ${encoding})`)
+      log(`[tamp] passthrough (unsupported encoding: ${encoding})`)
       forwardRequest(req.method, upstreamUrl, headers, rawBody, res)
       return
     } else {
@@ -189,7 +191,7 @@ return http.createServer(async (req, res) => {
     }
   } catch {
     // Decompression failed — passthrough original body
-    if (config.log) console.error(`[tamp] passthrough (decompression failed)`)
+    log('[tamp] passthrough (decompression failed)')
     forwardRequest(req.method, upstreamUrl, headers, rawBody, res)
     return
   }
@@ -203,12 +205,10 @@ return http.createServer(async (req, res) => {
     if (decompressed) delete headers['content-encoding']
 
     session.record(stats)
-    if (config.log) {
-      console.error(formatRequestLog(stats, session, provider.name, req.url, textBody.length, config.tokenCost))
-    }
+    log(formatRequestLog(stats, session, provider.name, req.url, textBody.length, config.tokenCost))
     config.onCompress?.(stats, session.getTotals(), { provider: provider.name, url: req.url, bodySize: textBody.length })
   } catch (err) {
-    if (config.log) console.error(`[tamp] passthrough (parse error): ${err.message}`)
+    log(`[tamp] passthrough (parse error): ${err.message}`)
     finalBody = rawBody
   }
 
@@ -217,6 +217,29 @@ return http.createServer(async (req, res) => {
 
   forwardRequest(req.method, upstreamUrl, headers, finalBody, res)
 })
+}
+
+function createRequestLogger(config) {
+  if (!config.log) return () => {}
+
+  let fileLoggingEnabled = Boolean(config.logFile)
+  let warned = false
+
+  return (message) => {
+    console.error(message)
+
+    if (!fileLoggingEnabled) return
+
+    try {
+      appendFileSync(config.logFile, `${message}\n`, 'utf8')
+    } catch (err) {
+      fileLoggingEnabled = false
+      if (!warned) {
+        warned = true
+        process.stderr.write(`[tamp] log file disabled: ${err.message}\n`)
+      }
+    }
+  }
 }
 
 const isMain = !process.argv[1]?.includes('node_modules') && process.argv[1] === new URL(import.meta.url).pathname

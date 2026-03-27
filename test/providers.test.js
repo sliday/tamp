@@ -100,6 +100,19 @@ describe('anthropic adapter', () => {
     assert.equal(targets[0].text, '{"plain":"string"}')
   })
 
+  it('extracts only the newest eligible user message when cacheSafe=true', () => {
+    const body = {
+      messages: [
+        { role: 'user', content: [{ type: 'tool_result', tool_use_id: 'old', content: '{"a":1}' }] },
+        { role: 'assistant', content: [{ type: 'text', text: 'ok' }] },
+        { role: 'user', content: [{ type: 'tool_result', tool_use_id: 'new', content: '{"b":2}' }] },
+      ],
+    }
+    const targets = anthropic.extract(body, { cacheSafe: true })
+    assert.equal(targets.length, 1)
+    assert.deepEqual(targets[0].path, ['messages', 2, 'content', 0, 'content'])
+  })
+
   it('returns empty for no messages', () => {
     assert.deepEqual(anthropic.extract({}), [])
     assert.deepEqual(anthropic.extract({ messages: [] }), [])
@@ -143,6 +156,40 @@ describe('openai adapter', () => {
     assert.deepEqual(openai.extract(body), [])
   })
 
+  it('extracts only trailing tool messages when cacheSafe=true', () => {
+    const body = {
+      messages: [
+        { role: 'tool', tool_call_id: 'call_1', content: '{"old":"data"}' },
+        { role: 'assistant', content: 'done' },
+        { role: 'tool', tool_call_id: 'call_2', content: '{"new":"data"}' },
+        { role: 'tool', tool_call_id: 'call_3', content: '{"newer":"data"}' },
+      ],
+    }
+    const targets = openai.extract(body, { cacheSafe: true })
+    assert.equal(targets.length, 2)
+    assert.deepEqual(targets.map(target => target.path), [
+      ['messages', 2, 'content'],
+      ['messages', 3, 'content'],
+    ])
+  })
+
+  it('extracts only trailing eligible responses items when cacheSafe=true', () => {
+    const body = {
+      input: [
+        { type: 'function_call_output', output: '{"old":true}' },
+        { type: 'reasoning', summary: [] },
+        { type: 'message', content: [{ type: 'input_text', text: 'first trailing item' }] },
+        { type: 'function_call_output', output: '{"new":true}' },
+      ],
+    }
+    const targets = openai.extract(body, { cacheSafe: true })
+    assert.equal(targets.length, 2)
+    assert.deepEqual(targets.map(target => target.path), [
+      ['input', 2, 'content', 0, 'text'],
+      ['input', 3, 'output'],
+    ])
+  })
+
   it('returns empty for no messages', () => {
     assert.deepEqual(openai.extract({}), [])
     assert.deepEqual(openai.extract({ messages: [] }), [])
@@ -182,6 +229,19 @@ describe('gemini adapter', () => {
     assert.equal(targets.length, 1)
     assert.equal(targets[0].text, 'plain text')
     assert.equal(targets[0].wasObject, false)
+  })
+
+  it('extracts only the last content with functionResponse when cacheSafe=true', () => {
+    const body = {
+      contents: [
+        { parts: [{ functionResponse: { name: 'old', response: { a: 1 } } }] },
+        { parts: [{ text: 'noop' }] },
+        { parts: [{ functionResponse: { name: 'new', response: { b: 2 } } }] },
+      ],
+    }
+    const targets = gemini.extract(body, { cacheSafe: true })
+    assert.equal(targets.length, 1)
+    assert.deepEqual(targets[0].path, ['contents', 2, 'parts', 0, 'functionResponse', 'response'])
   })
 
   it('returns empty for no contents', () => {

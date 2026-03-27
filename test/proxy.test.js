@@ -1,9 +1,13 @@
 import { describe, it, before, after } from 'node:test'
 import assert from 'node:assert/strict'
 import http from 'node:http'
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import os from 'node:os'
+import path from 'node:path'
 import zlib from 'node:zlib'
 import { execFileSync } from 'node:child_process'
 import { createProxy } from '../index.js'
+import { VERSION } from '../metadata.js'
 
 function zstdCompress(buf) {
   return execFileSync('zstd', ['-c', '--no-progress'], { input: buf, maxBuffer: 10 * 1024 * 1024 })
@@ -187,6 +191,13 @@ describe('proxy integration', () => {
     assert.equal(res.headers['x-echo'], 'true')
   })
 
+  it('reports the runtime version on /health', async () => {
+    const res = await request(proxyPort, 'GET', '/health')
+    assert.equal(res.status, 200)
+    const body = JSON.parse(res.body.toString())
+    assert.equal(body.version, VERSION)
+  })
+
   it('recalculates Content-Length and removes Transfer-Encoding', async () => {
     const body = JSON.stringify({
       model: 'claude-sonnet-4-20250514',
@@ -214,7 +225,25 @@ describe('proxy integration', () => {
     assert.equal(res.body.toString(), body)
   })
 
-  it('compresses ALL messages including historical', async () => {
+  it('compresses only the newest eligible message by default', async () => {
+    const historicalContent = JSON.stringify({ old: 'data', value: 'should be compressed now too' }, null, 2)
+    const latestContent = JSON.stringify({ fresh: 'data', extra: 'fields here for length' }, null, 2)
+    const body = JSON.stringify({
+      model: 'claude-sonnet-4-20250514',
+      messages: [
+        { role: 'user', content: [{ type: 'tool_result', tool_use_id: 'old', content: historicalContent }] },
+        { role: 'assistant', content: [{ type: 'text', text: 'ok' }] },
+        { role: 'user', content: [{ type: 'tool_result', tool_use_id: 'new', content: latestContent }] },
+      ],
+    })
+
+    const res = await request(proxyPort, 'POST', '/v1/messages', body, { 'Content-Type': 'application/json' })
+    const received = JSON.parse(res.body.toString())
+    assert.equal(received.messages[0].content[0].content, historicalContent, 'historical message should be unchanged')
+    assert.ok(received.messages[2].content[0].content.length < latestContent.length, 'latest eligible message should be compressed')
+  })
+
+  it('compresses historical messages when cacheSafe=false', async () => {
     const historicalContent = JSON.stringify({ old: 'data', value: 'should be compressed now too' }, null, 2)
     const body = JSON.stringify({
       model: 'claude-sonnet-4-20250514',
@@ -225,10 +254,22 @@ describe('proxy integration', () => {
       ],
     })
 
-    const res = await request(proxyPort, 'POST', '/v1/messages', body, { 'Content-Type': 'application/json' })
+    const { server: historyProxy } = createProxy({
+      port: 0,
+      upstream: `http://127.0.0.1:${mockPort}`,
+      log: false,
+      minSize: 50,
+      stages: ['minify'],
+      cacheSafe: false,
+    })
+    await new Promise(resolve => historyProxy.listen(0, resolve))
+    const historyProxyPort = historyProxy.address().port
+
+    const res = await request(historyProxyPort, 'POST', '/v1/messages', body, { 'Content-Type': 'application/json' })
     const received = JSON.parse(res.body.toString())
     assert.ok(received.messages[0].content[0].content.length < historicalContent.length, 'historical message should be compressed')
-    assert.ok(received.messages[0].content[0].content.length > 0, 'historical message should not be empty')
+
+    historyProxy.close()
   })
 
   it('decompresses gzip request body and compresses content', async () => {
@@ -443,5 +484,76 @@ describe('proxy integration', () => {
 
     sseProxy.close()
     sseUpstream.close()
+  })
+
+  it('appends request logs to TAMP_LOG_FILE when logging is enabled', async () => {
+    const tempDir = mkdtempSync(path.join(os.tmpdir(), 'tamp-log-'))
+    const logFile = path.join(tempDir, 'tamp.log')
+    writeFileSync(logFile, '', 'utf8')
+
+    const { server: loggingProxy } = createProxy({
+      port: 0,
+      upstream: `http://127.0.0.1:${mockPort}`,
+      log: true,
+      logFile,
+      minSize: 50,
+      stages: ['minify'],
+    })
+    await new Promise(resolve => loggingProxy.listen(0, resolve))
+    const loggingProxyPort = loggingProxy.address().port
+
+    const body = JSON.stringify({
+      model: 'claude-sonnet-4-20250514',
+      messages: [{
+        role: 'user',
+        content: [{
+          type: 'tool_result',
+          tool_use_id: 'tu_log',
+          content: JSON.stringify({ name: 'tamp', description: 'log me please for the test' }, null, 2),
+        }],
+      }],
+    })
+
+    const res = await request(loggingProxyPort, 'POST', '/v1/messages', body, { 'Content-Type': 'application/json' })
+    assert.equal(res.status, 200)
+    const logs = readFileSync(logFile, 'utf8')
+    assert.ok(logs.includes('/v1/messages'))
+    assert.ok(logs.includes('compressed'))
+
+    loggingProxy.close()
+    rmSync(tempDir, { recursive: true, force: true })
+  })
+
+  it('keeps handling requests when log file writes fail', async () => {
+    const tempDir = mkdtempSync(path.join(os.tmpdir(), 'tamp-log-fail-'))
+
+    const { server: loggingProxy } = createProxy({
+      port: 0,
+      upstream: `http://127.0.0.1:${mockPort}`,
+      log: true,
+      logFile: tempDir,
+      minSize: 50,
+      stages: ['minify'],
+    })
+    await new Promise(resolve => loggingProxy.listen(0, resolve))
+    const loggingProxyPort = loggingProxy.address().port
+
+    const body = JSON.stringify({
+      model: 'claude-sonnet-4-20250514',
+      messages: [{
+        role: 'user',
+        content: [{
+          type: 'tool_result',
+          tool_use_id: 'tu_log_fail',
+          content: JSON.stringify({ name: 'tamp', description: 'this should still work even if logging fails' }, null, 2),
+        }],
+      }],
+    })
+
+    const res = await request(loggingProxyPort, 'POST', '/v1/messages', body, { 'Content-Type': 'application/json' })
+    assert.equal(res.status, 200)
+
+    loggingProxy.close()
+    rmSync(tempDir, { recursive: true, force: true })
   })
 })

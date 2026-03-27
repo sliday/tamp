@@ -10,11 +10,11 @@ Save 3-50% on input tokens by routing API requests through [Tamp](https://github
 ## 1. Install & Run
 
 ```bash
-# Install a pinned version (recommended)
-npm i -g @sliday/tamp@0.3.8
+# Install globally
+npm i -g @sliday/tamp
 
 # Or run without installing
-npx @sliday/tamp@0.3.8 -y
+npx @sliday/tamp -y
 ```
 
 Start with default stages:
@@ -27,39 +27,34 @@ Verify:
 
 ```bash
 curl http://localhost:7778/health
-# {"status":"ok","version":"0.3.8","stages":["minify","toon",...]}
+# {"status":"ok","version":"<package version>","stages":["minify","toon",...]}
 ```
+
+By default, Tamp keeps `TAMP_CACHE_SAFE=true`, so it only compresses the newest eligible tool result in each request to preserve prompt-cache stability. If you want full-history compression instead, start it with `TAMP_CACHE_SAFE=false`.
 
 > **Note:** Tamp is [open source (MIT)](https://github.com/sliday/tamp). You can audit the source, build from git, or run from a local clone instead of npm: `git clone https://github.com/sliday/tamp && cd tamp && npm install && node bin/tamp.js -y`
 
 ## 2. Run as systemd service
 
-Create `~/.config/systemd/user/tamp.service`:
-
-```ini
-[Unit]
-Description=Tamp token compression proxy
-After=network.target
-
-[Service]
-# Adjust path to match your npm global bin location:
-#   node -e "console.log(require('child_process').execFileSync('which', ['tamp']).toString().trim())"
-ExecStart=/usr/local/bin/tamp
-Restart=always
-RestartSec=5
-Environment=TAMP_PORT=7778
-Environment=TAMP_STAGES=minify,toon,strip-lines,whitespace,dedup,diff,prune
-Environment=TAMP_LOG=true
-
-[Install]
-WantedBy=default.target
+```bash
+tamp init                  # create config file (~/.config/tamp/config)
+tamp install-service       # install + start systemd user service
 ```
+
+Check status:
 
 ```bash
-systemctl --user daemon-reload
-systemctl --user enable --now tamp.service
+tamp status
 journalctl --user -u tamp -f  # live compression logs
 ```
+
+Remove:
+
+```bash
+tamp uninstall-service
+```
+
+The service reads config from `~/.config/tamp/config`. Edit it to change stages, port, upstream, etc.
 
 ## 3. Configure OpenClaw
 

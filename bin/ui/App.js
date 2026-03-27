@@ -6,8 +6,6 @@ import { Dashboard } from './Dashboard.js'
 
 const h = React.createElement
 
-const DEFAULT_STAGES = ['minify', 'toon', 'strip-lines', 'whitespace', 'llmlingua', 'dedup', 'diff', 'prune']
-
 export function App({ version, envStages, startSidecar, createProxy }) {
   const { exit } = useApp()
   const [phase, setPhase] = useState('pick')

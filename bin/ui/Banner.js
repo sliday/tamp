@@ -1,12 +1,9 @@
 import React from 'react'
 import { Box, Text } from 'ink'
 import { Badge } from '@inkjs/ui'
+import { ALL_STAGES, DEFAULT_STAGES, EXTRA_STAGES } from '../../metadata.js'
 
 const h = React.createElement
-
-const DEFAULT_STAGES = ['minify', 'toon', 'strip-lines', 'whitespace', 'llmlingua', 'dedup', 'diff', 'prune']
-const EXTRA_STAGES = ['strip-comments', 'textpress']
-const ALL_STAGES = [...DEFAULT_STAGES, ...EXTRA_STAGES]
 
 export function Banner({ version, port, stages, llmLinguaUrl }) {
   const url = `http://localhost:${port}`
@@ -32,7 +29,7 @@ export function Banner({ version, port, stages, llmLinguaUrl }) {
       ),
       h(Text, null,
         h(Text, { dimColor: true }, 'Aider/Cursor: '),
-        h(Text, null, 'OPENAI_BASE_URL='),
+        h(Text, null, 'OPENAI_API_BASE='),
         h(Text, { color: 'yellow' }, url),
       ),
     ),

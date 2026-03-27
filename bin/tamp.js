@@ -1,30 +1,16 @@
 #!/usr/bin/env node
 import { createProxy } from '../index.js'
-import { existsSync, readFileSync } from 'node:fs'
+import { existsSync, mkdirSync, writeFileSync, readFileSync, unlinkSync } from 'node:fs'
 import { spawn, execFileSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
+import { homedir } from 'node:os'
 import http from 'node:http'
+import { DEFAULT_STAGES, EXTRA_STAGES, STAGE_DESCRIPTIONS, VERSION } from '../metadata.js'
+import { CONFIG_PATH, CONFIG_TEMPLATE } from '../config.js'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const root = join(__dirname, '..')
-const pkg = JSON.parse(readFileSync(join(root, 'package.json'), 'utf-8'))
-
-const DEFAULT_STAGES = ['minify', 'toon', 'strip-lines', 'whitespace', 'llmlingua', 'dedup', 'diff', 'prune']
-const EXTRA_STAGES = ['strip-comments', 'textpress']
-
-const STAGE_DESC = {
-  minify:           'Strip JSON whitespace (lossless)',
-  toon:             'Columnar array encoding (lossless)',
-  'strip-lines':    'Remove line-number prefixes',
-  whitespace:       'Collapse blank lines, trim trailing',
-  llmlingua:        'Neural compression via LLMLingua-2',
-  dedup:            'Deduplicate identical tool_results',
-  diff:             'Replace similar re-reads with diffs',
-  prune:            'Strip lockfile hashes & npm metadata',
-  'strip-comments': 'Remove code comments (lossy)',
-  textpress:        'LLM semantic compression (Ollama/OpenRouter)',
-}
 
 // --- Sidecar helpers (shared by both modes) ---
 
@@ -93,6 +79,104 @@ export async function startSidecar() {
   return null
 }
 
+// --- Subcommands ---
+const subcommand = process.argv[2]
+
+if (subcommand === 'init') {
+  const dir = dirname(CONFIG_PATH)
+  if (existsSync(CONFIG_PATH)) {
+    console.log(`Config file exists: ${CONFIG_PATH}\n`)
+    console.log(readFileSync(CONFIG_PATH, 'utf8'))
+  } else {
+    mkdirSync(dir, { recursive: true })
+    writeFileSync(CONFIG_PATH, CONFIG_TEMPLATE)
+    console.log(`Created config file: ${CONFIG_PATH}`)
+    console.log('Edit it to set your defaults. Environment variables still override.\n')
+    console.log(CONFIG_TEMPLATE)
+  }
+  process.exit(0)
+}
+
+if (subcommand === 'install-service') {
+  if (process.platform !== 'linux') {
+    console.error('Service installation requires Linux (systemd).')
+    process.exit(1)
+  }
+  const nodeBin = process.execPath
+  const tampBin = join(__dirname, 'tamp.js')
+  const unitDir = join(homedir(), '.config', 'systemd', 'user')
+  const unitPath = join(unitDir, 'tamp.service')
+  const unit = `[Unit]
+Description=Tamp token compression proxy
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=${nodeBin} ${tampBin} -y
+Restart=always
+RestartSec=5
+EnvironmentFile=-${CONFIG_PATH}
+
+[Install]
+WantedBy=default.target
+`
+  mkdirSync(unitDir, { recursive: true })
+  writeFileSync(unitPath, unit)
+  try {
+    execFileSync('systemctl', ['--user', 'daemon-reload'], { stdio: 'inherit' })
+    execFileSync('systemctl', ['--user', 'enable', '--now', 'tamp.service'], { stdio: 'inherit' })
+    console.log(`\nService installed: ${unitPath}`)
+    console.log('  Status:  systemctl --user status tamp')
+    console.log('  Logs:    journalctl --user -u tamp -f')
+    console.log('  Stop:    systemctl --user stop tamp')
+    console.log('  Remove:  tamp uninstall-service')
+  } catch (e) {
+    console.error('systemctl failed:', e.message)
+    process.exit(1)
+  }
+  process.exit(0)
+}
+
+if (subcommand === 'uninstall-service') {
+  if (process.platform !== 'linux') {
+    console.error('Service management requires Linux (systemd).')
+    process.exit(1)
+  }
+  const unitPath = join(homedir(), '.config', 'systemd', 'user', 'tamp.service')
+  try { execFileSync('systemctl', ['--user', 'stop', 'tamp.service'], { stdio: 'inherit' }) } catch {}
+  try { execFileSync('systemctl', ['--user', 'disable', 'tamp.service'], { stdio: 'inherit' }) } catch {}
+  try { unlinkSync(unitPath) } catch {}
+  try { execFileSync('systemctl', ['--user', 'daemon-reload'], { stdio: 'inherit' }) } catch {}
+  console.log('Service removed.')
+  process.exit(0)
+}
+
+if (subcommand === 'status') {
+  const port = process.env.TAMP_PORT || 7778
+  const healthy = await checkPort(port)
+  console.log(`Tamp v${VERSION}`)
+  console.log(`  Health: ${healthy ? 'running' : 'not running'} (port ${port})`)
+  if (process.platform === 'linux') {
+    try { execFileSync('systemctl', ['--user', 'status', 'tamp.service', '--no-pager'], { stdio: 'inherit' }) } catch {}
+  }
+  process.exit(healthy ? 0 : 1)
+}
+
+if (subcommand === 'help' || subcommand === '--help' || subcommand === '-h') {
+  console.log(`Tamp v${VERSION} — Token compression proxy for coding agents\n`)
+  console.log('Usage: tamp [command] [options]\n')
+  console.log('Commands:')
+  console.log('  (default)           Start proxy (interactive stage picker)')
+  console.log('  -y                  Start proxy (non-interactive, use defaults)')
+  console.log('  init                Create config file (~/.config/tamp/config)')
+  console.log('  status              Check if proxy is running')
+  console.log('  install-service     Install systemd user service (Linux)')
+  console.log('  uninstall-service   Remove systemd service')
+  console.log('  help                Show this help')
+  console.log(`\nConfig: ${CONFIG_PATH}`)
+  process.exit(0)
+}
+
 // --- Mode detection ---
 const skipPrompt = process.argv.includes('-y') || process.argv.includes('--no-interactive') || !process.stdin.isTTY
 
@@ -130,11 +214,11 @@ if (skipPrompt) {
     const extraActive = active.filter(s => EXTRA_STAGES.includes(s))
 
     console.error('')
-    console.error(`  ${c.cyan}${c.bold}Tamp${c.reset} ${c.dim}v${pkg.version}${c.reset}  ${c.bgGreen}${c.bold} READY ${c.reset}  ${c.green}${url}${c.reset}`)
+    console.error(`  ${c.cyan}${c.bold}Tamp${c.reset} ${c.dim}v${VERSION}${c.reset}  ${c.bgGreen}${c.bold} READY ${c.reset}  ${c.green}${url}${c.reset}`)
     console.error('')
     console.error(`  ${c.bold}Setup:${c.reset}`)
     console.error(`    ${c.dim}Claude Code:${c.reset}  ANTHROPIC_BASE_URL=${c.yellow}${url}${c.reset}`)
-    console.error(`    ${c.dim}Aider/Cursor:${c.reset} OPENAI_BASE_URL=${c.yellow}${url}${c.reset}`)
+    console.error(`    ${c.dim}Aider/Cursor:${c.reset} OPENAI_API_BASE=${c.yellow}${url}${c.reset}`)
     console.error('')
     console.error(`  ${c.bold}Stages${c.reset} ${c.dim}(${active.length} active)${c.reset}`)
     for (const s of defaultActive) {
@@ -170,7 +254,7 @@ if (skipPrompt) {
   process.on('SIGTERM', () => { cleanup(); process.exit() })
 
   render(h(App, {
-    version: pkg.version,
+    version: VERSION,
     envStages,
     startSidecar,
     createProxy,

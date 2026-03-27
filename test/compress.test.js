@@ -9,6 +9,8 @@ const fixtures = JSON.parse(readFileSync(new URL('./fixtures/sample-messages.jso
 
 const defaultConfig = { minSize: 50, stages: ['minify'], llmLinguaUrl: null }
 const toonConfig = { minSize: 50, stages: ['minify', 'toon'], llmLinguaUrl: null }
+const cacheSafeConfig = { minSize: 50, stages: ['minify'], llmLinguaUrl: null, cacheSafe: true }
+const allHistoryConfig = { minSize: 50, stages: ['minify'], llmLinguaUrl: null, cacheSafe: false }
 
 describe('compressText', () => {
   it('minifies pretty-printed JSON object', () => {
@@ -72,17 +74,23 @@ describe('compressText', () => {
   })
 })
 
-const msgConfig = { minSize: 50, stages: ['minify'], llmLinguaUrl: null }
-
 describe('compressMessages', () => {
-  it('compresses ALL user message tool_result JSON including historical', async () => {
+  it('compresses only the newest eligible user message by default', async () => {
     const body = JSON.parse(JSON.stringify(fixtures.multiTurn))
     const oldContent = body.messages[0].content[1].content
-    const { body: compressed, stats } = await compressMessages(body, msgConfig)
-    // Historical message now compressed too
+    const { body: compressed, stats } = await compressMessages(body, cacheSafeConfig)
+    assert.equal(compressed.messages[0].content[1].content, oldContent, 'historical content should be left unchanged')
+    const lastContent = compressed.messages[2].content[0].content
+    assert.ok(!lastContent.includes('\n'), 'latest eligible content should be minified')
+    assert.equal(stats.length, 1)
+  })
+
+  it('compresses all historical user message tool_result JSON when cacheSafe=false', async () => {
+    const body = JSON.parse(JSON.stringify(fixtures.multiTurn))
+    const oldContent = body.messages[0].content[1].content
+    const { body: compressed, stats } = await compressMessages(body, allHistoryConfig)
     assert.ok(compressed.messages[0].content[1].content.length < oldContent.length, 'historical should be compressed')
     assert.ok(!compressed.messages[0].content[1].content.includes('\n'), 'historical should be minified')
-    // Last user message also compressed
     const lastContent = compressed.messages[2].content[0].content
     assert.ok(!lastContent.includes('\n'), 'should be minified (no newlines)')
     assert.ok(stats.length > 0)
@@ -90,7 +98,7 @@ describe('compressMessages', () => {
 
   it('does not modify assistant tool_use blocks', async () => {
     const body = JSON.parse(JSON.stringify(fixtures.multiTurn))
-    const { body: compressed } = await compressMessages(body, msgConfig)
+    const { body: compressed } = await compressMessages(body, cacheSafeConfig)
     const assistantMsg = compressed.messages[1]
     assert.equal(assistantMsg.content[1].type, 'tool_use')
     assert.equal(assistantMsg.content[1].name, 'Read')
@@ -99,14 +107,14 @@ describe('compressMessages', () => {
   it('skips is_error tool_results', async () => {
     const body = JSON.parse(JSON.stringify(fixtures.errorResult))
     const originalContent = body.messages[0].content[0].content
-    const { body: compressed, stats } = await compressMessages(body, msgConfig)
+    const { body: compressed, stats } = await compressMessages(body, cacheSafeConfig)
     assert.equal(compressed.messages[0].content[0].content, originalContent)
     assert.ok(stats.some(s => s.skipped === 'error'))
   })
 
   it('compresses text blocks in array content, leaves image untouched', async () => {
     const body = JSON.parse(JSON.stringify(fixtures.mixedContent))
-    const { body: compressed } = await compressMessages(body, msgConfig)
+    const { body: compressed } = await compressMessages(body, cacheSafeConfig)
     const blocks = compressed.messages[0].content[0].content
     // text block compressed
     const textBlock = blocks.find(b => b.type === 'text')
@@ -119,13 +127,13 @@ describe('compressMessages', () => {
   it('skips non-JSON string content', async () => {
     const body = JSON.parse(JSON.stringify(fixtures.textContent))
     const original = body.messages[0].content[0].content
-    const { body: compressed } = await compressMessages(body, msgConfig)
+    const { body: compressed } = await compressMessages(body, cacheSafeConfig)
     assert.equal(compressed.messages[0].content[0].content, original)
   })
 
   it('returns body unchanged when no user messages', async () => {
     const body = JSON.parse(JSON.stringify(fixtures.noUserMessages))
-    const { body: compressed, stats } = await compressMessages(body, msgConfig)
+    const { body: compressed, stats } = await compressMessages(body, cacheSafeConfig)
     assert.deepEqual(compressed, body)
     assert.equal(stats.length, 0)
   })
@@ -136,7 +144,7 @@ describe('compressMessages', () => {
       system: 'You are helpful.',
       messages: [{ role: 'user', content: 'hi' }],
     }
-    const { body: compressed } = await compressMessages(body, msgConfig)
+    const { body: compressed } = await compressMessages(body, cacheSafeConfig)
     assert.equal(compressed.system, 'You are helpful.')
   })
 })
@@ -167,7 +175,7 @@ describe('compressMessages with llmlingua', () => {
     clearCache()
     await startMock()
     try {
-      const cfg = { minSize: 10, stages: ['minify', 'llmlingua'], llmLinguaUrl: `http://localhost:${mockPort}` }
+      const cfg = { minSize: 10, stages: ['minify', 'llmlingua'], llmLinguaUrl: `http://localhost:${mockPort}`, cacheSafe: true }
       const body = JSON.parse(JSON.stringify(fixtures.textContent))
       const { body: compressed, stats } = await compressMessages(body, cfg)
       assert.ok(stats.some(s => s.method === 'llmlingua'))
@@ -180,7 +188,7 @@ describe('compressMessages with llmlingua', () => {
   it('does NOT route JSON to LLMLingua', async () => {
     await startMock()
     try {
-      const cfg = { minSize: 200, stages: ['minify', 'llmlingua'], llmLinguaUrl: `http://localhost:${mockPort}` }
+      const cfg = { minSize: 200, stages: ['minify', 'llmlingua'], llmLinguaUrl: `http://localhost:${mockPort}`, cacheSafe: true }
       const body = JSON.parse(JSON.stringify(fixtures.multiTurn))
       const { stats } = await compressMessages(body, cfg)
       assert.ok(!stats.some(s => s.method === 'llmlingua'))
@@ -192,7 +200,7 @@ describe('compressMessages with llmlingua', () => {
   it('falls back on LLMLingua failure', async () => {
     clearCache()
     // Use a port that nothing listens on
-    const cfg = { minSize: 10, stages: ['minify', 'llmlingua'], llmLinguaUrl: 'http://localhost:1' }
+    const cfg = { minSize: 10, stages: ['minify', 'llmlingua'], llmLinguaUrl: 'http://localhost:1', cacheSafe: true }
     const body = JSON.parse(JSON.stringify(fixtures.textContent))
     const original = body.messages[0].content[0].content
     const { body: compressed } = await compressMessages(body, cfg)
@@ -201,7 +209,7 @@ describe('compressMessages with llmlingua', () => {
 })
 
 describe('compressRequest with OpenAI format', () => {
-  const cfg = { minSize: 50, stages: ['minify'], llmLinguaUrl: null }
+  const cfg = { minSize: 50, stages: ['minify'], llmLinguaUrl: null, cacheSafe: true }
 
   it('compresses tool message content in OpenAI format', async () => {
     const body = {
@@ -242,5 +250,18 @@ describe('compressRequest with OpenAI format', () => {
     const { stats } = await compressRequest(body, cfg, openai)
     const compressed = stats.filter(s => s.method)
     assert.equal(compressed.length, 2)
+  })
+
+  it('compresses historical tool messages when cacheSafe=false', async () => {
+    const body = {
+      model: 'gpt-4',
+      messages: [
+        { role: 'tool', tool_call_id: 'call_1', content: JSON.stringify({ first: 'value', details: 'long enough to compress here' }, null, 2) },
+        { role: 'assistant', content: 'ok' },
+        { role: 'tool', tool_call_id: 'call_2', content: JSON.stringify({ second: 'value', details: 'another long payload to compress' }, null, 2) },
+      ],
+    }
+    const { stats } = await compressRequest(body, { ...cfg, cacheSafe: false }, openai)
+    assert.equal(stats.filter(s => s.method).length, 2)
   })
 })

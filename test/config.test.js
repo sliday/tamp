@@ -1,13 +1,18 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
-import { loadConfig } from '../config.js'
+import { writeFileSync, mkdirSync, unlinkSync, rmdirSync } from 'node:fs'
+import { join } from 'node:path'
+import { tmpdir } from 'node:os'
+import { loadConfig, loadConfigFile } from '../config.js'
+import { DEFAULT_STAGES, VERSION } from '../metadata.js'
 
 describe('loadConfig', () => {
   it('returns defaults when no env vars set', () => {
     const cfg = loadConfig({})
+    assert.equal(cfg.version, VERSION)
     assert.equal(cfg.port, 7778)
     assert.equal(cfg.upstream, 'https://api.anthropic.com')
-    assert.deepEqual(cfg.stages, ['minify', 'toon', 'strip-lines', 'whitespace', 'llmlingua', 'dedup', 'diff', 'prune'])
+    assert.deepEqual(cfg.stages, DEFAULT_STAGES)
     assert.equal(cfg.minSize, 200)
     assert.equal(cfg.log, true)
     assert.equal(cfg.maxBody, 10_485_760)
@@ -61,6 +66,11 @@ describe('loadConfig', () => {
     assert.equal(cfg.logFile, '/tmp/tamp.log')
   })
 
+  it('sets cacheSafe from TAMP_CACHE_SAFE', () => {
+    const cfg = loadConfig({ TAMP_CACHE_SAFE: 'false' })
+    assert.equal(cfg.cacheSafe, false)
+  })
+
   it('sets tokenCost from TAMP_TOKEN_COST', () => {
     const cfg = loadConfig({ TAMP_TOKEN_COST: '15' })
     assert.equal(cfg.tokenCost, 15)
@@ -81,5 +91,74 @@ describe('loadConfig', () => {
   it('returns frozen object', () => {
     const cfg = loadConfig({})
     assert.throws(() => { cfg.port = 1234 }, TypeError)
+  })
+})
+
+describe('loadConfigFile', () => {
+  const tmpDir = join(tmpdir(), 'tamp-test-' + Date.now())
+  const tmpFile = join(tmpDir, 'config')
+
+  it('returns empty object for missing file', () => {
+    const result = loadConfigFile('/nonexistent/path/config')
+    assert.deepEqual(result, {})
+  })
+
+  it('parses key=value lines', () => {
+    mkdirSync(tmpDir, { recursive: true })
+    writeFileSync(tmpFile, 'TAMP_PORT=9999\nTAMP_UPSTREAM=http://example.com\n')
+    const result = loadConfigFile(tmpFile)
+    assert.equal(result.TAMP_PORT, '9999')
+    assert.equal(result.TAMP_UPSTREAM, 'http://example.com')
+  })
+
+  it('skips comments and blank lines', () => {
+    writeFileSync(tmpFile, '# comment\n\nTAMP_PORT=8080\n  # another\n')
+    const result = loadConfigFile(tmpFile)
+    assert.equal(result.TAMP_PORT, '8080')
+    assert.equal(Object.keys(result).length, 1)
+  })
+
+  it('handles quoted values', () => {
+    writeFileSync(tmpFile, 'TAMP_UPSTREAM="http://example.com"\nTAMP_LOG=\'false\'\n')
+    const result = loadConfigFile(tmpFile)
+    assert.equal(result.TAMP_UPSTREAM, 'http://example.com')
+    assert.equal(result.TAMP_LOG, 'false')
+  })
+
+  it('config file values used by loadConfig when TAMP_CONFIG set', () => {
+    writeFileSync(tmpFile, 'TAMP_PORT=4444\nTAMP_STAGES=minify,dedup\n')
+    const origConfig = process.env.TAMP_CONFIG
+    process.env.TAMP_CONFIG = tmpFile
+    try {
+      const cfg = loadConfig(process.env)
+      assert.equal(cfg.port, 4444)
+      assert.deepEqual(cfg.stages, ['minify', 'dedup'])
+    } finally {
+      if (origConfig !== undefined) process.env.TAMP_CONFIG = origConfig
+      else delete process.env.TAMP_CONFIG
+    }
+  })
+
+  it('env vars override config file values', () => {
+    writeFileSync(tmpFile, 'TAMP_PORT=4444\n')
+    const origConfig = process.env.TAMP_CONFIG
+    const origPort = process.env.TAMP_PORT
+    process.env.TAMP_CONFIG = tmpFile
+    process.env.TAMP_PORT = '5555'
+    try {
+      const cfg = loadConfig(process.env)
+      assert.equal(cfg.port, 5555)
+    } finally {
+      if (origConfig !== undefined) process.env.TAMP_CONFIG = origConfig
+      else delete process.env.TAMP_CONFIG
+      if (origPort !== undefined) process.env.TAMP_PORT = origPort
+      else delete process.env.TAMP_PORT
+    }
+  })
+
+  // Cleanup
+  it('cleanup temp files', () => {
+    try { unlinkSync(tmpFile) } catch {}
+    try { rmdirSync(tmpDir) } catch {}
   })
 })

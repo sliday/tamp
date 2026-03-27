@@ -1,24 +1,9 @@
 import React, { useState } from 'react'
-import { Box, Text, useInput } from 'ink'
+import { Box, Text } from 'ink'
 import { MultiSelect } from '@inkjs/ui'
+import { DEFAULT_STAGES, EXTRA_STAGES, STAGE_DESCRIPTIONS } from '../../metadata.js'
 
 const h = React.createElement
-
-const DEFAULT_STAGES = ['minify', 'toon', 'strip-lines', 'whitespace', 'llmlingua', 'dedup', 'diff', 'prune']
-const EXTRA_STAGES = ['strip-comments', 'textpress']
-
-const STAGE_DESC = {
-  minify:           'Strip JSON whitespace (lossless)',
-  toon:             'Columnar array encoding (lossless)',
-  'strip-lines':    'Remove line-number prefixes',
-  whitespace:       'Collapse blank lines, trim trailing',
-  llmlingua:        'Neural compression via LLMLingua-2',
-  dedup:            'Deduplicate identical tool_results',
-  diff:             'Replace similar re-reads with diffs',
-  prune:            'Strip lockfile hashes & npm metadata',
-  'strip-comments': 'Remove code comments (lossy)',
-  textpress:        'LLM semantic compression (Ollama/OpenRouter)',
-}
 
 export function StagePicker({ version, envStages, onSelect }) {
   const [error, setError] = useState(null)
@@ -29,11 +14,11 @@ export function StagePicker({ version, envStages, onSelect }) {
 
   const options = [
     ...DEFAULT_STAGES.map(s => ({
-      label: `${s.padEnd(16)} ${STAGE_DESC[s]}`,
+      label: `${s.padEnd(16)} ${STAGE_DESCRIPTIONS[s]}`,
       value: s,
     })),
     ...EXTRA_STAGES.map(s => ({
-      label: `${s.padEnd(16)} ${STAGE_DESC[s]}`,
+      label: `${s.padEnd(16)} ${STAGE_DESCRIPTIONS[s]}`,
       value: s,
     })),
   ]

@@ -279,7 +279,7 @@ async function compressBlock(text, config) {
 }
 
 export async function compressRequest(body, config, provider) {
-  const targets = provider.extract(body)
+  const targets = provider.extract(body, { ...config, cacheSafe: config.cacheSafe !== false })
 
   // Dedup: replace identical blocks with reference markers
   if (config.stages.includes('dedup')) deduplicateTargets(targets)
