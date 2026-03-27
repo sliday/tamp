@@ -10,7 +10,15 @@ import { createSession, formatRequestLog } from './stats.js'
 function buildUpstreamUrl(reqPath, base) {
   const parsed = new URL(base)
   const basePath = parsed.pathname.replace(/\/+$/, '')
-  parsed.pathname = basePath + reqPath
+  // Split reqPath into pathname and query string — the WHATWG URL pathname
+  // setter encodes '?' as '%3F', which drops the query on the floor.
+  const qIdx = reqPath.indexOf('?')
+  if (qIdx !== -1) {
+    parsed.pathname = basePath + reqPath.substring(0, qIdx)
+    parsed.search = reqPath.substring(qIdx)
+  } else {
+    parsed.pathname = basePath + reqPath
+  }
   return parsed
 }
 

@@ -36,6 +36,7 @@ describe('proxy integration', () => {
           res.writeHead(200, {
             'Content-Type': req.headers['content-type'] || 'application/json',
             'x-echo': 'true',
+            'x-req-path': req.url,
           })
           res.end(body)
         })
@@ -65,6 +66,99 @@ describe('proxy integration', () => {
   after(() => {
     proxy.close()
     mockUpstream.close()
+  })
+
+  describe('upstream URL resolution', () => {
+    /**
+     * buildUpstreamUrl must correctly combine the upstream base path with the
+     * incoming request path, preserving query strings, multiple query params,
+     * and custom gateway path prefixes.
+     *
+     * Regression for: https://github.com/sliday/tamp/pull/1
+     * (WHATWG URL pathname setter encodes '?' as '%3F')
+     */
+
+    const toolPayload = JSON.stringify({
+      model: 'test', max_tokens: 10,
+      messages: [{ role: 'user', content: '{"key":"value","nested":{"a":1,"b":2,"c":3,"d":4}}' }],
+    })
+    const headers = { 'Content-Type': 'application/json' }
+
+    it('passes simple path without query string', async () => {
+      const res = await request(proxyPort, 'POST', '/v1/messages', toolPayload, headers)
+      assert.equal(res.headers['x-req-path'], '/v1/messages')
+    })
+
+    it('preserves single query param (?beta=true)', async () => {
+      const res = await request(proxyPort, 'POST', '/v1/messages?beta=true', toolPayload, headers)
+      assert.equal(res.headers['x-req-path'], '/v1/messages?beta=true')
+    })
+
+    it('preserves multiple query params', async () => {
+      const res = await request(proxyPort, 'POST', '/v1/messages?beta=true&foo=bar&baz=1', toolPayload, headers)
+      assert.equal(res.headers['x-req-path'], '/v1/messages?beta=true&foo=bar&baz=1')
+    })
+
+    it('preserves query string on non-provider routes', async () => {
+      // GET /v1/models is not matched by any provider — hits the passthrough branch
+      const res = await request(proxyPort, 'GET', '/v1/models?limit=50', null)
+      assert.equal(res.headers['x-req-path'], '/v1/models?limit=50')
+    })
+
+    it('preserves query string on OpenAI routes (normalizeUrl path)', async () => {
+      // OpenAI normalizeUrl may prepend /v1 — query string must survive
+      const res = await request(proxyPort, 'POST', '/v1/chat/completions?stream=true', toolPayload, headers)
+      assert.equal(res.headers['x-req-path'], '/v1/chat/completions?stream=true')
+    })
+
+    it('preserves query string on OpenAI route without /v1 prefix', async () => {
+      // /chat/completions → normalizeUrl prepends /v1
+      const res = await request(proxyPort, 'POST', '/chat/completions?stream=true', toolPayload, headers)
+      assert.equal(res.headers['x-req-path'], '/v1/chat/completions?stream=true')
+    })
+
+    it('preserves query string with custom gateway base path', async () => {
+      // Simulate a proxy behind a gateway like https://proxy.example.com/api/anthropic
+      const gateway = http.createServer((req, res) => {
+        req.resume()
+        req.on('end', () => {
+          res.writeHead(200, {
+            'Content-Type': 'application/json',
+            'x-req-path': req.url,
+          })
+          res.end('{"ok":true}')
+        })
+      })
+      await new Promise(r => gateway.listen(0, r))
+      const gwPort = gateway.address().port
+
+      const { server: gwProxy } = createProxy({
+        port: 0,
+        upstream: `http://127.0.0.1:${gwPort}/api/anthropic`,
+        log: false,
+      })
+      await new Promise(r => gwProxy.listen(0, r))
+      const gwProxyPort = gwProxy.address().port
+
+      const res = await request(gwProxyPort, 'POST', '/v1/messages?beta=true', toolPayload, headers)
+      assert.equal(res.headers['x-req-path'], '/api/anthropic/v1/messages?beta=true')
+
+      gwProxy.close()
+      gateway.close()
+    })
+
+    it('handles path-only request (no query string, no hash)', async () => {
+      // /v1/models is not matched by any provider, forwarded to upstream as-is
+      const res = await request(proxyPort, 'GET', '/v1/models')
+      assert.equal(res.headers['x-req-path'], '/v1/models')
+    })
+
+    it('handles empty query string (trailing ?)', async () => {
+      const res = await request(proxyPort, 'POST', '/v1/messages?', toolPayload, headers)
+      // Empty query string should be preserved or dropped — either is fine, but must not be %3F
+      const path = res.headers['x-req-path']
+      assert.ok(!path.includes('%3F'), `path should not contain encoded '?': ${path}`)
+    })
   })
 
   it('compresses tool_result JSON in POST /v1/messages', async () => {
