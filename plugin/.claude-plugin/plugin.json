@@ -1,0 +1,13 @@
+{
+  "name": "tamp",
+  "description": "Auto-start and manage the Tamp token compression proxy",
+  "version": "1.0.0",
+  "author": {
+    "name": "Stas Kulesh",
+    "email": "stas@sliday.com"
+  },
+  "homepage": "https://tamp.dev",
+  "repository": "https://github.com/sliday/tamp",
+  "license": "MIT",
+  "keywords": ["compression", "tokens", "proxy", "tamp"]
+}
