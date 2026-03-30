@@ -98,9 +98,9 @@ function pruneJSON(text) {
   const { ok, value } = tryParseJSON(text)
   if (!ok) return null
   const pruned = deepPrune(value)
-  const result = JSON.stringify(pruned, null, 2)
-  if (result.length >= text.length * 0.95) return null
-  return result
+  const minified = JSON.stringify(pruned)
+  if (minified.length >= text.length * 0.95) return null
+  return { value: pruned, minified }
 }
 
 // --- Stage: strip-comments (opt-in, not in defaults) ---
@@ -228,22 +228,29 @@ export function compressText(text, config) {
   let raw = cls === 'json-lined' ? stripLineNumbers(text) : text
 
   // Prune low-value fields before minifying
+  let parsedValue
   if (config.stages.includes('prune')) {
     const pruned = pruneJSON(raw)
-    if (pruned) raw = pruned
+    if (pruned) {
+      parsedValue = pruned.value
+      raw = pruned.minified
+    }
   }
 
-  const { ok, value } = tryParseJSON(raw)
-  if (!ok) return null
+  if (!parsedValue) {
+    const { ok, value } = tryParseJSON(raw)
+    if (!ok) return null
+    parsedValue = value
+  }
 
-  const minified = JSON.stringify(value)
+  const minified = JSON.stringify(parsedValue)
   if (minified.length >= text.length) return null
 
   let best = { text: minified, method: 'minify' }
 
   if (config.stages.includes('toon')) {
     try {
-      const tooned = encode(value)
+      const tooned = encode(parsedValue)
       if (tooned.length < best.text.length) {
         best = { text: tooned, method: 'toon' }
       }

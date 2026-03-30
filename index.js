@@ -36,17 +36,15 @@ export function createProxy(overrides = {}) {
 function _createServer(config, session) {
 const log = createRequestLogger(config)
 
-function forwardRequest(method, upstreamUrl, headers, body, res) {
+function openUpstream(method, upstreamUrl, headers, res) {
   const mod = upstreamUrl.protocol === 'https:' ? https : http
-  const opts = {
+  const upstream = mod.request({
     hostname: upstreamUrl.hostname,
     port: upstreamUrl.port,
     path: upstreamUrl.pathname + upstreamUrl.search,
     method,
     headers,
-  }
-
-  const upstream = mod.request(opts, (upstreamRes) => {
+  }, (upstreamRes) => {
     res.writeHead(upstreamRes.statusCode, upstreamRes.headers)
     upstreamRes.pipe(res)
     upstreamRes.on('error', (err) => {
@@ -67,57 +65,24 @@ function forwardRequest(method, upstreamUrl, headers, body, res) {
     log(`[tamp] client disconnect: ${err.code || ''} ${err.message}`)
     upstream.destroy()
   })
-
-  if (body) {
-    upstream.end(body)
-  } else {
-    upstream.end()
-  }
 
   return upstream
 }
 
+function forwardRequest(method, upstreamUrl, headers, body, res) {
+  const upstream = openUpstream(method, upstreamUrl, headers, res)
+  if (body) upstream.end(body)
+  else upstream.end()
+  return upstream
+}
+
 function pipeRequest(req, res, upstreamUrl, prefixChunks) {
-  const mod = upstreamUrl.protocol === 'https:' ? https : http
   const headers = { ...req.headers }
   delete headers.host
-
-  const opts = {
-    hostname: upstreamUrl.hostname,
-    port: upstreamUrl.port,
-    path: upstreamUrl.pathname + upstreamUrl.search,
-    method: req.method,
-    headers,
-  }
-
-  const upstream = mod.request(opts, (upstreamRes) => {
-    res.writeHead(upstreamRes.statusCode, upstreamRes.headers)
-    upstreamRes.pipe(res)
-    upstreamRes.on('error', (err) => {
-      log(`[tamp] response stream error: ${err.code || ''} ${err.message}`)
-      res.destroy()
-    })
-  })
-
-  upstream.on('error', (err) => {
-    log(`[tamp] upstream error: ${err.code || ''} ${err.message}`)
-    if (!res.headersSent) {
-      res.writeHead(502, { 'Content-Type': 'application/json' })
-    }
-    res.end(JSON.stringify({ error: 'upstream_error', message: err.message }))
-  })
-
-  res.on('error', (err) => {
-    log(`[tamp] client disconnect: ${err.code || ''} ${err.message}`)
-    upstream.destroy()
-  })
-
+  const upstream = openUpstream(req.method, upstreamUrl, headers, res)
   if (prefixChunks) {
-    for (const chunk of prefixChunks) {
-      upstream.write(chunk)
-    }
+    for (const chunk of prefixChunks) upstream.write(chunk)
   }
-
   req.pipe(upstream)
 }
 
