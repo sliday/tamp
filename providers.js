@@ -68,23 +68,6 @@ const anthropic = {
   },
 }
 
-function extractOpenAIResponsesTargets(item, i) {
-  const targets = []
-  if (item.type === 'function_call_output' && typeof item.output === 'string') {
-    targets.push({ path: ['input', i, 'output'], text: item.output, index: i })
-    return targets
-  }
-  if (item.type === 'message' && Array.isArray(item.content)) {
-    for (let j = 0; j < item.content.length; j++) {
-      const part = item.content[j]
-      if ((part.type === 'input_text' || part.type === 'output_text') && typeof part.text === 'string') {
-        targets.push({ path: ['input', i, 'content', j, 'text'], text: part.text, index: i })
-      }
-    }
-  }
-  return targets
-}
-
 function extractOpenAIChatTargets(msg, i) {
   if (msg.role !== 'tool' || typeof msg.content !== 'string') return []
   return [{ path: ['messages', i, 'content'], text: msg.content, index: i }]
@@ -95,8 +78,7 @@ const openai = {
   match(method, url) {
     return method === 'POST' && (
       url.startsWith('/v1/chat/completions') ||
-      url.startsWith('/chat/completions') ||
-      url.startsWith('/v1/responses')
+      url.startsWith('/chat/completions')
     )
   },
   normalizeUrl(url) {
@@ -104,22 +86,6 @@ const openai = {
     return url
   },
   extract(body, config = {}) {
-    // Responses API format: body.input array (Codex CLI)
-    if (body?.input?.length) {
-      if (config.cacheSafe) {
-        const targets = []
-        for (let i = body.input.length - 1; i >= 0; i--) {
-          const itemTargets = extractOpenAIResponsesTargets(body.input[i], i)
-          if (!itemTargets.length) break
-          targets.unshift(...itemTargets)
-        }
-        return targets
-      }
-
-      return body.input.flatMap(extractOpenAIResponsesTargets)
-    }
-
-    // Chat Completions format
     if (!body?.messages?.length) return []
 
     if (config.cacheSafe) {

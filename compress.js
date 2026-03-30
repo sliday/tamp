@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto'
 import { encode } from '@toon-format/toon'
 import { countTokens } from '@anthropic-ai/tokenizer'
 import { createPatch } from 'diff'
@@ -9,7 +10,7 @@ const MAX_CACHE = 500
 
 function cacheKey(text) {
   if (text.length < 128) return text
-  return `${text.length}:${text.slice(0, 64)}:${text.slice(-64)}`
+  return createHash('sha256').update(text).digest('base64')
 }
 
 export function clearCache() { cache.clear() }
@@ -103,14 +104,30 @@ function pruneJSON(text) {
 }
 
 // --- Stage: strip-comments (opt-in, not in defaults) ---
+function stripLineComments(line) {
+  let inSingle = false, inDouble = false, inTemplate = false
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i]
+    const prev = i > 0 ? line[i - 1] : ''
+    if (prev === '\\') continue
+    if (ch === "'" && !inDouble && !inTemplate) { inSingle = !inSingle; continue }
+    if (ch === '"' && !inSingle && !inTemplate) { inDouble = !inDouble; continue }
+    if (ch === '`' && !inSingle && !inDouble) { inTemplate = !inTemplate; continue }
+    if (inSingle || inDouble || inTemplate) continue
+    if (ch === '/' && line[i + 1] === '/') return line.slice(0, i).trimEnd()
+    if (ch === '#' && !line.startsWith('#!')) return line.slice(0, i).trimEnd()
+  }
+  return line
+}
+
 function stripComments(text) {
-  return text
-    .replace(/\/\*\*[\s\S]*?\*\//g, '')  // JSDoc /** ... */
-    .replace(/\/\*[\s\S]*?\*\//g, '')     // block /* ... */
-    .replace(/\/\/.*$/gm, '')             // line // ...
-    .replace(/^\s*#(?!!).*$/gm, '')       // Python/shell # (not #!)
-    .replace(/<!--[\s\S]*?-->/g, '')      // HTML <!-- ... -->
-    .replace(/\n\s*\n\s*\n/g, '\n\n')    // collapse resulting blank lines
+  // Block comments: only strip if they start at line-level (not inside strings)
+  let result = text
+    .replace(/^[ \t]*\/\*\*[\s\S]*?\*\//gm, '')
+    .replace(/^[ \t]*\/\*[\s\S]*?\*\//gm, '')
+    .replace(/<!--[\s\S]*?-->/g, '')
+  result = result.split('\n').map(stripLineComments).join('\n')
+  return result.replace(/\n\s*\n\s*\n/g, '\n\n')
 }
 
 // --- Stage: textpress (opt-in, uses Ollama or OpenRouter free model) ---
@@ -125,24 +142,25 @@ async function textpressCompress(text, config) {
   try {
     const controller = new AbortController()
     const timeout = setTimeout(() => controller.abort(), 15000)
-    const res = await fetch(`${ollamaUrl}/api/chat`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model: ollamaModel,
-        messages: [{ role: 'system', content: TEXTPRESS_PROMPT }, { role: 'user', content: text }],
-        stream: false,
-        options: { temperature: 0, num_predict: Math.ceil(text.length * 0.7) },
-        think: false,
-      }),
-      signal: controller.signal,
-    })
-    clearTimeout(timeout)
-    if (res.ok) {
-      const data = await res.json()
-      const output = (data.message?.content || '').trim()
-      if (output.length > 0 && output.length < text.length * 0.9) return output
-    }
+    try {
+      const res = await fetch(`${ollamaUrl}/api/chat`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: ollamaModel,
+          messages: [{ role: 'system', content: TEXTPRESS_PROMPT }, { role: 'user', content: text }],
+          stream: false,
+          options: { temperature: 0, num_predict: Math.ceil(text.length * 0.7) },
+          think: false,
+        }),
+        signal: controller.signal,
+      })
+      if (res.ok) {
+        const data = await res.json()
+        const output = (data.message?.content || '').trim()
+        if (output.length > 0 && output.length < text.length * 0.9) return output
+      }
+    } finally { clearTimeout(timeout) }
   } catch { /* Ollama not available, try OpenRouter */ }
 
   // Fallback: OpenRouter free model
@@ -152,23 +170,24 @@ async function textpressCompress(text, config) {
   try {
     const controller = new AbortController()
     const timeout = setTimeout(() => controller.abort(), 10000)
-    const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${orKey}` },
-      body: JSON.stringify({
-        model: orModel,
-        messages: [{ role: 'system', content: TEXTPRESS_PROMPT }, { role: 'user', content: text }],
-        max_tokens: Math.ceil(text.length * 0.5),
-        temperature: 0,
-      }),
-      signal: controller.signal,
-    })
-    clearTimeout(timeout)
-    if (res.ok) {
-      const data = await res.json()
-      const output = (data.choices?.[0]?.message?.content || '').replace(/<think>[\s\S]*?<\/think>/g, '').trim()
-      if (output.length > 0 && output.length < text.length * 0.9) return output
-    }
+    try {
+      const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${orKey}` },
+        body: JSON.stringify({
+          model: orModel,
+          messages: [{ role: 'system', content: TEXTPRESS_PROMPT }, { role: 'user', content: text }],
+          max_tokens: Math.ceil(text.length * 0.5),
+          temperature: 0,
+        }),
+        signal: controller.signal,
+      })
+      if (res.ok) {
+        const data = await res.json()
+        const output = (data.choices?.[0]?.message?.content || '').replace(/<think>[\s\S]*?<\/think>/g, '').trim()
+        if (output.length > 0 && output.length < text.length * 0.9) return output
+      }
+    } finally { clearTimeout(timeout) }
   } catch { /* OpenRouter not available */ }
 
   return null
@@ -238,16 +257,17 @@ async function compressWithLLMLingua(text, config) {
   try {
     const controller = new AbortController()
     const timeout = setTimeout(() => controller.abort(), 5000)
-    const res = await fetch(config.llmLinguaUrl + '/compress', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text, rate: 0.5 }),
-      signal: controller.signal,
-    })
-    clearTimeout(timeout)
-    if (!res.ok) return null
-    const data = await res.json()
-    return { text: data.text, method: 'llmlingua', originalLen: text.length, compressedLen: data.text.length, originalTokens: countTokens(text), compressedTokens: countTokens(data.text) }
+    try {
+      const res = await fetch(config.llmLinguaUrl + '/compress', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text, rate: 0.5 }),
+        signal: controller.signal,
+      })
+      if (!res.ok) return null
+      const data = await res.json()
+      return { text: data.text, method: 'llmlingua', originalLen: text.length, compressedLen: data.text.length, originalTokens: countTokens(text), compressedTokens: countTokens(data.text) }
+    } finally { clearTimeout(timeout) }
   } catch {
     return null
   }
@@ -270,11 +290,13 @@ async function compressBlock(text, config) {
     result = sync
   }
 
-  if (cache.size >= MAX_CACHE) {
-    const firstKey = cache.keys().next().value
-    cache.delete(firstKey)
+  if (result) {
+    if (cache.size >= MAX_CACHE) {
+      const firstKey = cache.keys().next().value
+      cache.delete(firstKey)
+    }
+    cache.set(key, result)
   }
-  cache.set(key, result)
   return result
 }
 

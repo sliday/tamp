@@ -12,6 +12,17 @@ Or install globally:
 npm i -g @sliday/tamp
 ```
 
+### Claude Code plugin
+
+Auto-start Tamp on every session — no manual setup:
+
+```bash
+claude plugin marketplace add sliday/claude-plugins
+claude plugin install tamp@sliday
+```
+
+That's it. The plugin starts the proxy automatically, tells you if something's wrong, and adds `/tamp:status` and `/tamp:config` commands.
+
 ### 🦞 OpenClaw Quick Setup
 
 ```bash
@@ -187,17 +198,6 @@ git clone https://github.com/sliday/tamp.git
 cd tamp && npm install
 node bin/tamp.js
 ```
-
-### Claude Code plugin
-
-Auto-start Tamp on every Claude Code session:
-
-```bash
-claude plugins marketplace add sliday/claude-plugins
-claude plugins install tamp
-```
-
-The plugin auto-starts the proxy, adds `/tamp:status` and `/tamp:config` commands, and provides setup guidance. See [tamp-plugin](https://github.com/sliday/tamp-plugin).
 
 ### Systemd service (Ubuntu/Linux)
 

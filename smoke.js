@@ -127,9 +127,9 @@ const saving2 = ((1 - compressed2.length / tabularData.length) * 100).toFixed(1)
 console.log(`  savings: ${tabularData.length} -> ${compressed2.length} chars (-${saving2}%)\n`)
 
 // ============================================================
-// Test 3: Historical messages untouched (Option B)
+// Test 3: Cache-safe mode — only latest message compressed
 // ============================================================
-console.log('Test 3: All messages compressed (including historical)')
+console.log('Test 3: Cache-safe mode (only latest message compressed)')
 const histContent = JSON.stringify({ old: 'data', key: 'value', nested: { a: 1, b: 2 } }, null, 2)
 const body3 = JSON.stringify({
   model: 'test', max_tokens: 10,
@@ -143,8 +143,8 @@ const body3 = JSON.stringify({
 lastUpstreamBody = null
 await request(proxyPort, 'POST', '/v1/messages', body3, { 'Content-Type': 'application/json' })
 const upstream3 = JSON.parse(lastUpstreamBody)
-check('historical tool_result compressed', upstream3.messages[0].content[0].content.length < histContent.length,
-  `compressed=${upstream3.messages[0].content[0].content.length} vs original=${histContent.length}`)
+check('historical tool_result unchanged (cache-safe)', upstream3.messages[0].content[0].content === histContent,
+  `got length ${upstream3.messages[0].content[0].content.length} vs original ${histContent.length}`)
 const latest3 = upstream3.messages[2].content[0].content
 const latestOriginal = JSON.stringify({ fresh: 'data', extra: 'fields', description: 'this needs to be long enough to compress' }, null, 2)
 check('latest tool_result compressed', latest3.length < latestOriginal.length,

@@ -173,23 +173,6 @@ describe('openai adapter', () => {
     ])
   })
 
-  it('extracts only trailing eligible responses items when cacheSafe=true', () => {
-    const body = {
-      input: [
-        { type: 'function_call_output', output: '{"old":true}' },
-        { type: 'reasoning', summary: [] },
-        { type: 'message', content: [{ type: 'input_text', text: 'first trailing item' }] },
-        { type: 'function_call_output', output: '{"new":true}' },
-      ],
-    }
-    const targets = openai.extract(body, { cacheSafe: true })
-    assert.equal(targets.length, 2)
-    assert.deepEqual(targets.map(target => target.path), [
-      ['input', 2, 'content', 0, 'text'],
-      ['input', 3, 'output'],
-    ])
-  })
-
   it('returns empty for no messages', () => {
     assert.deepEqual(openai.extract({}), [])
     assert.deepEqual(openai.extract({ messages: [] }), [])
