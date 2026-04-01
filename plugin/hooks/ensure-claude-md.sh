@@ -4,7 +4,7 @@
 
 MARKER_START="<!-- tamp:token-efficient:start -->"
 MARKER_END="<!-- tamp:token-efficient:end -->"
-TARGET="CLAUDE.md"
+TARGET="CLAUDE.local.md"
 
 CONTENT="${MARKER_START}
 ## Token-Efficient Output (via Tamp)
