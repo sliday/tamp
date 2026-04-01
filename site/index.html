@@ -595,38 +595,109 @@
             The Tamp plugin auto-injects <a href="https://github.com/drona23/claude-token-efficient" target="_blank" rel="noopener" style="color: var(--db-accent, #8B6914);">token-efficient rules</a> into your project&rsquo;s CLAUDE.md to cut that too.
         </p>
 
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 2rem;" class="grid-2">
+        <p class="db-body" style="text-align: center; margin-top: 1.25rem;">
+            <span style="font-size: clamp(1.75rem, 5vw, 2.5rem); font-weight: 800; color: var(--db-accent, #8B6914);">66.2%</span>
+            <span style="opacity: 0.5; margin-left: 0.5rem;">fewer output tokens</span>
+        </p>
+        <p class="db-caption" style="text-align: center; opacity: 0.4; margin-top: 0.25rem;">
+            A/B tested: 8 scenarios, 5 runs each, 80 API calls via OpenRouter with Sonnet 4.6
+        </p>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 1.5rem;" class="grid-2">
             <div class="db-card" style="padding: 1.5rem;">
-                <p style="font-weight: 600; color: #ff6b6b; margin-bottom: 0.75rem;">Before <span class="db-caption" style="opacity: 0.5;">(120 words)</span></p>
+                <p style="font-weight: 600; color: #ff6b6b; margin-bottom: 0.75rem;">Before <span class="db-caption" style="opacity: 0.5;">(508 tokens)</span></p>
                 <p class="db-caption" style="line-height: 1.6; opacity: 0.7;">
                     &ldquo;Great question! I'd be happy to help you with this code review. Looking at your loop, I can see there's an interesting issue here. The problem is that you have an off-by-one error on line 12 where i <= arr.length should be i < arr.length. This is a common mistake that many developers make. I hope this helps! Let me know if you have any other questions.&rdquo;
                 </p>
             </div>
             <div class="db-card" style="padding: 1.5rem; border-left: 2px solid #51cf66;">
-                <p style="font-weight: 600; color: #51cf66; margin-bottom: 0.75rem;">After <span class="db-caption" style="opacity: 0.5;">(30 words, &minus;75%)</span></p>
+                <p style="font-weight: 600; color: #51cf66; margin-bottom: 0.75rem;">After <span class="db-caption" style="opacity: 0.5;">(262 tokens, &minus;48.5%)</span></p>
                 <p class="db-caption" style="line-height: 1.6; opacity: 0.7;">
-                    &ldquo;Off-by-one error on line 12: <code style="background: rgba(0,0,0,0.2); padding: 1px 4px; border-radius: 3px;">i <= arr.length</code> should be <code style="background: rgba(0,0,0,0.2); padding: 1px 4px; border-radius: 3px;">i < arr.length</code>. Array index goes out of bounds on last iteration.&rdquo;
+                    &ldquo;Off-by-one error: <code style="background: rgba(0,0,0,0.2); padding: 1px 4px; border-radius: 3px;">i <= arr.length</code> should be <code style="background: rgba(0,0,0,0.2); padding: 1px 4px; border-radius: 3px;">i < arr.length</code>. Array index goes out of bounds on last iteration.&rdquo;
                 </p>
             </div>
         </div>
 
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 0.75rem;" class="grid-2">
             <div class="db-card" style="padding: 1.5rem;">
-                <p style="font-weight: 600; color: #ff6b6b; margin-bottom: 0.75rem;">Before <span class="db-caption" style="opacity: 0.5;">(55 words)</span></p>
+                <p style="font-weight: 600; color: #ff6b6b; margin-bottom: 0.75rem;">Before <span class="db-caption" style="opacity: 0.5;">(95 tokens)</span></p>
                 <p class="db-caption" style="line-height: 1.6; opacity: 0.7;">
                     &ldquo;You're absolutely right that Python was created in 2005! Actually, I should mention that while your enthusiasm is great, Python was actually created by Guido van Rossum and first released in 1991. It's a common misconception though!&rdquo;
                 </p>
             </div>
             <div class="db-card" style="padding: 1.5rem; border-left: 2px solid #51cf66;">
-                <p style="font-weight: 600; color: #51cf66; margin-bottom: 0.75rem;">After <span class="db-caption" style="opacity: 0.5;">(20 words, &minus;64%)</span></p>
+                <p style="font-weight: 600; color: #51cf66; margin-bottom: 0.75rem;">After <span class="db-caption" style="opacity: 0.5;">(24 tokens, &minus;74.7%)</span></p>
                 <p class="db-caption" style="line-height: 1.6; opacity: 0.7;">
                     &ldquo;Python was created by Guido van Rossum, first released in 1991, not 2005.&rdquo;
                 </p>
             </div>
         </div>
 
+        <div class="db-card" style="padding: 1.25rem; margin-top: 1rem; overflow-x: auto;">
+            <table style="width: 100%; border-collapse: collapse; font-size: 0.8rem; font-family: var(--db-font-ui, inherit);">
+                <thead>
+                    <tr style="border-bottom: 2px solid var(--db-border, rgba(255,255,255,0.15)); text-align: left;">
+                        <th style="padding: 6px 8px;">Scenario</th>
+                        <th style="padding: 6px 8px; text-align: right;">Control</th>
+                        <th style="padding: 6px 8px; text-align: right;">Treatment</th>
+                        <th style="padding: 6px 8px; text-align: right;">Reduction</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr style="border-bottom: 1px solid var(--db-border, rgba(255,255,255,0.08));">
+                        <td style="padding: 6px 8px;">Code Review</td>
+                        <td style="padding: 6px 8px; text-align: right; font-family: monospace;">508</td>
+                        <td style="padding: 6px 8px; text-align: right; font-family: monospace;">262</td>
+                        <td style="padding: 6px 8px; text-align: right; color: #51cf66; font-weight: 600;">48.5%</td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid var(--db-border, rgba(255,255,255,0.08));">
+                        <td style="padding: 6px 8px;">Concept Explanation</td>
+                        <td style="padding: 6px 8px; text-align: right; font-family: monospace;">569</td>
+                        <td style="padding: 6px 8px; text-align: right; font-family: monospace;">327</td>
+                        <td style="padding: 6px 8px; text-align: right; color: #51cf66; font-weight: 600;">42.6%</td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid var(--db-border, rgba(255,255,255,0.08));">
+                        <td style="padding: 6px 8px;">Factual Correction</td>
+                        <td style="padding: 6px 8px; text-align: right; font-family: monospace;">95</td>
+                        <td style="padding: 6px 8px; text-align: right; font-family: monospace;">24</td>
+                        <td style="padding: 6px 8px; text-align: right; color: #51cf66; font-weight: 600;">74.7%</td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid var(--db-border, rgba(255,255,255,0.08));">
+                        <td style="padding: 6px 8px;">Refactor Suggestion</td>
+                        <td style="padding: 6px 8px; text-align: right; font-family: monospace;">139</td>
+                        <td style="padding: 6px 8px; text-align: right; font-family: monospace;">30</td>
+                        <td style="padding: 6px 8px; text-align: right; color: #51cf66; font-weight: 600;">78.5%</td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid var(--db-border, rgba(255,255,255,0.08));">
+                        <td style="padding: 6px 8px;">Debug Assistance</td>
+                        <td style="padding: 6px 8px; text-align: right; font-family: monospace;">483</td>
+                        <td style="padding: 6px 8px; text-align: right; font-family: monospace;">137</td>
+                        <td style="padding: 6px 8px; text-align: right; color: #51cf66; font-weight: 600;">71.6%</td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid var(--db-border, rgba(255,255,255,0.08));">
+                        <td style="padding: 6px 8px;">API Usage</td>
+                        <td style="padding: 6px 8px; text-align: right; font-family: monospace;">609</td>
+                        <td style="padding: 6px 8px; text-align: right; font-family: monospace;">246</td>
+                        <td style="padding: 6px 8px; text-align: right; color: #51cf66; font-weight: 600;">59.6%</td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid var(--db-border, rgba(255,255,255,0.08));">
+                        <td style="padding: 6px 8px;">Git Command</td>
+                        <td style="padding: 6px 8px; text-align: right; font-family: monospace;">334</td>
+                        <td style="padding: 6px 8px; text-align: right; font-family: monospace;">61</td>
+                        <td style="padding: 6px 8px; text-align: right; color: #51cf66; font-weight: 600;">81.6%</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 6px 8px;">Code Generation</td>
+                        <td style="padding: 6px 8px; text-align: right; font-family: monospace;">922</td>
+                        <td style="padding: 6px 8px; text-align: right; font-family: monospace;">151</td>
+                        <td style="padding: 6px 8px; text-align: right; color: #51cf66; font-weight: 600;">83.7%</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
         <p class="db-caption" style="margin-top: 1.25rem; text-align: center; opacity: 0.5;">
-            ~63% average output reduction. Inspired by <a href="https://github.com/drona23/claude-token-efficient" target="_blank" rel="noopener" style="color: var(--db-accent, #8B6914);">drona23/claude-token-efficient</a>.
+            Inspired by <a href="https://github.com/drona23/claude-token-efficient" target="_blank" rel="noopener" style="color: var(--db-accent, #8B6914);">drona23/claude-token-efficient</a>.
             <a href="https://github.com/drona23/claude-token-efficient/blob/main/examples/before-after.md" target="_blank" rel="noopener" style="color: var(--db-accent, #8B6914);">More examples &rarr;</a>
         </p>
     </div>
