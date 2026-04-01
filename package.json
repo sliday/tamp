@@ -10,7 +10,7 @@
     "providers.js",
     "stats.js"
   ],
-  "version": "0.4.2",
+  "version": "0.4.3",
   "description": "Token compression proxy for coding agents. Works with Claude Code, Aider, Cursor, Cline, Windsurf. 52.6% fewer input tokens.",
   "type": "module",
   "main": "index.js",
