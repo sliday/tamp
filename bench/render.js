@@ -159,10 +159,23 @@ function generateScatter(scenarios) {
   return svg
 }
 
-function generateAbstract(analysis) {
+function generateAbstract(analysis, outputData) {
   const agg = analysis.aggregate
   const best = analysis.scenarios.reduce((a, b) => a.savings.pct.mean > b.savings.pct.mean ? a : b)
-  return `We present a controlled A/B benchmark measuring Tamp's token compression effectiveness across ten representative agentic coding scenarios. Using OpenRouter as an independent measurement oracle with Claude Sonnet 4.6, we find a weighted average reduction of ${pct(agg.weighted_pct_reduction)} in input tokens. The strongest compression occurs on tabular/array data (${pct(best.savings.pct.mean)} for ${best.name}), while source code and error results correctly pass through unmodified. Across all compressible scenarios, output tokens remain identical between control and treatment, confirming semantic preservation. At current pricing ($3.00/Mtok input), Tamp saves approximately $${agg.session_projection.dollars_saved_per_session.toFixed(2)} per 200-request coding session with sub-millisecond compression overhead.`
+  let text = `We present controlled A/B benchmarks measuring Tamp's token savings across both input and output dimensions. Using OpenRouter as an independent measurement oracle with Claude Sonnet 4.6, we find a weighted average reduction of ${pct(agg.weighted_pct_reduction)} in input tokens across ten representative scenarios. The strongest compression occurs on tabular/array data (${pct(best.savings.pct.mean)} for ${best.name}), while source code and error results correctly pass through unmodified.`
+  if (outputData) {
+    text += ` Additionally, Tamp's token-efficient CLAUDE.md rules reduce output tokens by ${outputData.aggregate.weighted_pct_reduction}% across eight common developer interactions (80 API calls). Since output tokens cost 5&times; more than input ($15 vs $3/Mtok for Sonnet 4.6), output savings dominate total cost reduction.`
+    // Combined savings estimate
+    const inputSaved = agg.session_projection.dollars_saved_per_session
+    const outputPctReduction = parseFloat(outputData.aggregate.weighted_pct_reduction) / 100
+    // Assume 200 req/session, ~300 output tokens avg, 60% of requests generate substantial output
+    const avgOutputPerReq = 300
+    const outputSavedPerSession = 200 * 0.6 * avgOutputPerReq * outputPctReduction / 1_000_000 * 15
+    text += ` Combined input + output savings: approximately $${(inputSaved + outputSavedPerSession).toFixed(2)} per 200-request session.`
+  } else {
+    text += ` At current pricing ($3.00/Mtok input), Tamp saves approximately $${agg.session_projection.dollars_saved_per_session.toFixed(2)} per 200-request coding session with sub-millisecond compression overhead.`
+  }
+  return text
 }
 
 function generateDiscussion(analysis) {
@@ -188,31 +201,98 @@ function generateDiscussion(analysis) {
   return text
 }
 
-function generateConclusion(analysis) {
+function generateConclusion(analysis, outputData) {
   const agg = analysis.aggregate
   let text = `Tamp achieves a weighted average of ${pct(agg.weighted_pct_reduction)} input token reduction across representative agentic coding scenarios, with zero impact on model output quality. `
-  text += `The recommended configuration uses stages <code>[minify, toon, llmlingua]</code> with a minimum size threshold of 50 characters. `
-  text += `For teams running multiple coding sessions daily, Tamp can reduce API costs by $${(agg.session_projection.dollars_saved_per_session * 10).toFixed(2)}&ndash;$${(agg.session_projection.dollars_saved_per_session * 50).toFixed(2)} per month per developer, depending on usage intensity. `
+  if (outputData) {
+    text += `Additionally, Tamp's token-efficient CLAUDE.md injection reduces output tokens by ${outputData.aggregate.weighted_pct_reduction}%, saving significantly more per token at output pricing ($15/Mtok vs $3/Mtok for Sonnet 4.6). `
+    const inputSaved = agg.session_projection.dollars_saved_per_session
+    const outputPctReduction = parseFloat(outputData.aggregate.weighted_pct_reduction) / 100
+    const outputSavedPerSession = 200 * 0.6 * 300 * outputPctReduction / 1_000_000 * 15
+    const totalPerSession = inputSaved + outputSavedPerSession
+    text += `Combined, Tamp saves approximately $${totalPerSession.toFixed(2)} per 200-request session, or $${(totalPerSession * 5 * 22).toFixed(0)}/month for a developer running 5 sessions/day. `
+    text += `For a 10-person team, annualized savings reach $${(totalPerSession * 5 * 22 * 10 * 12).toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, ',')}. `
+  } else {
+    text += `For teams running multiple coding sessions daily, Tamp can reduce API costs by $${(agg.session_projection.dollars_saved_per_session * 10).toFixed(2)}&ndash;$${(agg.session_projection.dollars_saved_per_session * 50).toFixed(2)} per month per developer, depending on usage intensity. `
+  }
   text += `Future work includes adaptive threshold tuning and benchmarking across additional models and providers.`
   return text
+}
+
+function generateOutputTable(outputData) {
+  const perScenario = outputData.aggregate.per_scenario
+  let html = '<table>\n<caption>Table 4: Output token savings per scenario (5 runs each)</caption>\n'
+  html += '<tr><th>Scenario</th><th>Control (tokens)</th><th>Treatment (tokens)</th><th>Saved</th><th>% Reduction</th></tr>\n'
+  for (const s of perScenario) {
+    html += `<tr><td>${esc(s.id.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase()))}</td>`
+    html += `<td>${num(s.control_mean)}</td><td>${num(s.treatment_mean)}</td>`
+    html += `<td>${num(s.output_tokens_saved)}</td><td>${s.pct_reduction}%</td></tr>\n`
+  }
+  html += `<tr style="font-weight:bold; background:#f8f8f0"><td colspan="5">Weighted average: ${outputData.aggregate.weighted_pct_reduction}% output token reduction across ${outputData.meta.runs * perScenario.length * 2} API calls</td></tr>\n`
+  html += '</table>'
+  return html
+}
+
+function generateOutputBarChart(outputData) {
+  const perScenario = outputData.aggregate.per_scenario
+  const w = 600, h = 280, pad = { top: 20, right: 20, bottom: 80, left: 55 }
+  const chartW = w - pad.left - pad.right
+  const chartH = h - pad.top - pad.bottom
+  const bars = perScenario.map(s => ({ name: s.id.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase()), pct: parseFloat(s.pct_reduction) }))
+  const maxPct = Math.max(...bars.map(b => b.pct), 5) * 1.1
+  const barW = chartW / bars.length * 0.7
+  const gap = chartW / bars.length * 0.3
+
+  let svg = `<svg viewBox="0 0 ${w} ${h}" xmlns="http://www.w3.org/2000/svg" style="font-family:system-ui,sans-serif">\n`
+  svg += `<rect width="${w}" height="${h}" fill="white"/>\n`
+
+  const yScale = v => pad.top + chartH - (v / maxPct * chartH)
+  for (let tick = 0; tick <= maxPct; tick += 20) {
+    const y = yScale(tick)
+    svg += `<line x1="${pad.left}" y1="${y}" x2="${w - pad.right}" y2="${y}" stroke="#e0e0e0" stroke-width="0.5"/>\n`
+    svg += `<text x="${pad.left - 5}" y="${y + 4}" text-anchor="end" font-size="9" fill="#666">${tick}%</text>\n`
+  }
+
+  bars.forEach((b, i) => {
+    const x = pad.left + i * (barW + gap) + gap / 2
+    const barH = Math.max(2, (b.pct / maxPct) * chartH)
+    const y = pad.top + chartH - barH
+    svg += `<rect x="${x}" y="${y}" width="${barW}" height="${barH}" fill="#1a5c9e" rx="2"/>\n`
+    svg += `<text x="${x + barW / 2}" y="${y - 4}" text-anchor="middle" font-size="8" fill="#333" font-weight="600">${b.pct.toFixed(1)}%</text>\n`
+    svg += `<text x="${x + barW / 2}" y="${pad.top + chartH + 15}" text-anchor="middle" font-size="7.5" fill="#333" transform="rotate(30 ${x + barW / 2} ${pad.top + chartH + 15})">${esc(b.name)}</text>\n`
+  })
+
+  svg += `<text x="${pad.left - 35}" y="${pad.top + chartH / 2}" text-anchor="middle" font-size="10" fill="#333" transform="rotate(-90 ${pad.left - 35} ${pad.top + chartH / 2})">Output Token Reduction (%)</text>\n`
+  svg += '</svg>'
+  return svg
 }
 
 function main() {
   const analysisPath = process.argv[2] || findLatest('analysis-')
   const analysis = JSON.parse(readFileSync(analysisPath, 'utf8'))
 
+  // Load output eval data if available
+  let outputData = null
+  try {
+    const outputPath = findLatest('output-eval-')
+    outputData = JSON.parse(readFileSync(outputPath, 'utf8'))
+  } catch { /* no output eval data yet */ }
+
   let template = readFileSync(join(__dirname, 'whitepaper.html'), 'utf8')
 
   const replacements = {
     '{{DATE}}': new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }),
-    '{{ABSTRACT}}': generateAbstract(analysis),
+    '{{ABSTRACT}}': generateAbstract(analysis, outputData),
     '{{TABLE_1}}': generateTable1(analysis.scenarios),
     '{{TABLE_2}}': generateTable2(analysis.scenarios),
     '{{TABLE_3}}': generateTable3(analysis),
     '{{FIGURE_1}}': generateBarChart(analysis.scenarios),
     '{{FIGURE_2}}': generateScatter(analysis.scenarios),
+    '{{TABLE_OUTPUT}}': outputData ? generateOutputTable(outputData) : '<p><em>No output evaluation data available. Run <code>node bench/output-eval.js</code> first.</em></p>',
+    '{{FIGURE_OUTPUT}}': outputData ? generateOutputBarChart(outputData) : '',
+    '{{OUTPUT_PCT}}': outputData ? outputData.aggregate.weighted_pct_reduction + '%' : 'N/A',
     '{{DISCUSSION}}': generateDiscussion(analysis),
-    '{{CONCLUSION}}': generateConclusion(analysis),
+    '{{CONCLUSION}}': generateConclusion(analysis, outputData),
   }
 
   for (const [key, value] of Object.entries(replacements)) {

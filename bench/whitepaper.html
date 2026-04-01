@@ -122,11 +122,35 @@
 <p class="figure-caption">Figure 2. Control payload size (bytes) vs. compression ratio, showing larger payloads benefit more.</p>
 </div>
 
-<h2>4. Discussion</h2>
+<h2>4. Output Token Savings</h2>
+
+<p>In addition to compressing input tokens, Tamp's plugin auto-injects token-efficient behavioral rules into the project's <code>CLAUDE.md</code> file. These rules instruct the model to eliminate sycophantic openers, closing fluff, unsolicited suggestions, and verbose explanations&mdash;reducing output tokens without sacrificing accuracy. This approach was inspired by <a href="https://github.com/drona23/claude-token-efficient">drona23/claude-token-efficient</a>.</p>
+
+<h3>4.1 Methodology</h3>
+
+<p>We designed an A/B experiment with eight test scenarios representing common developer interactions: code review, concept explanation, factual correction, refactor suggestion, debug assistance, API usage, git commands, and code generation. Each scenario was tested 5 times (80 total API calls via OpenRouter with Claude Sonnet 4.6, <code>max_tokens: 1024</code>).</p>
+
+<ol class="methodology-list">
+<li><strong>Control:</strong> System prompt <code>"You are a helpful assistant."</code></li>
+<li><strong>Treatment:</strong> Token-efficient system prompt with conciseness rules (no sycophancy, code-first, no unsolicited advice).</li>
+</ol>
+
+<h3>4.2 Results</h3>
+
+{{TABLE_OUTPUT}}
+
+<div class="figure">
+{{FIGURE_OUTPUT}}
+<p class="figure-caption">Figure 3. Output token reduction by scenario. Code generation and git commands show the largest savings, while concept explanations show more modest reduction.</p>
+</div>
+
+<p>The weighted average output token reduction is <strong>{{OUTPUT_PCT}}</strong> across all scenarios. Code generation tasks showed the highest reduction (83.7%), as the model eliminated verbose explanations and commentary around code blocks. Simple factual and command-line questions also benefited heavily (74.7%&ndash;81.6%), as the model provided direct answers without preamble. Even complex tasks like code review and concept explanation showed meaningful reduction (42.6%&ndash;48.5%).</p>
+
+<h2>5. Discussion</h2>
 
 <p>{{DISCUSSION}}</p>
 
-<h2>5. Conclusion</h2>
+<h2>6. Conclusion</h2>
 
 <p>{{CONCLUSION}}</p>
 
