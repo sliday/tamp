@@ -269,7 +269,7 @@ async function compressWithLLMLingua(text, config) {
       const res = await fetch(config.llmLinguaUrl + '/compress', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text, rate: 0.5 }),
+        body: JSON.stringify({ text, rate: config.llmLinguaRate || 0.7 }),
         signal: controller.signal,
       })
       if (!res.ok) return null
