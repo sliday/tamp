@@ -306,6 +306,12 @@ Max plans have fixed token budgets. With 32% fewer input tokens per request, you
 
 Based on 5 sessions/day, 200 requests/session, 60% compressible traffic.
 
+### Output Token Savings
+
+Tamp also injects token-efficient behavioral rules into your project's `CLAUDE.md` file, reducing output tokens by 66.2% across common developer tasks (code review, debugging, refactoring, etc.). See [drona23/claude-token-efficient](https://github.com/drona23/claude-token-efficient) for the inspiration.
+
+**Caveman Mode Evaluation:** We tested an extreme "Caveman Mode" compression approach (40-70% additional output savings) but found it unsafe for production use due to lost context in security reviews, debugging, and architectural decisions. The recommended approach is task-type-aware compression: 78% savings on safe tasks (env vars, typos, docs) with full output for complex workflows. See the full evaluation in [`bench/caveman-mode-evaluation.md`](bench/caveman-mode-evaluation.md).
+
 ## Star History
 
 <a href="https://www.star-history.com/?repos=sliday%2Ftamp&type=date&legend=top-left">
