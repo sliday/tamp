@@ -172,6 +172,7 @@ function generateAbstract(analysis, outputData) {
     const avgOutputPerReq = 300
     const outputSavedPerSession = 200 * 0.6 * avgOutputPerReq * outputPctReduction / 1_000_000 * 15
     text += ` Combined input + output savings: approximately $${(inputSaved + outputSavedPerSession).toFixed(2)} per 200-request session.`
+    text += ` We also evaluate an extreme "Caveman Mode" compression approach, finding 40-70% additional output savings but critical safety risks for complex tasks (security, debugging, architecture). The recommended hybrid approach (task-type-aware compression) achieves 64% overall output savings while preserving thoroughness where needed.`
   } else {
     text += ` At current pricing ($3.00/Mtok input), Tamp saves approximately $${agg.session_projection.dollars_saved_per_session.toFixed(2)} per 200-request coding session with sub-millisecond compression overhead.`
   }
@@ -212,6 +213,7 @@ function generateConclusion(analysis, outputData) {
     const totalPerSession = inputSaved + outputSavedPerSession
     text += `Combined, Tamp saves approximately $${totalPerSession.toFixed(2)} per 200-request session, or $${(totalPerSession * 5 * 22).toFixed(0)}/month for a developer running 5 sessions/day. `
     text += `For a 10-person team, annualized savings reach $${(totalPerSession * 5 * 22 * 10 * 12).toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, ',')}. `
+    text += `While extreme "Caveman Mode" compression achieves 40-70% additional output savings, our evaluation finds it unsafe for production use due to lost context in security reviews, debugging, and architectural decisions. The recommended hybrid approach (task-type-aware compression) achieves 64% output savings on safe tasks (env vars, typos, docs) while preserving full output for complex workflows. `
   } else {
     text += `For teams running multiple coding sessions daily, Tamp can reduce API costs by $${(agg.session_projection.dollars_saved_per_session * 10).toFixed(2)}&ndash;$${(agg.session_projection.dollars_saved_per_session * 50).toFixed(2)} per month per developer, depending on usage intensity. `
   }

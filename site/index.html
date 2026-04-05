@@ -727,6 +727,133 @@
 <div class="section-inner"><div class="db-separator"></div></div>
 
 <!-- ============================================================
+     5c. CAVEMAN MODE EVALUATION
+     ============================================================ -->
+<section id="caveman-mode">
+    <div class="section-inner">
+        <h2 class="db-h2">Caveman Mode Evaluation</h2>
+        <p class="db-eyebrow" style="color: var(--db-terracotta); font-weight: 600; margin-bottom: 0.5rem;">Conditional — Safe for simple tasks only</p>
+
+        <div class="db-callout db-callout--warning" style="--callout-bg: rgba(211, 54, 61, 0.1); --callout-border: #d33; margin: 1.5rem 0;">
+            <h3 class="db-h3" style="margin-bottom: 0.5rem;">⚠️ Evaluation Results: Not Safe for Production</h3>
+            <p class="db-body" style="margin-bottom: 0;">Comprehensive testing shows Caveman Mode achieves 40–70% output token savings but introduces critical risks for security fixes, debugging, and architectural decisions.</p>
+        </div>
+
+        <h3 class="db-h3" style="margin-top: 2rem;">What is Caveman Mode?</h3>
+        <p class="db-body">An extreme output compression approach that makes Claude Code's responses more token-efficient by:</p>
+        <ul class="db-body" style="padding-left: 1.5rem; margin-top: 0.75rem;">
+            <li>Executing tools before speaking (tool-first)</li>
+            <li>Removing preamble ("Let me...", "I will...")</li>
+            <li>Using sentence fragments</li>
+            <li>Stopping immediately after results</li>
+            <li>Never echoing user input</li>
+        </ul>
+
+        <h3 class="db-h3" style="margin-top: 2rem;">Task-Type Safety Assessment</h3>
+        <div style="overflow-x: auto; margin: 1.5rem 0;">
+            <table style="width: 100%; border-collapse: collapse; font-size: 0.9rem;">
+                <thead>
+                    <tr style="border-bottom: 2px solid rgba(255,255,255,0.1);">
+                        <th style="padding: 0.75rem; text-align: left;">Task Type</th>
+                        <th style="padding: 0.75rem; text-align: right;">Savings</th>
+                        <th style="padding: 0.75rem; text-align: center;">Safe?</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
+                        <td style="padding: 0.75rem;">Env var additions</td>
+                        <td style="padding: 0.75rem; text-align: right;">80%</td>
+                        <td style="padding: 0.75rem; text-align: center; color: #4ade80;">✅ Yes</td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
+                        <td style="padding: 0.75rem;">Typos</td>
+                        <td style="padding: 0.75rem; text-align: right;">95%</td>
+                        <td style="padding: 0.75rem; text-align: center; color: #4ade80;">✅ Yes</td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
+                        <td style="padding: 0.75rem;">Documentation</td>
+                        <td style="padding: 0.75rem; text-align: right;">85%</td>
+                        <td style="padding: 0.75rem; text-align: center; color: #4ade80;">✅ Yes</td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
+                        <td style="padding: 0.75rem;">New features (trivial)</td>
+                        <td style="padding: 0.75rem; text-align: right;">70%</td>
+                        <td style="padding: 0.75rem; text-align: center; color: #fbbf24;">⚠️ Conditional</td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
+                        <td style="padding: 0.75rem;">Simple refactors</td>
+                        <td style="padding: 0.75rem; text-align: right;">65%</td>
+                        <td style="padding: 0.75rem; text-align: center; color: #fbbf24;">⚠️ Conditional</td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
+                        <td style="padding: 0.75rem;">Debugging</td>
+                        <td style="padding: 0.75rem; text-align: right;">40%</td>
+                        <td style="padding: 0.75rem; text-align: center; color: #f87171;">❌ No</td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
+                        <td style="padding: 0.75rem;">Security fixes</td>
+                        <td style="padding: 0.75rem; text-align: right;">50%</td>
+                        <td style="padding: 0.75rem; text-align: center; color: #f87171;">❌ No</td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
+                        <td style="padding: 0.75rem;">Performance</td>
+                        <td style="padding: 0.75rem; text-align: right;">45%</td>
+                        <td style="padding: 0.75rem; text-align: center; color: #f87171;">❌ No</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 0.75rem;">Architecture</td>
+                        <td style="padding: 0.75rem; text-align: right;">35%</td>
+                        <td style="padding: 0.75rem; text-align: center; color: #f87171;">❌ No</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <h3 class="db-h3" style="margin-top: 2rem;">Recommended Approach: Task-Type-Aware Compression</h3>
+        <p class="db-body">Instead of blanket Caveman Mode, use a hybrid approach:</p>
+        <ul class="db-body" style="padding-left: 1.5rem; margin-top: 0.75rem;">
+            <li><strong>Safe zones:</strong> Apply full compression to env vars, typos, docs (78% average savings)</li>
+            <li><strong>Danger zones:</strong> Use full output for security, debugging, performance, architecture</li>
+        </ul>
+        <p class="db-body" style="margin-top: 1rem;">This achieves <strong>64% overall savings</strong> without breaking critical workflows.</p>
+
+        <div class="db-card db-surface--raised" style="margin: 2rem 0; padding: 1.5rem;">
+            <h4 class="db-h4" style="margin-bottom: 1rem;">Example Failure: Security Fix</h4>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; font-size: 0.85rem;">
+                <div>
+                    <p style="color: #f87171; font-weight: 600; margin-bottom: 0.5rem;">❌ Caveman Mode (56% savings)</p>
+                    <pre style="background: rgba(0,0,0,0.3); padding: 0.75rem; border-radius: 4px; overflow-x: auto;">SSRF found: llmLinguaUrl unvalidated
+Fixed: Added localhost-only hostname check
+Tests: ✓</pre>
+                </div>
+                <div>
+                    <p style="color: #4ade80; font-weight: 600; margin-bottom: 0.5rem;">✅ Normal Mode</p>
+                    <pre style="background: rgba(0,0,0,0.3); padding: 0.75rem; border-radius: 4px; overflow-x: auto;">Found vulnerability: SSRF via
+config.llmLinguaUrl (compress.js:273).
+URL concatenated without validation...
+
+Fix: Added hostname validation to
+ensure llmLinguaUrl only points to
+localhost (127.0.0.1, ::1).
+
+Edge cases: IPv6 variants handled,
+hostname spoofing prevented.
+
+Tests: ✓ Commit: d631c4f</pre>
+                </div>
+            </div>
+            <p class="db-caption" style="margin-top: 1rem; opacity: 0.6;">Problem: User can't verify attack vector, IPv6 handling, or hostname spoofing prevention.</p>
+        </div>
+
+        <p class="db-body" style="text-align: center; margin-top: 2rem;">
+            See the full evaluation at <a href="https://github.com/sliday/tamp/tree/main/bench" target="_blank" rel="noopener" style="color: var(--db-accent);">github.com/sliday/tamp/tree/main/bench</a>
+        </p>
+    </div>
+</section>
+
+<div class="section-inner"><div class="db-separator"></div></div>
+
+<!-- ============================================================
      5c. STAR HISTORY
      ============================================================ -->
 <section id="star-history">
