@@ -750,8 +750,8 @@
         </ul>
 
         <h3 class="db-h3" style="margin-top: 2rem;">Task-Type Safety Assessment</h3>
-        <div style="overflow-x: auto; margin: 1.5rem 0;">
-            <table style="width: 100%; border-collapse: collapse; font-size: 0.9rem;">
+        <div style="overflow-x: auto; -webkit-overflow-scrolling: touch; margin: 1.5rem -1.5rem; padding: 0 1.5rem;">
+            <table style="min-width: 500px; width: 100%; border-collapse: collapse; font-size: 0.9rem;">
                 <thead>
                     <tr style="border-bottom: 2px solid rgba(255,255,255,0.1);">
                         <th style="padding: 0.75rem; text-align: left;">Task Type</th>
@@ -819,16 +819,16 @@
 
         <div class="db-card db-surface--raised" style="margin: 2rem 0; padding: 1.5rem;">
             <h4 class="db-h4" style="margin-bottom: 1rem;">Example Failure: Security Fix</h4>
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; font-size: 0.85rem;">
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1rem; font-size: 0.85rem;">
                 <div>
                     <p style="color: #f87171; font-weight: 600; margin-bottom: 0.5rem;">❌ Caveman Mode (56% savings)</p>
-                    <pre style="background: rgba(0,0,0,0.3); padding: 0.75rem; border-radius: 4px; overflow-x: auto;">SSRF found: llmLinguaUrl unvalidated
+                    <pre style="background: rgba(0,0,0,0.3); padding: 0.75rem; border-radius: 4px; overflow-x: auto; white-space: pre-wrap; word-break: break-word;">SSRF found: llmLinguaUrl unvalidated
 Fixed: Added localhost-only hostname check
 Tests: ✓</pre>
                 </div>
                 <div>
                     <p style="color: #4ade80; font-weight: 600; margin-bottom: 0.5rem;">✅ Normal Mode</p>
-                    <pre style="background: rgba(0,0,0,0.3); padding: 0.75rem; border-radius: 4px; overflow-x: auto;">Found vulnerability: SSRF via
+                    <pre style="background: rgba(0,0,0,0.3); padding: 0.75rem; border-radius: 4px; overflow-x: auto; white-space: pre-wrap; word-break: break-word;">Found vulnerability: SSRF via
 config.llmLinguaUrl (compress.js:273).
 URL concatenated without validation...
 
