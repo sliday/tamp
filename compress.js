@@ -300,6 +300,16 @@ async function compressWithLLMLingua(text, config) {
 async function compressWithFoundationModels(text, config) {
   if (!config.foundationModelsPath) return null
 
+  // Validate foundationModelsPath to prevent command injection
+  const cmdPath = config.foundationModelsPath
+  // Allow only simple command names (no path separators) or absolute paths
+  if (cmdPath.includes('/') || cmdPath.includes('\\')) {
+    // If it contains path separators, must be an absolute path
+    if (!cmdPath.startsWith('/')) {
+      return null
+    }
+  }
+
   const SYSTEM_PROMPT = config.foundationModelsSystemPrompt ||
     'Compress this text to 50% length while preserving all key information and meaning. Return only the compressed text without explanation.'
 
