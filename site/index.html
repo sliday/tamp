@@ -851,6 +851,113 @@ Tests: ✓ Commit: d631c4f</pre>
     </div>
 </section>
 
+<!-- ==============================================================
+     5d. CAVEMAN-INTEGRATED FEATURES
+     ============================================================ -->
+<section id="caveman-features">
+    <div class="section-inner">
+        <h2 class="db-h2">Caveman-Inspired Features</h2>
+        <p class="db-eyebrow" style="color: var(--db-terracotta); font-weight: 600; margin-bottom: 0.5rem;">New in v0.5.0 — Task-type-aware compression & presets</p>
+
+        <p class="db-body" style="font-size: 1.1rem; max-width: 640px; margin: 0 auto 2rem;">
+            Tamp now integrates the best ideas from <a href="https://github.com/JuliusBrussee/caveman" target="_blank" rel="noopener" style="color: var(--db-accent);">JuliusBrussee/caveman</a> for full-spectrum token optimization: input compression (Tamp's strength) + output compression (Caveman's strength).
+        </p>
+
+        <h3 class="db-h3" style="margin-top: 2rem;">Compression Presets</h3>
+        <p class="db-body">Three intensity levels simplify configuration—no need to memorize 10 stage names:</p>
+
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1rem; margin: 1.5rem 0;">
+            <div class="db-card db-surface--raised" style="padding: 1.5rem;">
+                <h4 class="db-h4" style="margin-bottom: 0.5rem;">🛡️ Conservative</h4>
+                <p class="db-body" style="font-size: 0.9rem; margin: 0.5rem 0;"><strong>45-50% savings</strong> — Lossless only</p>
+                <ul class="db-body" style="font-size: 0.85rem; padding-left: 1.25rem; margin: 0.5rem 0;">
+                    <li>Minify, toon, strip-lines</li>
+                    <li>Whitespace, dedup, diff</li>
+                    <li>No neural compression</li>
+                </ul>
+            </div>
+
+            <div class="db-card db-surface--raised" style="padding: 1.5rem;">
+                <h4 class="db-h4" style="margin-bottom: 0.5rem;">⚖️ Balanced (Default)</h4>
+                <p class="db-body" style="font-size: 0.9rem; margin: 0.5rem 0;"><strong>52-58% savings</strong> — Recommended</p>
+                <ul class="db-body" style="font-size: 0.85rem; padding-left: 1.25rem; margin: 0.5rem 0;">
+                    <li>All conservative stages</li>
+                    <li>LLMLingua neural compression</li>
+                    <li>Prune lockfile metadata</li>
+                </ul>
+            </div>
+
+            <div class="db-card db-surface--raised" style="padding: 1.5rem;">
+                <h4 class="db-h4" style="margin-bottom: 0.5rem;">🚀 Aggressive</h4>
+                <p class="db-body" style="font-size: 0.9rem; margin: 0.5rem 0;"><strong>60-68% savings</strong> — Maximum</p>
+                <ul class="db-body" style="font-size: 0.85rem; padding-left: 1.25rem; margin: 0.5rem 0;">
+                    <li>All balanced stages</li>
+                    <li>Strip code comments</li>
+                    <li>Textpress LLM compression</li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="db-callout" style="--callout-bg: rgba(139, 105, 20, 0.1); --callout-border: var(--tamp-espresso); margin: 2rem 0;">
+            <h4 class="db-h4" style="margin-bottom: 0.5rem;">💡 Usage</h4>
+            <pre style="background: rgba(0,0,0,0.3); padding: 1rem; border-radius: 4px; overflow-x: auto; font-size: 0.85rem;"># Environment variable
+export TAMP_COMPRESSION_PRESET=balanced
+
+# Config file (~/.config/tamp/config)
+TAMP_COMPRESSION_PRESET=balanced  # conservative | balanced | aggressive</pre>
+        </div>
+
+        <h3 class="db-h3" style="margin-top: 2.5rem;">Task-Type-Aware Output Compression</h3>
+        <p class="db-body">Tamp can now inject token-efficient rules into CLAUDE.md with three output modes. Safe tasks (env vars, typos, docs) get compressed output; dangerous tasks (security, debugging) get full output.</p>
+
+        <div style="overflow-x: auto; -webkit-overflow-scrolling: touch; margin: 1.5rem 0;">
+            <table style="min-width: 500px; width: 100%; border-collapse: collapse; font-size: 0.9rem;">
+                <thead>
+                    <tr style="border-bottom: 2px solid rgba(255,255,255,0.1);">
+                        <th style="padding: 0.75rem; text-align: left;">Mode</th>
+                        <th style="padding: 0.75rem; text-align: right;">Safe Tasks</th>
+                        <th style="padding: 0.75rem; text-align: right;">Dangerous</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
+                        <td style="padding: 0.75rem;">Conservative</td>
+                        <td style="padding: 0.75rem; text-align: right;">40-50%</td>
+                        <td style="padding: 0.75rem; text-align: right;">40-50%</td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
+                        <td style="padding: 0.75rem;">Balanced</td>
+                        <td style="padding: 0.75rem; text-align: right; color: #4ade80;">65-75%</td>
+                        <td style="padding: 0.75rem; text-align: right; color: #fbbf24;">Full output</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 0.75rem;">Aggressive</td>
+                        <td style="padding: 0.75rem; text-align: right; color: #4ade80;">75-85%</td>
+                        <td style="padding: 0.75rem; text-align: right; color: #fbbf24;">Partial</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <h3 class="db-h3" style="margin-top: 2.5rem;">CLI: Compress Config Files</h3>
+        <p class="db-body">New <code style="background: rgba(0,0,0,0.3); padding: 0.2rem 0.4rem; border-radius: 3px;">tamp compress-config</code> tool compresses CLAUDE.md and config files by 40-45% using Tamp's compression pipeline.</p>
+
+        <pre style="background: rgba(0,0,0,0.3); padding: 1rem; border-radius: 4px; overflow-x: auto; font-size: 0.85rem; margin: 1.5rem 0;"># Dry run (preview savings)
+tamp compress-config --dry-run ~/.claude/CLAUDE.md
+
+# Compress with backup
+tamp compress-config ~/.claude/CLAUDE.md
+
+# Compress multiple files
+tamp compress-config ~/.config/tamp/config ~/.claude/CLAUDE.md</pre>
+
+        <div class="db-callout db-callout--info" style="--callout-bg: rgba(59, 130, 246, 0.1); --callout-border: #3b82f6; margin: 2rem 0;">
+            <h4 class="db-h4" style="margin-bottom: 0.5rem;">🎯 Combined Impact</h4>
+            <p class="db-body" style="margin: 0;">With Caveman-inspired features integrated, Tamp now provides <strong>60-70% combined token savings</strong> (input + output) in balanced mode—full-spectrum optimization without sacrificing quality on critical tasks.</p>
+        </div>
+    </div>
+</section>
+
 <div class="section-inner"><div class="db-separator"></div></div>
 
 <!-- ============================================================
