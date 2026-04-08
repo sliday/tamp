@@ -316,10 +316,22 @@ async function compressWithFoundationModels(text, config) {
 
   // Validate foundationModelsPath to prevent command injection
   const cmdPath = config.foundationModelsPath
+
+  // Reject shell metacharacters and command injection attempts
+  const dangerousChars = /[;&|`$()<>]/
+  if (dangerousChars.test(cmdPath)) {
+    return null
+  }
+
   // Allow only simple command names (no path separators) or absolute paths
   if (cmdPath.includes('/') || cmdPath.includes('\\')) {
     // If it contains path separators, must be an absolute path
     if (!cmdPath.startsWith('/')) {
+      return null
+    }
+    // Additional check: prevent path traversal in absolute paths
+    const normalizedPath = cmdPath.replace(/\.\./g, '')
+    if (normalizedPath !== cmdPath) {
       return null
     }
   }
