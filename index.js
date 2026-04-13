@@ -7,6 +7,7 @@ import { loadConfig } from './config.js'
 import { compressRequest } from './compress.js'
 import { detectProvider } from './providers.js'
 import { createSession, formatRequestLog } from './stats.js'
+import { createSessionStore, deriveSessionKey } from './session-graph.js'
 
 function buildUpstreamUrl(reqPath, base) {
   const parsed = new URL(base)
@@ -27,13 +28,14 @@ export function createProxy(overrides = {}) {
   const base = loadConfig()
   const config = { ...base, ...overrides }
   if (overrides.upstream && !overrides.upstreams) {
-    config.upstreams = { anthropic: overrides.upstream, openai: overrides.upstream, gemini: overrides.upstream }
+    config.upstreams = { anthropic: overrides.upstream, openai: overrides.upstream, 'openai-responses': overrides.upstream, gemini: overrides.upstream }
   }
   const session = createSession()
-  return { config, session, server: _createServer(config, session) }
+  const sessionStore = createSessionStore()
+  return { config, session, sessionStore, server: _createServer(config, session, sessionStore) }
 }
 
-function _createServer(config, session) {
+function _createServer(config, session, sessionStore) {
 const log = createRequestLogger(config)
 
 function openUpstream(method, upstreamUrl, headers, res) {
@@ -209,7 +211,10 @@ return http.createServer(async (req, res) => {
   try {
     const parsed = JSON.parse(textBody.toString('utf-8'))
 
-    const { body, stats } = await compressRequest(parsed, config, provider)
+    const sessionBucket = config.stages?.includes('graph')
+      ? sessionStore.getBucket(deriveSessionKey(req.headers))
+      : null
+    const { body, stats } = await compressRequest(parsed, { ...config, sessionBucket }, provider)
     finalBody = Buffer.from(JSON.stringify(body), 'utf-8')
     // Send uncompressed — simpler and content-length is accurate
     if (decompressed) delete headers['content-encoding']

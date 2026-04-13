@@ -3,7 +3,8 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import http from 'node:http'
 import { compressText, compressMessages, compressRequest, clearCache } from '../compress.js'
-import { openai } from '../providers.js'
+import { openai, openaiResponses } from '../providers.js'
+import { createSessionStore } from '../session-graph.js'
 
 const fixtures = JSON.parse(readFileSync(new URL('./fixtures/sample-messages.json', import.meta.url), 'utf-8'))
 
@@ -263,5 +264,57 @@ describe('compressRequest with OpenAI format', () => {
     }
     const { stats } = await compressRequest(body, { ...cfg, cacheSafe: false }, openai)
     assert.equal(stats.filter(s => s.method).length, 2)
+  })
+})
+
+describe('compressRequest with graph stage (session-scoped dedup)', () => {
+  const largeOutput = JSON.stringify({ file: 'providers.js', content: 'x'.repeat(2000) })
+
+  function makeBody(content) {
+    return {
+      model: 'gpt-5-codex',
+      input: [
+        { role: 'user', content: [{ type: 'input_text', text: 'read it' }] },
+        { type: 'function_call_output', call_id: 'c1', output: content },
+      ],
+    }
+  }
+
+  it('first request: no compression, second request: ref marker substitution', async () => {
+    const store = createSessionStore()
+    const bucket = store.getBucket('test-session')
+    const cfg = { minSize: 50, stages: ['graph'], llmLinguaUrl: null, sessionBucket: bucket, cacheSafe: false }
+
+    const body1 = makeBody(largeOutput)
+    const r1 = await compressRequest(body1, cfg, openaiResponses)
+    assert.equal(r1.stats.filter(s => s.method === 'graph').length, 0, 'first request: no graph hit')
+    assert.equal(body1.input[1].output, largeOutput, 'first request: output untouched')
+
+    const body2 = makeBody(largeOutput)
+    const r2 = await compressRequest(body2, cfg, openaiResponses)
+    assert.equal(r2.stats.filter(s => s.method === 'graph').length, 1, 'second request: graph hit')
+    assert.match(body2.input[1].output, /^<tamp-file-ref id="1" sha="[a-f0-9]{12}" bytes="\d+"\/>$/)
+  })
+
+  it('isolates sessions: bucket A leak does not affect bucket B', async () => {
+    const store = createSessionStore()
+    const cfgA = { minSize: 50, stages: ['graph'], llmLinguaUrl: null, sessionBucket: store.getBucket('A'), cacheSafe: false }
+    const cfgB = { minSize: 50, stages: ['graph'], llmLinguaUrl: null, sessionBucket: store.getBucket('B'), cacheSafe: false }
+
+    await compressRequest(makeBody(largeOutput), cfgA, openaiResponses)
+    const bodyB = makeBody(largeOutput)
+    await compressRequest(bodyB, cfgB, openaiResponses)
+    assert.equal(bodyB.input[1].output, largeOutput, 'B must not see A content')
+  })
+
+  it('no-ops when graph enabled but sessionBucket missing', async () => {
+    const cfg = { minSize: 50, stages: ['graph'], llmLinguaUrl: null, cacheSafe: false }
+    const body = makeBody(largeOutput)
+    await compressRequest(body, cfg, openaiResponses)
+    await compressRequest(makeBody(largeOutput), cfg, openaiResponses)
+    const body3 = makeBody(largeOutput)
+    const r3 = await compressRequest(body3, cfg, openaiResponses)
+    assert.equal(r3.stats.filter(s => s.method === 'graph').length, 0)
+    assert.equal(body3.input[1].output, largeOutput)
   })
 })

@@ -1,6 +1,6 @@
 # Tamp
 
-**Token compression proxy for coding agents.** 52.6% fewer input tokens, 60-70% combined with output compression. Zero code changes. Works with Claude Code, Aider, Cursor, Cline, Windsurf, 🦞 [OpenClaw](https://openclaw.app), and any OpenAI-compatible agent.
+**Token compression proxy for coding agents.** 52.6% fewer input tokens, 60-70% combined with output compression. Zero code changes. Works with Claude Code, Codex CLI, Aider, Cursor, Cline, Windsurf, 🦞 [OpenClaw](https://openclaw.app), and any OpenAI-compatible agent.
 
 ```
 npx @sliday/tamp
@@ -58,7 +58,8 @@ curl -fsSL https://tamp.dev/setup.sh | bash
 
 # Option B: Manual
 npx @sliday/tamp
-export ANTHROPIC_BASE_URL=http://localhost:7778
+export ANTHROPIC_BASE_URL=http://localhost:7778   # Claude Code
+export OPENAI_API_BASE=http://localhost:7778/v1   # Codex CLI, Aider, Cursor
 ```
 
 Use your agent as normal — Tamp compresses silently.

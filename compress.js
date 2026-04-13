@@ -5,6 +5,7 @@ import { countTokens } from '@anthropic-ai/tokenizer'
 import { createPatch } from 'diff'
 import { tryParseJSON, classifyContent, stripLineNumbers } from './detect.js'
 import { anthropic } from './providers.js'
+import { graphDeduplicateTargets } from './session-graph.js'
 
 const cache = new Map()
 const MAX_CACHE = 500
@@ -434,17 +435,26 @@ export async function compressRequest(body, config, provider) {
   // Diff: replace similar blocks with unified diffs
   if (config.stages.includes('diff')) diffTargets(targets)
 
+  // Graph: session-scoped dedup across requests (opt-in)
+  if (config.stages.includes('graph') && config.sessionBucket) {
+    graphDeduplicateTargets(targets, config.sessionBucket)
+  }
+
   const stats = []
   for (const target of targets) {
     if (target.skip) { stats.push({ index: target.index, skipped: target.skip }); continue }
 
-    // Dedup/diff already set .compressed — record stats and skip compression
+    // Dedup/diff/graph already set .compressed — record stats and skip compression
     if (target.dedup) {
       stats.push({ index: target.index, method: 'dedup', originalLen: target.text.length, compressedLen: target.compressed.length, originalTokens: countTokens(target.text), compressedTokens: countTokens(target.compressed) })
       continue
     }
     if (target.diffed) {
       stats.push({ index: target.index, method: 'diff', originalLen: target.text.length, compressedLen: target.compressed.length, originalTokens: countTokens(target.text), compressedTokens: countTokens(target.compressed) })
+      continue
+    }
+    if (target.graphed) {
+      stats.push({ index: target.index, method: 'graph', originalLen: target.text.length, compressedLen: target.compressed.length, originalTokens: countTokens(target.text), compressedTokens: countTokens(target.compressed) })
       continue
     }
 

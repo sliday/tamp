@@ -19,6 +19,7 @@ export const EXTRA_STAGES = Object.freeze([
   'strip-comments',
   'textpress',
   'foundation-models',
+  'graph',
 ])
 
 export const ALL_STAGES = Object.freeze([
@@ -38,4 +39,29 @@ export const STAGE_DESCRIPTIONS = Object.freeze({
   prune: 'Strip lockfile hashes & npm metadata',
   'strip-comments': 'Remove code comments (lossy)',
   textpress: 'LLM semantic compression (Ollama/OpenRouter)',
+  graph: 'Session-scoped dedup across requests (lossless, opt-in)',
+})
+
+export const COMPRESSION_PRESETS = Object.freeze({
+  conservative: {
+    name: 'Conservative',
+    description: 'Safe, lossless compression only',
+    stages: ['minify', 'toon', 'strip-lines', 'whitespace', 'dedup', 'diff'],
+    expectedSavings: '45-50%',
+    risk: 'None',
+  },
+  balanced: {
+    name: 'Balanced',
+    description: 'Default, includes semantic compression',
+    stages: ['minify', 'toon', 'strip-lines', 'whitespace', 'llmlingua', 'dedup', 'diff', 'prune'],
+    expectedSavings: '52-58%',
+    risk: 'Low',
+  },
+  aggressive: {
+    name: 'Aggressive',
+    description: 'Maximum compression, lossy stages enabled',
+    stages: ['minify', 'toon', 'strip-lines', 'whitespace', 'llmlingua', 'dedup', 'diff', 'prune', 'strip-comments', 'textpress'],
+    expectedSavings: '60-68%',
+    risk: 'Medium (may lose comments, verbose text)',
+  },
 })

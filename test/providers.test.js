@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
-import { detectProvider, anthropic, openai, gemini } from '../providers.js'
+import { detectProvider, anthropic, openai, openaiResponses, gemini } from '../providers.js'
 
 describe('detectProvider', () => {
   it('returns anthropic for POST /v1/messages', () => {
@@ -29,6 +29,18 @@ describe('detectProvider', () => {
 
   it('returns openai for POST /chat/completions (no /v1 prefix)', () => {
     assert.equal(detectProvider('POST', '/chat/completions').name, 'openai')
+  })
+
+  it('returns openai-responses for POST /v1/responses', () => {
+    assert.equal(detectProvider('POST', '/v1/responses').name, 'openai-responses')
+  })
+
+  it('returns openai-responses for POST /responses (no /v1 prefix)', () => {
+    assert.equal(detectProvider('POST', '/responses').name, 'openai-responses')
+  })
+
+  it('does not match /v1/responses on GET', () => {
+    assert.equal(detectProvider('GET', '/v1/responses'), null)
   })
 
 })
@@ -188,6 +200,104 @@ describe('openai adapter', () => {
     const targets = [{ path: ['messages', 1, 'content'], compressed: 'compressed' }]
     openai.apply(body, targets)
     assert.equal(body.messages[1].content, 'compressed')
+  })
+})
+
+describe('openai-responses adapter', () => {
+  it('extracts ALL function_call_output items from input array', () => {
+    const body = {
+      model: 'gpt-5-codex',
+      input: [
+        { role: 'user', content: [{ type: 'input_text', text: 'read file.js' }] },
+        { type: 'function_call', call_id: 'call_1', name: 'shell', arguments: '{}' },
+        { type: 'function_call_output', call_id: 'call_1', output: '{"file":"contents"}' },
+        { role: 'user', content: [{ type: 'input_text', text: 'now read other.js' }] },
+        { type: 'function_call', call_id: 'call_2', name: 'shell', arguments: '{}' },
+        { type: 'function_call_output', call_id: 'call_2', output: '{"other":"data"}' },
+      ],
+    }
+    const targets = openaiResponses.extract(body)
+    assert.equal(targets.length, 2)
+    assert.equal(targets[0].text, '{"file":"contents"}')
+    assert.deepEqual(targets[0].path, ['input', 2, 'output'])
+    assert.equal(targets[1].text, '{"other":"data"}')
+    assert.deepEqual(targets[1].path, ['input', 5, 'output'])
+  })
+
+  it('skips function_call_output with non-string output', () => {
+    const body = {
+      input: [
+        { type: 'function_call_output', call_id: 'c1', output: { nested: 'obj' } },
+        { type: 'function_call_output', call_id: 'c2', output: '{"ok":true}' },
+      ],
+    }
+    const targets = openaiResponses.extract(body)
+    assert.equal(targets.length, 1)
+    assert.equal(targets[0].text, '{"ok":true}')
+  })
+
+  it('ignores user/assistant messages and function_call items', () => {
+    const body = {
+      input: [
+        { role: 'user', content: [{ type: 'input_text', text: 'hello' }] },
+        { type: 'function_call', call_id: 'c1', name: 'shell', arguments: '{}' },
+        { role: 'assistant', content: [{ type: 'output_text', text: 'hi' }] },
+      ],
+    }
+    assert.deepEqual(openaiResponses.extract(body), [])
+  })
+
+  it('extracts only trailing function_call_output items when cacheSafe=true', () => {
+    const body = {
+      input: [
+        { type: 'function_call_output', call_id: 'old', output: '{"old":"data"}' },
+        { role: 'assistant', content: [{ type: 'output_text', text: 'done' }] },
+        { type: 'function_call_output', call_id: 'new1', output: '{"new":"data"}' },
+        { type: 'function_call_output', call_id: 'new2', output: '{"newer":"data"}' },
+      ],
+    }
+    const targets = openaiResponses.extract(body, { cacheSafe: true })
+    assert.equal(targets.length, 2)
+    assert.deepEqual(targets.map(t => t.path), [
+      ['input', 2, 'output'],
+      ['input', 3, 'output'],
+    ])
+  })
+
+  it('returns empty for missing or empty input', () => {
+    assert.deepEqual(openaiResponses.extract({}), [])
+    assert.deepEqual(openaiResponses.extract({ input: [] }), [])
+    assert.deepEqual(openaiResponses.extract({ input: null }), [])
+  })
+
+  it('apply replaces function_call_output.output with compressed text', () => {
+    const body = {
+      input: [
+        { type: 'function_call_output', call_id: 'c1', output: 'original' },
+      ],
+    }
+    const targets = [{ path: ['input', 0, 'output'], compressed: 'compressed' }]
+    openaiResponses.apply(body, targets)
+    assert.equal(body.input[0].output, 'compressed')
+  })
+
+  it('normalizeUrl prepends /v1 when missing', () => {
+    assert.equal(openaiResponses.normalizeUrl('/responses'), '/v1/responses')
+    assert.equal(openaiResponses.normalizeUrl('/v1/responses'), '/v1/responses')
+  })
+
+  it('round-trip: extract, compress, apply produces valid body', () => {
+    const body = {
+      model: 'gpt-5-codex',
+      input: [
+        { role: 'user', content: [{ type: 'input_text', text: 'read it' }] },
+        { type: 'function_call_output', call_id: 'c1', output: '{\n  "result": "ok"\n}' },
+      ],
+    }
+    const targets = openaiResponses.extract(body)
+    for (const t of targets) { if (!t.skip) t.compressed = '{"result":"ok"}' }
+    openaiResponses.apply(body, targets)
+    assert.equal(body.input[1].output, '{"result":"ok"}')
   })
 })
 

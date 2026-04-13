@@ -155,7 +155,45 @@ const gemini = {
   },
 }
 
-const providers = [anthropic, openai, gemini]
+function extractOpenAIResponsesTargets(item, i) {
+  if (item?.type !== 'function_call_output') return []
+  if (typeof item.output !== 'string') return []
+  return [{ path: ['input', i, 'output'], text: item.output, index: i }]
+}
+
+const openaiResponses = {
+  name: 'openai-responses',
+  match(method, url) {
+    return method === 'POST' && (
+      url.startsWith('/v1/responses') ||
+      url.startsWith('/responses')
+    )
+  },
+  normalizeUrl(url) {
+    if (url.startsWith('/responses')) return '/v1' + url
+    return url
+  },
+  extract(body, config = {}) {
+    if (!Array.isArray(body?.input) || !body.input.length) return []
+
+    if (config.cacheSafe) {
+      const targets = []
+      for (let i = body.input.length - 1; i >= 0; i--) {
+        const item = body.input[i]
+        if (item?.type !== 'function_call_output') break
+        targets.unshift(...extractOpenAIResponsesTargets(item, i))
+      }
+      return targets
+    }
+
+    return body.input.flatMap(extractOpenAIResponsesTargets)
+  },
+  apply(body, targets) {
+    applyTargets(body, targets)
+  },
+}
+
+const providers = [anthropic, openai, openaiResponses, gemini]
 
 export function detectProvider(method, url) {
   for (const p of providers) {
@@ -164,4 +202,4 @@ export function detectProvider(method, url) {
   return null
 }
 
-export { anthropic, openai, gemini }
+export { anthropic, openai, openaiResponses, gemini }
