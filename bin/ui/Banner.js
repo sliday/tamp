@@ -1,7 +1,7 @@
 import React from 'react'
 import { Box, Text } from 'ink'
 import { Badge } from '@inkjs/ui'
-import { ALL_STAGES, DEFAULT_STAGES, EXTRA_STAGES } from '../../metadata.js'
+import { ALL_STAGES, DEFAULT_STAGES, EXTRA_STAGES, isLossy } from '../../metadata.js'
 
 const h = React.createElement
 
@@ -47,7 +47,7 @@ export function Banner({ version, port, stages, llmLinguaUrl }) {
         h(Text, { key: s },
           h(Text, { color: 'yellow' }, '\u2713 '),
           h(Text, { color: 'yellow' }, s),
-          h(Text, { dimColor: true }, ' (lossy)'),
+          h(Text, { dimColor: true }, isLossy(s) ? ' (lossy)' : ' (opt-in)'),
         )
       ),
       ...(disabled.length && disabled.length <= 4

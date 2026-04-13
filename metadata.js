@@ -27,6 +27,20 @@ export const ALL_STAGES = Object.freeze([
   ...EXTRA_STAGES,
 ])
 
+// Stages that can drop or paraphrase content (semantic/neural/comment removal).
+// `graph` is opt-in but fully lossless — it substitutes a reference marker for
+// content the model has already seen earlier in the same session.
+export const LOSSY_STAGES = Object.freeze(new Set([
+  'llmlingua',
+  'foundation-models',
+  'textpress',
+  'strip-comments',
+]))
+
+export function isLossy(stage) {
+  return LOSSY_STAGES.has(stage)
+}
+
 export const STAGE_DESCRIPTIONS = Object.freeze({
   minify: 'Strip JSON whitespace (lossless)',
   toon: 'Columnar array encoding (lossless)',

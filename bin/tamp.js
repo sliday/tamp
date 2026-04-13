@@ -5,7 +5,7 @@ import { spawn, execFileSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
 import { homedir } from 'node:os'
-import { DEFAULT_STAGES, EXTRA_STAGES, STAGE_DESCRIPTIONS, VERSION } from '../metadata.js'
+import { DEFAULT_STAGES, EXTRA_STAGES, STAGE_DESCRIPTIONS, VERSION, isLossy } from '../metadata.js'
 import { CONFIG_PATH, CONFIG_TEMPLATE } from '../config.js'
 import {
   checkPort,
@@ -301,7 +301,8 @@ if (skipPrompt) {
       console.error(`    ${c.green}\u2713${c.reset} ${c.cyan}${s}${c.reset}${extra}`)
     }
     for (const s of extraActive) {
-      console.error(`    ${c.yellow}\u2713${c.reset} ${c.yellow}${s}${c.reset} ${c.dim}(lossy)${c.reset}`)
+      const tag = isLossy(s) ? '(lossy)' : '(opt-in)'
+      console.error(`    ${c.yellow}\u2713${c.reset} ${c.yellow}${s}${c.reset} ${c.dim}${tag}${c.reset}`)
     }
     const disabled = [...DEFAULT_STAGES, ...EXTRA_STAGES].filter(s => !active.includes(s))
     if (disabled.length && disabled.length <= 4) {
