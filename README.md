@@ -48,7 +48,7 @@ Auto-detects API format, compresses tool output, forwards upstream. Error result
 | `diff` | Replace similar re-reads with diffs |
 | `prune` | Remove low-value metadata |
 
-Opt-in stages: `strip-comments`, `textpress` (LLM semantic compression), `graph` (session-scoped dedup across requests — shines on long Codex/Claude plan sessions that re-read the same files across turns, up to -99% per repeat block)
+Opt-in stages: `strip-comments`, `textpress` (LLM semantic compression), `graph` (session-scoped dedup — works on any coding agent: Codex, Claude Code, Aider — anywhere the same file is read twice, up to -99% per repeat block)
 
 ## Quick Start
 
