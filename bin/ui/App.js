@@ -3,10 +3,11 @@ import { Box, Text, useApp } from 'ink'
 import { StagePicker } from './StagePicker.js'
 import { SidecarLoader } from './SidecarLoader.js'
 import { Dashboard } from './Dashboard.js'
+import { installShutdown, writePidFile, diagnoseBindConflict } from '../lifecycle.js'
 
 const h = React.createElement
 
-export function App({ version, envStages, startSidecar, createProxy }) {
+export function App({ version, envStages, startSidecar, createProxy, getSidecarProc, ensurePortFree }) {
   const { exit } = useApp()
   const [phase, setPhase] = useState('pick')
   const [stages, setStages] = useState(null)
@@ -24,7 +25,7 @@ export function App({ version, envStages, startSidecar, createProxy }) {
     setTotals(newTotals)
   }, [])
 
-  const startProxy = useCallback((selectedStages, sidecarUrl) => {
+  const startProxy = useCallback(async (selectedStages, sidecarUrl) => {
     process.env.TAMP_STAGES = selectedStages.join(',')
     if (sidecarUrl) process.env.TAMP_LLMLINGUA_URL = sidecarUrl
 
@@ -32,15 +33,32 @@ export function App({ version, envStages, startSidecar, createProxy }) {
     serverRef.current = server
     setConfig(proxyConfig)
 
-    server.on('error', (err) => {
-      exit()
-      process.stderr.write(`\n[tamp] Failed to start: ${err.message}\n`)
+    if (ensurePortFree) {
+      try { await ensurePortFree(proxyConfig.port) } catch { return }
+    }
+
+    server.on('error', async (err) => {
+      if (err.code === 'EADDRINUSE') {
+        const diag = await diagnoseBindConflict(proxyConfig.port)
+        exit()
+        process.stderr.write(`\n[tamp] ${diag.message}\n`)
+      } else {
+        exit()
+        process.stderr.write(`\n[tamp] Failed to start: ${err.message}\n`)
+      }
       process.exit(1)
     })
     server.listen(proxyConfig.port, () => {
+      try { writePidFile(proxyConfig.port) } catch {}
+      installShutdown({
+        server,
+        getSidecar: getSidecarProc,
+        port: proxyConfig.port,
+        onBeforeExit: () => exit(),
+      })
       setPhase('running')
     })
-  }, [onCompress, createProxy, exit])
+  }, [onCompress, createProxy, exit, getSidecarProc, ensurePortFree])
 
   const onStagesSelected = useCallback((selected) => {
     setStages(selected)
@@ -65,19 +83,6 @@ export function App({ version, envStages, startSidecar, createProxy }) {
     stagesRef.current = filtered
     startProxy(filtered, null)
   }, [startProxy])
-
-  useEffect(() => {
-    const shutdown = () => {
-      serverRef.current?.close()
-      exit()
-    }
-    process.on('SIGINT', shutdown)
-    process.on('SIGTERM', shutdown)
-    return () => {
-      process.off('SIGINT', shutdown)
-      process.off('SIGTERM', shutdown)
-    }
-  }, [exit])
 
   if (phase === 'pick') {
     return h(StagePicker, { version, envStages, onSelect: onStagesSelected })

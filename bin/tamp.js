@@ -5,9 +5,18 @@ import { spawn, execFileSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
 import { homedir } from 'node:os'
-import http from 'node:http'
 import { DEFAULT_STAGES, EXTRA_STAGES, STAGE_DESCRIPTIONS, VERSION } from '../metadata.js'
 import { CONFIG_PATH, CONFIG_TEMPLATE } from '../config.js'
+import {
+  checkPort,
+  diagnoseBindConflict,
+  installShutdown,
+  reconcileStalePidFile,
+  readPidFile,
+  clearPidFile,
+  writePidFile,
+  isProcessAlive,
+} from './lifecycle.js'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const root = join(__dirname, '..')
@@ -15,16 +24,7 @@ const root = join(__dirname, '..')
 // --- Sidecar helpers (shared by both modes) ---
 
 let sidecarProc = null
-
-function checkPort(port) {
-  return new Promise(resolve => {
-    const req = http.get(`http://127.0.0.1:${port}/health`, (res) => {
-      res.resume(); resolve(res.statusCode === 200)
-    })
-    req.on('error', () => resolve(false))
-    req.setTimeout(1000, () => { req.destroy(); resolve(false) })
-  })
-}
+export function getSidecarProc() { return sidecarProc }
 
 function hasCommand(cmd) {
   try { execFileSync('which', [cmd], { stdio: 'ignore' }); return true } catch { return false }
@@ -162,12 +162,56 @@ if (subcommand === 'status') {
   process.exit(healthy ? 0 : 1)
 }
 
+if (subcommand === 'stop') {
+  const port = Number(process.env.TAMP_PORT) || 7778
+  await reconcileStalePidFile(port)
+  const rec = readPidFile(port)
+
+  if (!rec) {
+    const healthy = await checkPort(port)
+    if (healthy) {
+      console.error(`Tamp appears to be running on :${port} but no PID file was found.`)
+      console.error(`  Kill manually: lsof -ti:${port} | xargs kill`)
+      process.exit(1)
+    }
+    console.log(`No Tamp running on :${port}.`)
+    process.exit(0)
+  }
+
+  try {
+    process.kill(rec.pid, 'SIGTERM')
+  } catch (err) {
+    if (err.code === 'ESRCH') {
+      clearPidFile(port)
+      console.log(`Tamp (pid ${rec.pid}) was already dead — cleaned up stale PID file.`)
+      process.exit(0)
+    }
+    throw err
+  }
+
+  for (let i = 0; i < 20; i++) {
+    await new Promise(r => setTimeout(r, 100))
+    if (!(await checkPort(port)) && !isProcessAlive(rec.pid)) break
+  }
+
+  if (await checkPort(port) || isProcessAlive(rec.pid)) {
+    try { process.kill(rec.pid, 'SIGKILL') } catch {}
+    console.warn(`Tamp (pid ${rec.pid}) did not respond to SIGTERM within 2s — sent SIGKILL.`)
+  } else {
+    console.log(`Stopped Tamp (pid ${rec.pid}) on :${port}.`)
+  }
+  clearPidFile(port)
+  process.exit(0)
+}
+
 if (subcommand === 'help' || subcommand === '--help' || subcommand === '-h') {
   console.log(`Tamp v${VERSION} — Token compression proxy for coding agents\n`)
   console.log('Usage: tamp [command] [options]\n')
   console.log('Commands:')
   console.log('  (default)           Start proxy (interactive stage picker)')
   console.log('  -y                  Start proxy (non-interactive, use defaults)')
+  console.log('  -y --force          Replace any existing Tamp on the same port')
+  console.log('  stop                Stop a running Tamp on TAMP_PORT (default 7778)')
   console.log('  init                Create config file (~/.config/tamp/config)')
   console.log('  status              Check if proxy is running')
   console.log('  install-service     Install systemd user service (Linux)')
@@ -179,10 +223,39 @@ if (subcommand === 'help' || subcommand === '--help' || subcommand === '-h') {
 
 // --- Mode detection ---
 const skipPrompt = process.argv.includes('-y') || process.argv.includes('--no-interactive') || !process.stdin.isTTY
+const forceReplace = process.argv.includes('--force')
 
 const envStages = process.env.TAMP_STAGES
   ? new Set(process.env.TAMP_STAGES.split(',').map(s => s.trim()).filter(Boolean))
   : null
+
+async function ensurePortFree(port) {
+  await reconcileStalePidFile(port)
+  if (!(await checkPort(port))) return
+
+  if (forceReplace) {
+    const rec = readPidFile(port)
+    if (rec) {
+      try { process.kill(rec.pid, 'SIGTERM') } catch {}
+      for (let i = 0; i < 20; i++) {
+        await new Promise(r => setTimeout(r, 100))
+        if (!(await checkPort(port))) break
+      }
+      if (await checkPort(port)) {
+        try { process.kill(rec.pid, 'SIGKILL') } catch {}
+        await new Promise(r => setTimeout(r, 300))
+      }
+      clearPidFile(port)
+      if (!(await checkPort(port))) return
+    }
+    console.error(`[tamp] --force requested but port ${port} could not be freed.`)
+    process.exit(1)
+  }
+
+  const diag = await diagnoseBindConflict(port)
+  console.error(`[tamp] ${diag.message}`)
+  process.exit(1)
+}
 
 if (skipPrompt) {
   // --- Non-interactive mode (plain text, no Ink) ---
@@ -206,6 +279,8 @@ if (skipPrompt) {
   }
 
   const { config, server } = createProxy()
+
+  await ensurePortFree(config.port)
 
   function printBanner() {
     const url = `http://localhost:${config.port}`
@@ -235,11 +310,25 @@ if (skipPrompt) {
     console.error('')
   }
 
-  server.listen(config.port, () => { printBanner() })
+  server.on('error', async (err) => {
+    if (err.code === 'EADDRINUSE') {
+      const diag = await diagnoseBindConflict(config.port)
+      console.error(`[tamp] ${diag.message}`)
+    } else {
+      console.error(`[tamp] Failed to start: ${err.message}`)
+    }
+    try { sidecarProc?.kill() } catch {}
+    process.exit(1)
+  })
 
-  process.on('exit', () => sidecarProc?.kill())
-  process.on('SIGINT', () => { sidecarProc?.kill(); process.exit() })
-  process.on('SIGTERM', () => { sidecarProc?.kill(); process.exit() })
+  server.listen(config.port, () => {
+    try { writePidFile(config.port) } catch (err) {
+      console.error(`[tamp] Warning: could not write PID file: ${err.message}`)
+    }
+    printBanner()
+  })
+
+  installShutdown({ server, getSidecar: getSidecarProc, port: config.port })
 
 } else {
   // --- Interactive mode (Ink TUI) ---
@@ -249,14 +338,12 @@ if (skipPrompt) {
 
   const h = React.createElement
 
-  const cleanup = () => { sidecarProc?.kill() }
-  process.on('exit', cleanup)
-  process.on('SIGTERM', () => { cleanup(); process.exit() })
-
   render(h(App, {
     version: VERSION,
     envStages,
     startSidecar,
     createProxy,
+    getSidecarProc,
+    ensurePortFree,
   }))
 }

@@ -160,6 +160,18 @@ tamp compress-config ~/.config/tamp/config ~/.claude/CLAUDE.md
 
 Inspired by [JuliusBrussee/caveman-compress](https://github.com/JuliusBrussee/caveman).
 
+## Lifecycle
+
+Tamp writes a PID file at `~/.config/tamp/tamp-${port}.pid` on start and cleans it up on graceful shutdown (SIGINT, SIGTERM, SIGHUP). If a terminal dies and leaves the port bound, `tamp -y` will now detect it and print a friendly error instead of a cryptic EADDRINUSE:
+
+```
+[tamp] Tamp v0.5.4 already running on :7778 (pid 12345, started 3m ago).
+  Run 'tamp stop' to replace it, or set TAMP_PORT=7779 to run alongside it.
+```
+
+- `tamp stop` — graceful SIGTERM to the running proxy, falls back to SIGKILL after 2s
+- `tamp -y --force` — replace any existing Tamp on the same port in one step (for scripts)
+
 ## Installation
 
 ```bash
