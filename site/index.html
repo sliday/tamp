@@ -206,7 +206,7 @@
             Measured across 120 A/B API calls. Zero code changes.
         </p>
         <p class="db-caption" style="margin-top: 0.5rem; opacity: 0.45;">
-            Works with Claude Code, Aider, Cursor, Cline, &#129438;&nbsp;<a href="#openclaw" style="color: inherit; text-decoration: underline; text-underline-offset: 2px;">OpenClaw</a>, and any OpenAI-compatible agent.
+            Works with Claude Code, Codex CLI, Aider, Cursor, Cline, &#129438;&nbsp;<a href="#openclaw" style="color: inherit; text-decoration: underline; text-underline-offset: 2px;">OpenClaw</a>, and any OpenAI-compatible agent.
         </p>
 
         <div class="install-card db-card db-surface--raised" style="margin-top: 2rem;">
@@ -295,7 +295,7 @@
         </p>
 
         <div class="flow-diagram" style="margin-top: 1.5rem;">
-            <span class="db-chip">Claude Code / Aider / Cursor / Cline</span>
+            <span class="db-chip">Claude Code / Codex CLI / Aider / Cursor / Cline</span>
             <span class="flow-arrow">&rarr;</span>
             <span class="db-chip db-chip--amber">tamp:7778</span>
             <span class="flow-arrow">&rarr;</span>
@@ -360,11 +360,16 @@
                     <span class="stage-type stage-type--opt">opt-in</span>
                     <span class="db-caption">LLM semantic compression via <a href="https://github.com/sliday/textpress" style="color: var(--db-accent, #8B6914);">Ollama or OpenRouter</a>. -73% on stacktraces.</span>
                 </li>
+                <li>
+                    <span class="stage-name">graph</span>
+                    <span class="stage-type stage-type--opt">opt-in</span>
+                    <span class="db-caption">Session-scoped dedup across requests. On long Codex/Claude plan sessions that re-read the same files across turns, <strong>-99%</strong> on each repeat block.</span>
+                </li>
             </ul>
         </div>
 
         <p class="db-caption" style="margin-top: 1rem; text-align: center; opacity: 0.5;">
-            Works with Claude Code, Aider, Cursor, Cline, and any OpenAI-compatible agent.
+            Works with Claude Code, Codex CLI, Aider, Cursor, Cline, and any OpenAI-compatible agent.
         </p>
     </div>
 </section>

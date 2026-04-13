@@ -48,7 +48,7 @@ Auto-detects API format, compresses tool output, forwards upstream. Error result
 | `diff` | Replace similar re-reads with diffs |
 | `prune` | Remove low-value metadata |
 
-Opt-in lossy stages: `strip-comments`, `textpress` (LLM semantic compression)
+Opt-in stages: `strip-comments`, `textpress` (LLM semantic compression), `graph` (session-scoped dedup across requests — shines on long Codex/Claude plan sessions that re-read the same files across turns, up to -99% per repeat block)
 
 ## Quick Start
 
@@ -59,10 +59,26 @@ curl -fsSL https://tamp.dev/setup.sh | bash
 # Option B: Manual
 npx @sliday/tamp
 export ANTHROPIC_BASE_URL=http://localhost:7778   # Claude Code
-export OPENAI_API_BASE=http://localhost:7778/v1   # Codex CLI, Aider, Cursor
+export OPENAI_API_BASE=http://localhost:7778/v1   # Aider, Cursor, Cline
 ```
 
 Use your agent as normal — Tamp compresses silently.
+
+### Codex CLI
+
+Codex CLI reads its upstream from `~/.codex/config.toml`, not `OPENAI_API_BASE`. Add a custom provider:
+
+```toml
+model_provider = "tamp"
+
+[model_providers.tamp]
+name = "Tamp Proxy"
+base_url = "http://localhost:7778/v1"
+env_key = "OPENAI_API_KEY"
+wire_api = "responses"
+```
+
+Then `export OPENAI_API_KEY=sk-...` and run `codex` or `codex exec "..."` as usual. Tamp routes `/v1/responses` through the `openai-responses` adapter and compresses every `function_call_output` block.
 
 ## Configuration
 
