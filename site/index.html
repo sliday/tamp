@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Tamp — Cut your AI coding costs in half</title>
-    <meta name="description" content="Tamp saves 52.6% of tokens for coding agents like Claude Code, Aider, and Cursor. A/B tested, open source, zero code changes. One command.">
+    <meta name="description" content="Tamp saves 52.6% of tokens for coding agents like Claude Code, Codex CLI, opencode, Cursor, and Aider. A/B tested, open source, zero code changes. One command.">
     <link rel="icon" href="favicon.ico" sizes="any">
     <link rel="icon" href="tamper-icon.png" type="image/png">
     <link rel="apple-touch-icon" href="apple-touch-icon.png">
@@ -371,6 +371,79 @@
         <p class="db-caption" style="margin-top: 1rem; text-align: center; opacity: 0.5;">
             Works with Claude Code, Codex CLI, opencode, Aider, Cursor, Cline, and any OpenAI-compatible agent.
         </p>
+    </div>
+</section>
+
+<div class="section-inner"><div class="db-separator"></div></div>
+
+<!-- ============================================================
+     3a-bis. SETUP FOR EVERY AGENT — how to wire Tamp to your tool
+     ============================================================ -->
+<section id="setup">
+    <div class="section-inner">
+        <h2 class="db-h2" style="text-align: center;">Wire it up in 30 seconds.</h2>
+        <p class="db-body" style="text-align: center; opacity: 0.7; margin-top: 0.5rem; max-width: 640px; margin-left: auto; margin-right: auto;">
+            One tamp instance, any coding agent. Point the base URL at <code>localhost:7778</code> and go.
+        </p>
+
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1rem; margin-top: 2rem;">
+
+            <div class="db-card db-surface--raised" style="padding: 1.5rem;">
+                <h4 class="db-h4" style="margin-bottom: 0.5rem;">Claude Code</h4>
+                <p class="db-caption" style="opacity: 0.7; margin-bottom: 0.75rem;">Anthropic API format &mdash; <code>/v1/messages</code></p>
+                <pre style="background: rgba(0,0,0,0.3); padding: 1rem; border-radius: 4px; overflow-x: auto; font-size: 0.8rem; margin: 0;">export ANTHROPIC_BASE_URL=http://localhost:7778
+claude</pre>
+            </div>
+
+            <div class="db-card db-surface--raised" style="padding: 1.5rem;">
+                <h4 class="db-h4" style="margin-bottom: 0.5rem;">Codex CLI</h4>
+                <p class="db-caption" style="opacity: 0.7; margin-bottom: 0.75rem;">Responses API &mdash; edit <code>~/.codex/config.toml</code></p>
+                <pre style="background: rgba(0,0,0,0.3); padding: 1rem; border-radius: 4px; overflow-x: auto; font-size: 0.8rem; margin: 0;">model_provider = "tamp"
+
+[model_providers.tamp]
+name = "Tamp Proxy"
+base_url = "http://localhost:7778/v1"
+env_key = "OPENAI_API_KEY"
+wire_api = "responses"</pre>
+            </div>
+
+            <div class="db-card db-surface--raised" style="padding: 1.5rem;">
+                <h4 class="db-h4" style="margin-bottom: 0.5rem;">Cursor</h4>
+                <p class="db-caption" style="opacity: 0.7; margin-bottom: 0.75rem;">Settings &rarr; Models &rarr; Override OpenAI Base URL</p>
+                <pre style="background: rgba(0,0,0,0.3); padding: 1rem; border-radius: 4px; overflow-x: auto; font-size: 0.8rem; margin: 0;">http://localhost:7778/v1
+
+# Pick an OpenAI-family model
+# (gpt-4o, gpt-5-codex, etc.)</pre>
+                <p class="db-caption" style="opacity: 0.5; margin-top: 0.5rem; font-size: 0.75rem;">Bundled <code>cursor-*</code> / <code>claude-*</code> models bypass the override.</p>
+            </div>
+
+            <div class="db-card db-surface--raised" style="padding: 1.5rem;">
+                <h4 class="db-h4" style="margin-bottom: 0.5rem;">VS Code (Cline)</h4>
+                <p class="db-caption" style="opacity: 0.7; margin-bottom: 0.75rem;">API Provider &rarr; OpenAI Compatible</p>
+                <pre style="background: rgba(0,0,0,0.3); padding: 1rem; border-radius: 4px; overflow-x: auto; font-size: 0.8rem; margin: 0;">Base URL: http://localhost:7778/v1
+API Key: sk-...
+Model ID: gpt-4o</pre>
+                <p class="db-caption" style="opacity: 0.5; margin-top: 0.5rem; font-size: 0.75rem;">Continue extension also works &mdash; see <a href="https://github.com/sliday/tamp#vs-code" style="color: var(--db-accent);">README</a>. GitHub Copilot cannot be intercepted.</p>
+            </div>
+
+            <div class="db-card db-surface--raised" style="padding: 1.5rem;">
+                <h4 class="db-h4" style="margin-bottom: 0.5rem;">Aider / opencode / other</h4>
+                <p class="db-caption" style="opacity: 0.7; margin-bottom: 0.75rem;">Any OpenAI-compatible CLI</p>
+                <pre style="background: rgba(0,0,0,0.3); padding: 1rem; border-radius: 4px; overflow-x: auto; font-size: 0.8rem; margin: 0;">export OPENAI_API_BASE=http://localhost:7778/v1
+aider   # or opencode, cline, etc.</pre>
+            </div>
+
+        </div>
+
+        <div class="db-callout" style="--callout-bg: rgba(139, 105, 20, 0.1); --callout-border: var(--tamp-espresso); margin-top: 2rem; padding: 1rem 1.25rem;">
+            <p class="db-body" style="margin: 0; font-size: 0.9rem;">
+                <strong>Lifecycle:</strong> <code>tamp stop</code> gracefully shuts down a running proxy &middot;
+                <code>tamp -y --force</code> replaces an existing instance &middot;
+                <code>tamp status</code> checks health.
+                If the terminal dies mid-session, the PID file at <code>~/.config/tamp/tamp-&lt;port&gt;.pid</code>
+                + SIGHUP handler release the port automatically.
+            </p>
+        </div>
     </div>
 </section>
 
@@ -862,7 +935,7 @@ Tests: ✓ Commit: d631c4f</pre>
 <section id="caveman-features">
     <div class="section-inner">
         <h2 class="db-h2">Caveman-Inspired Features</h2>
-        <p class="db-eyebrow" style="color: var(--db-terracotta); font-weight: 600; margin-bottom: 0.5rem;">New in v0.5.0 — Task-type-aware compression & presets</p>
+        <p class="db-eyebrow" style="color: var(--db-terracotta); font-weight: 600; margin-bottom: 0.5rem;">Task-type-aware compression, presets, opt-in output rules</p>
 
         <p class="db-body" style="font-size: 1.1rem; max-width: 640px; margin: 0 auto 2rem;">
             Tamp now integrates the best ideas from <a href="https://github.com/JuliusBrussee/caveman" target="_blank" rel="noopener" style="color: var(--db-accent);">JuliusBrussee/caveman</a> for full-spectrum token optimization: input compression (Tamp's strength) + output compression (Caveman's strength).
