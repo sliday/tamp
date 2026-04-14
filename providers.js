@@ -50,6 +50,50 @@ function extractAnthropicMessageTargets(msg, mi) {
   return targets
 }
 
+function getLastUserTextFromAnthropicMessages(messages) {
+  if (!Array.isArray(messages)) return null
+  // Walk back across user messages until we find one with actual text
+  // content. Latest user messages in a Claude Code session are often
+  // pure tool_result blocks; the human's intent text is in an earlier turn.
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const msg = messages[i]
+    if (msg?.role !== 'user') continue
+    if (typeof msg.content === 'string') return msg.content
+    if (Array.isArray(msg.content)) {
+      for (const b of msg.content) {
+        if (b?.type === 'text' && typeof b.text === 'string') return b.text
+      }
+    }
+    // No text in this user message — keep walking back
+  }
+  return null
+}
+
+function appendToLastUserMessageAnthropic(messages, text) {
+  if (!Array.isArray(messages) || !text) return false
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const msg = messages[i]
+    if (msg?.role !== 'user') continue
+    if (typeof msg.content === 'string') {
+      msg.content = msg.content + '\n\n' + text
+      return true
+    }
+    if (Array.isArray(msg.content)) {
+      for (let j = msg.content.length - 1; j >= 0; j--) {
+        const b = msg.content[j]
+        if (b?.type === 'text' && typeof b.text === 'string') {
+          b.text = b.text + '\n\n' + text
+          return true
+        }
+      }
+      msg.content.push({ type: 'text', text })
+      return true
+    }
+    return false
+  }
+  return false
+}
+
 const anthropic = {
   name: 'anthropic',
   match(method, url) {
@@ -65,6 +109,12 @@ const anthropic = {
   },
   apply(body, targets) {
     applyTargets(body, targets)
+  },
+  getLastUserText(body) {
+    return getLastUserTextFromAnthropicMessages(body?.messages)
+  },
+  injectOutputHint(body, text) {
+    return appendToLastUserMessageAnthropic(body?.messages, text)
   },
 }
 
@@ -103,6 +153,27 @@ const openai = {
   apply(body, targets) {
     applyTargets(body, targets)
   },
+  getLastUserText(body) {
+    if (!body?.messages?.length) return null
+    for (let i = body.messages.length - 1; i >= 0; i--) {
+      const msg = body.messages[i]
+      if (msg?.role === 'user' && typeof msg.content === 'string') return msg.content
+    }
+    return null
+  },
+  injectOutputHint(body, text) {
+    if (!body?.messages?.length || !text) return false
+    for (let i = body.messages.length - 1; i >= 0; i--) {
+      const msg = body.messages[i]
+      if (msg?.role !== 'user') continue
+      if (typeof msg.content === 'string') {
+        msg.content = msg.content + '\n\n' + text
+        return true
+      }
+      return false
+    }
+    return false
+  },
 }
 
 function extractGeminiContentTargets(content, ci) {
@@ -137,6 +208,36 @@ const gemini = {
     }
 
     return body.contents.flatMap(extractGeminiContentTargets)
+  },
+  getLastUserText(body) {
+    if (!body?.contents?.length) return null
+    for (let i = body.contents.length - 1; i >= 0; i--) {
+      const c = body.contents[i]
+      if (c?.role && c.role !== 'user') continue
+      if (!Array.isArray(c?.parts)) continue
+      for (const p of c.parts) {
+        if (typeof p?.text === 'string') return p.text
+      }
+    }
+    return null
+  },
+  injectOutputHint(body, text) {
+    if (!body?.contents?.length || !text) return false
+    for (let i = body.contents.length - 1; i >= 0; i--) {
+      const c = body.contents[i]
+      if (c?.role && c.role !== 'user') continue
+      if (!Array.isArray(c?.parts)) continue
+      for (let j = c.parts.length - 1; j >= 0; j--) {
+        const p = c.parts[j]
+        if (typeof p?.text === 'string') {
+          p.text = p.text + '\n\n' + text
+          return true
+        }
+      }
+      c.parts.push({ text })
+      return true
+    }
+    return false
   },
   apply(body, targets) {
     for (const t of targets) {
@@ -190,6 +291,37 @@ const openaiResponses = {
   },
   apply(body, targets) {
     applyTargets(body, targets)
+  },
+  getLastUserText(body) {
+    if (!Array.isArray(body?.input) || !body.input.length) return null
+    // Walk back across user items until we find one with actual text content
+    for (let i = body.input.length - 1; i >= 0; i--) {
+      const item = body.input[i]
+      if (item?.role !== 'user' || !Array.isArray(item.content)) continue
+      for (const block of item.content) {
+        if (block?.type === 'input_text' && typeof block.text === 'string') return block.text
+      }
+    }
+    return null
+  },
+  injectOutputHint(body, text) {
+    if (!Array.isArray(body?.input) || !body.input.length || !text) return false
+    // Target the LATEST user item (cache-safe). If it has no input_text
+    // block we push one, so injection always succeeds for any user item.
+    for (let i = body.input.length - 1; i >= 0; i--) {
+      const item = body.input[i]
+      if (item?.role !== 'user' || !Array.isArray(item.content)) continue
+      for (let j = item.content.length - 1; j >= 0; j--) {
+        const block = item.content[j]
+        if (block?.type === 'input_text' && typeof block.text === 'string') {
+          block.text = block.text + '\n\n' + text
+          return true
+        }
+      }
+      item.content.push({ type: 'input_text', text })
+      return true
+    }
+    return false
   },
 }
 

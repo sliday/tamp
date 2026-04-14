@@ -92,6 +92,7 @@ export function Dashboard({ version, config, events, totals }) {
       port: config.port,
       stages: config.stages,
       llmLinguaUrl: config.llmLinguaUrl,
+      outputMode: config.outputMode,
     }),
     h(StatsBar, { totals, tokenCost: config.tokenCost }),
     events.length > 0

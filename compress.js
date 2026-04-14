@@ -6,6 +6,7 @@ import { createPatch } from 'diff'
 import { tryParseJSON, classifyContent, stripLineNumbers } from './detect.js'
 import { anthropic } from './providers.js'
 import { graphDeduplicateTargets } from './session-graph.js'
+import { detectTaskType, generateOutputRules } from './lib/rules-generator.js'
 
 const cache = new Map()
 const MAX_CACHE = 500
@@ -426,7 +427,32 @@ async function compressBlock(text, config) {
   return result
 }
 
+// Caveman-style output compression: append task-type-aware rules to the
+// LATEST user message. Cache-safe — only the freshest message is touched,
+// so the prefix (system prompt + earlier turns) stays cacheable.
+function maybeInjectOutputHint(body, config, provider) {
+  const mode = config.outputMode
+  if (!mode || mode === 'off') return null
+  if (typeof provider.injectOutputHint !== 'function') return null
+  if (typeof provider.getLastUserText !== 'function') return null
+
+  const userText = provider.getLastUserText(body)
+  if (!userText) return null
+
+  const taskType = config.autoDetectTaskType === false ? 'complex' : detectTaskType(userText)
+  const rules = generateOutputRules(mode, taskType)
+  if (!rules) return null
+
+  // Keep the injected hint compact and clearly marked so the model knows
+  // it's a system-style instruction and not part of the user's prose.
+  const wrapped = `[tamp output rules — ${mode} mode, ${taskType} task]\n${rules.trim()}`
+  const ok = provider.injectOutputHint(body, wrapped)
+  return ok ? { mode, taskType, bytes: wrapped.length } : null
+}
+
 export async function compressRequest(body, config, provider) {
+  const outputHint = maybeInjectOutputHint(body, config, provider)
+
   const targets = provider.extract(body, { ...config, cacheSafe: config.cacheSafe !== false })
 
   // Dedup: replace identical blocks with reference markers
@@ -467,7 +493,7 @@ export async function compressRequest(body, config, provider) {
     }
   }
   provider.apply(body, targets)
-  return { body, stats, targetCount: targets.length }
+  return { body, stats, targetCount: targets.length, outputHint }
 }
 
 export async function compressMessages(body, config) {

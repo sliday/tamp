@@ -5,12 +5,13 @@ import { ALL_STAGES, DEFAULT_STAGES, EXTRA_STAGES, STAGE_HINTS, isLossy } from '
 
 const h = React.createElement
 
-export function Banner({ version, port, stages, llmLinguaUrl }) {
+export function Banner({ version, port, stages, llmLinguaUrl, outputMode }) {
   const url = `http://localhost:${port}`
   const active = new Set(stages)
   const defaultActive = DEFAULT_STAGES.filter(s => active.has(s))
   const extraActive = EXTRA_STAGES.filter(s => active.has(s))
   const disabled = ALL_STAGES.filter(s => !active.has(s))
+  const showOutput = outputMode && outputMode !== 'off'
 
   return h(Box, { flexDirection: 'column', paddingX: 1 },
     h(Box, { gap: 2 },
@@ -34,6 +35,11 @@ export function Banner({ version, port, stages, llmLinguaUrl }) {
       ),
     ),
     h(Text, null, ''),
+    showOutput ? h(Text, { bold: true }, 'Output mode ',
+      h(Text, { color: 'yellow' }, outputMode),
+      h(Text, { dimColor: true }, ' (caveman, task-aware)')
+    ) : null,
+    showOutput ? h(Text, null, '') : null,
     h(Text, { bold: true }, `Stages `, h(Text, { dimColor: true }, `(${stages.length} of ${ALL_STAGES.length} active)`)),
     h(Box, { paddingLeft: 2, flexDirection: 'column' },
       ...defaultActive.map(s =>

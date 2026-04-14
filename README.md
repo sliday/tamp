@@ -152,19 +152,24 @@ TAMP_COMPRESSION_PRESET=balanced
 TAMP_STAGES=minify,toon  # Override preset
 ```
 
-### Output Compression (New!)
+### Output Compression — Caveman Mode
 
-Task-type-aware output compression via CLAUDE.md injection:
+Task-type-aware output compression. Tamp classifies each request as `safe` (typo fixes, env var changes, doc updates) or `dangerous` (security, debug, refactor) and injects matching rules into the last user message before forwarding. Cache-safe — the prefix stays untouched so prompt caching keeps working.
+
+**Opt in** (default is `off` — zero behavior change unless you flip the switch):
 
 ```bash
-export TAMP_OUTPUT_MODE=balanced  # conservative | balanced | aggressive
-export TAMP_AUTO_DETECT_TASK_TYPE=true  # Auto-detect safe vs dangerous tasks
+export TAMP_OUTPUT_MODE=balanced  # off | conservative | balanced | aggressive
+export TAMP_AUTO_DETECT_TASK_TYPE=true  # default; set to false to force 'complex'
 ```
 
 **Mode behavior:**
-- **Conservative**: Professional but concise (40-50% output savings)
-- **Balanced**: Terse on safe tasks, full output on dangerous (65-75% on safe)
-- **Aggressive**: Minimal caveman-style (75-85% on safe, partial on dangerous)
+- **off** *(default)*: No injection. Pass-through.
+- **conservative**: Professional but concise for all tasks (40-50% output savings).
+- **balanced**: Terse on safe tasks, full output on dangerous (65-75% on safe).
+- **aggressive**: Minimal caveman-style (75-85% on safe, partial on dangerous).
+
+Supported on all providers: Anthropic, OpenAI Chat, OpenAI Responses (Codex), Gemini.
 
 ### Other Settings
 

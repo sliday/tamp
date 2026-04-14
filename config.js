@@ -76,7 +76,7 @@ export function loadConfig(env = process.env) {
     minSize: parseInt(get('TAMP_MIN_SIZE'), 10) || 200,
     stages,
     preset: presetName,
-    outputMode: get('TAMP_OUTPUT_MODE') || 'balanced',
+    outputMode: get('TAMP_OUTPUT_MODE') || 'off',
     autoDetectTaskType: parseBoolean(get('TAMP_AUTO_DETECT_TASK_TYPE'), true),
     log: get('TAMP_LOG') !== 'false',
     logFile: get('TAMP_LOG_FILE') || null,

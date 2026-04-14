@@ -162,6 +162,47 @@ if (subcommand === 'status') {
   process.exit(healthy ? 0 : 1)
 }
 
+if (subcommand === 'compress-config') {
+  const { compressFiles, formatResult } = await import('../lib/compress-file.js')
+  const args = process.argv.slice(3)
+  const flags = new Set(args.filter(a => a.startsWith('--')))
+  const files = args.filter(a => !a.startsWith('--'))
+
+  if (!files.length) {
+    console.error('Usage: tamp compress-config [--dry-run] [--no-backup] <file> [file...]')
+    console.error('')
+    console.error('Compress CLAUDE.md, config, or markdown files using lossy strategies')
+    console.error('inspired by JuliusBrussee/caveman-compress.')
+    console.error('')
+    console.error('Examples:')
+    console.error('  tamp compress-config --dry-run ~/.claude/CLAUDE.md')
+    console.error('  tamp compress-config ~/.claude/CLAUDE.md ~/.config/tamp/config')
+    process.exit(1)
+  }
+
+  const opts = {
+    dryRun: flags.has('--dry-run'),
+    noBackup: flags.has('--no-backup'),
+  }
+
+  const results = await compressFiles(files, opts)
+  let failures = 0
+  for (const result of results) {
+    console.log(formatResult(result))
+    console.log('')
+    if (!result.success && !result.skipped && !result.dryRun) failures++
+  }
+
+  const totalOrig = results.reduce((a, r) => a + (r.originalLen || 0), 0)
+  const totalComp = results.reduce((a, r) => a + (r.compressedLen || r.originalLen || 0), 0)
+  if (totalOrig > 0) {
+    const pct = ((totalOrig - totalComp) / totalOrig * 100).toFixed(1)
+    console.log(`Total: ${totalOrig} → ${totalComp} chars (${pct}% saved across ${results.length} file${results.length !== 1 ? 's' : ''})`)
+  }
+
+  process.exit(failures > 0 ? 1 : 0)
+}
+
 if (subcommand === 'stop') {
   const port = Number(process.env.TAMP_PORT) || 7778
   await reconcileStalePidFile(port)
@@ -212,6 +253,7 @@ if (subcommand === 'help' || subcommand === '--help' || subcommand === '-h') {
   console.log('  -y                  Start proxy (non-interactive, use defaults)')
   console.log('  -y --force          Replace any existing Tamp on the same port')
   console.log('  stop                Stop a running Tamp on TAMP_PORT (default 7778)')
+  console.log('  compress-config     Compress CLAUDE.md or config files (caveman mode)')
   console.log('  init                Create config file (~/.config/tamp/config)')
   console.log('  status              Check if proxy is running')
   console.log('  install-service     Install systemd user service (Linux)')
@@ -296,6 +338,10 @@ if (skipPrompt) {
     console.error(`    ${c.dim}Aider/Cursor:${c.reset} OPENAI_API_BASE=${c.yellow}${url}${c.reset}`)
     console.error('')
     const total = DEFAULT_STAGES.length + EXTRA_STAGES.length
+    if (config.outputMode && config.outputMode !== 'off') {
+      console.error(`  ${c.bold}Output mode${c.reset} ${c.yellow}${config.outputMode}${c.reset} ${c.dim}(caveman, task-aware)${c.reset}`)
+      console.error('')
+    }
     console.error(`  ${c.bold}Stages${c.reset} ${c.dim}(${active.length} of ${total} active)${c.reset}`)
     for (const s of defaultActive) {
       const extra = s === 'llmlingua' && config.llmLinguaUrl ? ` ${c.dim}(${config.llmLinguaUrl})${c.reset}` : ''

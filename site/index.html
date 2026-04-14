@@ -913,7 +913,7 @@ TAMP_COMPRESSION_PRESET=balanced  # conservative | balanced | aggressive</pre>
         </div>
 
         <h3 class="db-h3" style="margin-top: 2.5rem;">Task-Type-Aware Output Compression</h3>
-        <p class="db-body">Tamp can now inject token-efficient rules into CLAUDE.md with three output modes. Safe tasks (env vars, typos, docs) get compressed output; dangerous tasks (security, debugging) get full output.</p>
+        <p class="db-body">Tamp injects token-efficient rules into every request based on the user's intent. Safe tasks (env vars, typos, docs) get compressed output; dangerous tasks (security, debugging) get full output. Opt in via <code style="background: rgba(0,0,0,0.3); padding: 0.2rem 0.4rem; border-radius: 3px;">TAMP_OUTPUT_MODE=balanced</code> &mdash; default is <code style="background: rgba(0,0,0,0.3); padding: 0.2rem 0.4rem; border-radius: 3px;">off</code> so existing users see no behavior change.</p>
 
         <div style="overflow-x: auto; -webkit-overflow-scrolling: touch; margin: 1.5rem 0;">
             <table style="min-width: 500px; width: 100%; border-collapse: collapse; font-size: 0.9rem;">
