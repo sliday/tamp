@@ -80,6 +80,55 @@ wire_api = "responses"
 
 Then `export OPENAI_API_KEY=sk-...` and run `codex` or `codex exec "..."` as usual. Tamp routes `/v1/responses` through the `openai-responses` adapter and compresses every `function_call_output` block.
 
+### Cursor
+
+1. Start Tamp: `npx @sliday/tamp -y`
+2. Open Cursor → **Settings** (`⌘,`) → **Models**
+3. Scroll to **OpenAI API Key**, paste your `sk-...` key
+4. Click **"Override OpenAI Base URL"**, paste `http://localhost:7778/v1`
+5. Click **Verify**, then enable any OpenAI-family model (`gpt-4o`, `gpt-5-codex`, etc.)
+6. Use Cursor as normal — Tamp compresses every tool call
+
+> Cursor's bundled `cursor-*` and `claude-*` models go through Cursor's own servers and bypass the override. Pick an OpenAI model to route through Tamp.
+
+### VS Code
+
+#### Cline (recommended)
+
+1. Install [Cline](https://marketplace.visualstudio.com/items?itemName=saoudrizwan.claude-dev) from the VS Code marketplace
+2. Start Tamp: `npx @sliday/tamp -y`
+3. Click the Cline icon in the activity bar → **Settings** (⚙️)
+4. **API Provider**: `OpenAI Compatible`
+5. **Base URL**: `http://localhost:7778/v1`
+6. **API Key**: your `sk-...`
+7. **Model ID**: `gpt-4o`, `claude-sonnet-4-5`, or any model your key supports
+
+Cline talks directly to the configured base URL for every request — works seamlessly through Tamp.
+
+#### Continue
+
+1. Install [Continue](https://marketplace.visualstudio.com/items?itemName=Continue.continue)
+2. Start Tamp: `npx @sliday/tamp -y`
+3. Open `~/.continue/config.json` and add:
+
+```json
+{
+  "models": [
+    {
+      "title": "GPT-4o (via Tamp)",
+      "provider": "openai",
+      "model": "gpt-4o",
+      "apiKey": "sk-...",
+      "apiBase": "http://localhost:7778/v1"
+    }
+  ]
+}
+```
+
+#### GitHub Copilot
+
+Copilot does not expose a base URL setting and routes everything through GitHub's servers. Tamp **cannot** intercept Copilot traffic. Use Cline or Continue instead if you want compression in VS Code.
+
 ## Configuration
 
 Run `tamp init` to create `~/.config/tamp/config`. All variables work via env or config file.
