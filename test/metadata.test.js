@@ -7,6 +7,7 @@ import {
   LOSSY_STAGES,
   isLossy,
   STAGE_DESCRIPTIONS,
+  STAGE_HINTS,
 } from '../metadata.js'
 
 describe('isLossy classification', () => {
@@ -65,6 +66,27 @@ describe('metadata invariants', () => {
   it('every lossy stage is a known stage', () => {
     for (const s of LOSSY_STAGES) {
       assert.ok(ALL_STAGES.includes(s), `LOSSY_STAGES contains unknown stage '${s}'`)
+    }
+  })
+
+  it('every opt-in EXTRA stage has a discoverability hint', () => {
+    for (const s of EXTRA_STAGES) {
+      assert.ok(STAGE_HINTS[s], `missing STAGE_HINTS entry for opt-in stage '${s}'`)
+      assert.ok(typeof STAGE_HINTS[s].summary === 'string' && STAGE_HINTS[s].summary.length > 0,
+        `STAGE_HINTS['${s}'] needs a non-empty summary`)
+    }
+  })
+
+  it('llmlingua has a discoverability hint (default but may fail to start)', () => {
+    assert.ok(STAGE_HINTS.llmlingua, 'llmlingua needs a hint for the sidecar-missing case')
+    assert.ok(STAGE_HINTS.llmlingua.setup, 'llmlingua hint must include a setup command')
+  })
+
+  it('hint setup commands are concrete (no TBD/TODO placeholders)', () => {
+    for (const [name, hint] of Object.entries(STAGE_HINTS)) {
+      if (hint.setup) {
+        assert.ok(!/TBD|TODO|FIXME/i.test(hint.setup), `STAGE_HINTS['${name}'].setup contains placeholder`)
+      }
     }
   })
 })

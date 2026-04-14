@@ -5,7 +5,7 @@ import { spawn, execFileSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
 import { homedir } from 'node:os'
-import { DEFAULT_STAGES, EXTRA_STAGES, STAGE_DESCRIPTIONS, VERSION, isLossy } from '../metadata.js'
+import { DEFAULT_STAGES, EXTRA_STAGES, STAGE_DESCRIPTIONS, STAGE_HINTS, VERSION, isLossy } from '../metadata.js'
 import { CONFIG_PATH, CONFIG_TEMPLATE } from '../config.js'
 import {
   checkPort,
@@ -295,7 +295,8 @@ if (skipPrompt) {
     console.error(`    ${c.dim}Claude Code:${c.reset}  ANTHROPIC_BASE_URL=${c.yellow}${url}${c.reset}`)
     console.error(`    ${c.dim}Aider/Cursor:${c.reset} OPENAI_API_BASE=${c.yellow}${url}${c.reset}`)
     console.error('')
-    console.error(`  ${c.bold}Stages${c.reset} ${c.dim}(${active.length} active)${c.reset}`)
+    const total = DEFAULT_STAGES.length + EXTRA_STAGES.length
+    console.error(`  ${c.bold}Stages${c.reset} ${c.dim}(${active.length} of ${total} active)${c.reset}`)
     for (const s of defaultActive) {
       const extra = s === 'llmlingua' && config.llmLinguaUrl ? ` ${c.dim}(${config.llmLinguaUrl})${c.reset}` : ''
       console.error(`    ${c.green}\u2713${c.reset} ${c.cyan}${s}${c.reset}${extra}`)
@@ -304,9 +305,22 @@ if (skipPrompt) {
       const tag = isLossy(s) ? '(lossy)' : '(opt-in)'
       console.error(`    ${c.yellow}\u2713${c.reset} ${c.yellow}${s}${c.reset} ${c.dim}${tag}${c.reset}`)
     }
+
     const disabled = [...DEFAULT_STAGES, ...EXTRA_STAGES].filter(s => !active.includes(s))
-    if (disabled.length && disabled.length <= 4) {
-      console.error(`    ${c.dim}\u2717 ${disabled.join(', ')}${c.reset}`)
+    if (disabled.length) {
+      console.error('')
+      console.error(`  ${c.bold}Available${c.reset} ${c.dim}(not active — opt in for more savings)${c.reset}`)
+      for (const s of disabled) {
+        const hint = STAGE_HINTS[s]
+        if (hint) {
+          console.error(`    ${c.dim}\u25EF${c.reset} ${c.cyan}${s}${c.reset} ${c.dim}— ${hint.summary}${c.reset}`)
+          if (hint.setup) {
+            console.error(`        ${c.dim}\u2192 ${hint.setup}${c.reset}`)
+          }
+        } else {
+          console.error(`    ${c.dim}\u25EF ${s}${c.reset}`)
+        }
+      }
     }
     console.error('')
   }

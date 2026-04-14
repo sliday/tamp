@@ -41,6 +41,32 @@ export function isLossy(stage) {
   return LOSSY_STAGES.has(stage)
 }
 
+// Hints shown in the banner when a stage is NOT active. summary describes
+// the value the user is missing; setup is a copy-pasteable enable command
+// (or null if the stage just needs TAMP_STAGES=...,<name>).
+export const STAGE_HINTS = Object.freeze({
+  llmlingua: {
+    summary: 'neural text compression, +7-12% savings',
+    setup: 'install uv: curl -LsSf https://astral.sh/uv/install.sh | sh',
+  },
+  graph: {
+    summary: 'cross-request dedup, lossless, -99% on re-reads',
+    setup: 'TAMP_STAGES=...,graph',
+  },
+  'strip-comments': {
+    summary: 'remove code comments (lossy)',
+    setup: null,
+  },
+  textpress: {
+    summary: 'LLM semantic compression via Ollama/OpenRouter (lossy)',
+    setup: null,
+  },
+  'foundation-models': {
+    summary: 'Apple Intelligence neural (macOS 15+, lossy)',
+    setup: null,
+  },
+})
+
 export const STAGE_DESCRIPTIONS = Object.freeze({
   minify: 'Strip JSON whitespace (lossless)',
   toon: 'Columnar array encoding (lossless)',
