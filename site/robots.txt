@@ -1,0 +1,103 @@
+# Tamp — token compression proxy for coding agents
+# https://tamp.dev
+
+# Default: open to all well-behaved crawlers
+User-agent: *
+Allow: /
+Disallow: /.wrangler/
+Disallow: /.well-known/agent-skills/
+Content-Signal: search=yes, ai-train=no, ai-input=yes
+
+# Search + answer engines
+User-agent: Googlebot
+Allow: /
+
+User-agent: Bingbot
+Allow: /
+
+User-agent: DuckDuckBot
+Allow: /
+
+# OpenAI
+User-agent: GPTBot
+Allow: /
+Content-Signal: ai-train=no, ai-input=yes
+
+User-agent: OAI-SearchBot
+Allow: /
+Content-Signal: search=yes, ai-input=yes
+
+User-agent: ChatGPT-User
+Allow: /
+
+# Anthropic
+User-agent: ClaudeBot
+Allow: /
+Content-Signal: ai-train=no, ai-input=yes
+
+User-agent: Claude-Web
+Allow: /
+
+User-agent: Claude-SearchBot
+Allow: /
+Content-Signal: search=yes, ai-input=yes
+
+User-agent: anthropic-ai
+Allow: /
+
+# Google AI
+User-agent: Google-Extended
+Allow: /
+Content-Signal: ai-train=no, ai-input=yes
+
+User-agent: GoogleOther
+Allow: /
+
+# Perplexity
+User-agent: PerplexityBot
+Allow: /
+Content-Signal: search=yes, ai-input=yes
+
+User-agent: Perplexity-User
+Allow: /
+
+# Meta
+User-agent: Meta-ExternalAgent
+Allow: /
+Content-Signal: ai-train=no, ai-input=yes
+
+User-agent: FacebookBot
+Allow: /
+
+# Apple
+User-agent: Applebot
+Allow: /
+
+User-agent: Applebot-Extended
+Allow: /
+Content-Signal: ai-train=no, ai-input=yes
+
+# Amazon / Mistral / Cohere / ByteDance
+User-agent: Amazonbot
+Allow: /
+
+User-agent: MistralAI-User
+Allow: /
+
+User-agent: cohere-ai
+Allow: /
+
+User-agent: Bytespider
+Disallow: /
+
+# Scrapers for commercial training corpora — disallow
+User-agent: CCBot
+Disallow: /
+
+User-agent: Omgilibot
+Disallow: /
+
+User-agent: Diffbot
+Disallow: /
+
+Sitemap: https://tamp.dev/sitemap.xml

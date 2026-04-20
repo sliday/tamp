@@ -128,7 +128,11 @@ describe('loadConfigFile', () => {
   it('config file values used by loadConfig when TAMP_CONFIG set', () => {
     writeFileSync(tmpFile, 'TAMP_PORT=4444\nTAMP_STAGES=minify,dedup\n')
     const origConfig = process.env.TAMP_CONFIG
+    const origStages = process.env.TAMP_STAGES
+    const origPreset = process.env.TAMP_COMPRESSION_PRESET
     process.env.TAMP_CONFIG = tmpFile
+    delete process.env.TAMP_STAGES
+    delete process.env.TAMP_COMPRESSION_PRESET
     try {
       const cfg = loadConfig(process.env)
       assert.equal(cfg.port, 4444)
@@ -136,6 +140,8 @@ describe('loadConfigFile', () => {
     } finally {
       if (origConfig !== undefined) process.env.TAMP_CONFIG = origConfig
       else delete process.env.TAMP_CONFIG
+      if (origStages !== undefined) process.env.TAMP_STAGES = origStages
+      if (origPreset !== undefined) process.env.TAMP_COMPRESSION_PRESET = origPreset
     }
   })
 

@@ -1,0 +1,36 @@
+# Cloudflare Pages headers — https://developers.cloudflare.com/pages/configuration/headers/
+
+/*
+  Access-Control-Allow-Origin: *
+  Referrer-Policy: strict-origin-when-cross-origin
+  X-Content-Type-Options: nosniff
+
+# Agent discovery Link headers (RFC 8288) — advertise machine-readable resources
+/
+  Link: </sitemap.xml>; rel="sitemap"; type="application/xml"
+  Link: </.well-known/api-catalog>; rel="api-catalog"; type="application/linkset+json"
+  Link: </.well-known/agent-skills/index.json>; rel="https://rel.agentskills.io/index"; type="application/json"
+  Link: </whitepaper-latest>; rel="describedby"; type="text/html"
+  Link: </whitepaper.pdf>; rel="describedby"; type="application/pdf"
+
+/index.html
+  Link: </sitemap.xml>; rel="sitemap"; type="application/xml"
+  Link: </.well-known/api-catalog>; rel="api-catalog"; type="application/linkset+json"
+  Link: </.well-known/agent-skills/index.json>; rel="https://rel.agentskills.io/index"; type="application/json"
+
+# Content types for well-known files
+/robots.txt
+  Content-Type: text/plain; charset=utf-8
+  Cache-Control: public, max-age=3600
+
+/sitemap.xml
+  Content-Type: application/xml; charset=utf-8
+  Cache-Control: public, max-age=3600
+
+/.well-known/api-catalog
+  Content-Type: application/linkset+json; charset=utf-8
+  Cache-Control: public, max-age=3600
+
+/.well-known/agent-skills/index.json
+  Content-Type: application/json; charset=utf-8
+  Cache-Control: public, max-age=3600

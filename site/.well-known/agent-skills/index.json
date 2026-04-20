@@ -1,0 +1,18 @@
+{
+  "$schema": "https://agentskills.io/schemas/index-v0.2.0.json",
+  "version": "0.2.0",
+  "publisher": {
+    "name": "Tamp",
+    "url": "https://tamp.dev/",
+    "contact": "stas@sliday.com"
+  },
+  "skills": [
+    {
+      "name": "install-tamp",
+      "type": "skill",
+      "description": "Install and run Tamp, a local token-compression proxy for coding agents. Cuts input+output tokens ~50% with zero code changes.",
+      "url": "https://tamp.dev/.well-known/agent-skills/install-tamp/SKILL.md",
+      "sha256": "5c8531b84461945d6c039877fa3e46fa059043479902f83c5f37c2de4500a6e6"
+    }
+  ]
+}

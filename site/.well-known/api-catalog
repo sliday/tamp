@@ -1,0 +1,22 @@
+{
+  "linkset": [
+    {
+      "anchor": "https://tamp.dev/",
+      "service-doc": [
+        { "href": "https://tamp.dev/whitepaper-latest", "type": "text/html", "title": "Tamp whitepaper (HTML)" },
+        { "href": "https://tamp.dev/whitepaper.pdf", "type": "application/pdf", "title": "Tamp whitepaper (PDF)" },
+        { "href": "https://github.com/sliday/tamp#readme", "type": "text/markdown", "title": "Tamp README" }
+      ],
+      "describedby": [
+        { "href": "https://tamp.dev/.well-known/agent-skills/index.json", "type": "application/json", "title": "Agent skills index" }
+      ],
+      "author": [
+        { "href": "https://sliday.com", "title": "Stas Kulesh" }
+      ],
+      "related": [
+        { "href": "https://github.com/sliday/tamp", "type": "text/html", "title": "Source repository" },
+        { "href": "https://tamp.dev/setup.sh", "type": "application/x-sh", "title": "One-line installer" }
+      ]
+    }
+  ]
+}
