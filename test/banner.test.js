@@ -65,7 +65,7 @@ describe('Banner — stages discoverability', () => {
   it('shows "X of Y active" denominator', () => {
     const tree = Banner({ ...baseProps, stages: ['minify'] })
     const text = getAllText(tree)
-    assert.match(text, /1 of 15 active/)
+    assert.match(text, /1 of 16 active/)
   })
 
   it('shows Available section when stages are disabled', () => {
@@ -90,10 +90,10 @@ describe('Banner — stages discoverability', () => {
     assert.match(text, /TAMP_STAGES=\.\.\.,graph/, 'graph setup hint missing')
   })
 
-  it('hides Available section entirely when all 15 stages are active', () => {
+  it('hides Available section entirely when all 16 stages are active', () => {
     const allStages = [
       'cmd-strip','minify','toon','strip-lines','whitespace','llmlingua','dedup','diff','read-diff','prune',
-      'strip-comments','textpress','foundation-models','graph','br-cache',
+      'strip-comments','textpress','foundation-models','graph','br-cache','disclosure',
     ]
     const tree = Banner({ ...baseProps, stages: allStages })
     const text = getAllText(tree)

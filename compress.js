@@ -7,8 +7,9 @@ import { tryParseJSON, classifyContent, stripLineNumbers } from './detect.js'
 import { rewriteCommandOutput } from './lib/rewriters/index.js'
 import { anthropic } from './providers.js'
 import { graphDeduplicateTargets } from './session-graph.js'
-import { detectTaskType, generateOutputRules } from './lib/rules-generator.js'
+import { detectTaskType, generateOutputRules, isDangerousTask } from './lib/rules-generator.js'
 import { extractTargetPaths } from './lib/path-extract.js'
+import { summarize, rehydrateReferences } from './lib/disclosure.js'
 
 const cache = new Map()
 const MAX_CACHE = 500
@@ -109,6 +110,36 @@ function readDiffTargets(targets, body, sessionKey, readCache) {
     }
     readCache.put(sessionKey, path, target.text)
   }
+}
+
+// --- Stage: disclosure (Phase 5) ---
+// For tool_result bodies >= 32 KB that haven't been handled by earlier stages,
+// store the full body in br-cache and replace it with a 3-tier summary block.
+// Bypassed when the latest user message classifies as a dangerous task.
+function discloseTargets(targets, body, provider, brCache) {
+  if (!brCache || typeof brCache.put !== 'function') return 0
+  if (!provider || typeof provider.getLastUserText !== 'function') return 0
+  const userText = provider.getLastUserText(body) || ''
+  if (isDangerousTask(userText)) return 0
+
+  let disclosed = 0
+  for (const target of targets) {
+    if (target.skip || target.dedup || target.diffed || target.readDiffed || target.graphed || target.compressed) continue
+    if (typeof target.text !== 'string') continue
+    const byteLen = Buffer.byteLength(target.text, 'utf8')
+    if (byteLen < 32 * 1024) continue
+
+    const put = brCache.put(target.text)
+    if (!put) continue
+    const result = summarize(target.text, { hash: put.hash })
+    if (!result) continue
+    target.compressed = result.summary
+    target.disclosed = true
+    target.disclosedHash = result.hash
+    target.disclosedOriginalBytes = result.originalBytes
+    disclosed += 1
+  }
+  return disclosed
 }
 
 // --- Stage: prune ---
@@ -500,6 +531,15 @@ function maybeInjectOutputHint(body, config, provider) {
 }
 
 export async function compressRequest(body, config, provider) {
+  // Phase 5: before any stage runs, rehydrate <tamp-ref:v1:...> markers the
+  // model quoted back from a prior turn. Must happen first so downstream
+  // stages see the expanded body if relevant.
+  let disclosureStats = null
+  if (config.stages?.includes('disclosure') && config.brCache) {
+    const rh = rehydrateReferences(body, provider, config.brCache)
+    if (rh.rehydrated || rh.missed) disclosureStats = { rehydrated: rh.rehydrated, missed: rh.missed, disclosed: 0 }
+  }
+
   const outputHint = maybeInjectOutputHint(body, config, provider)
 
   const targets = provider.extract(body, { ...config, cacheSafe: config.cacheSafe !== false })
@@ -518,6 +558,15 @@ export async function compressRequest(body, config, provider) {
   // Graph: session-scoped dedup across requests (opt-in)
   if (config.stages.includes('graph') && config.sessionBucket) {
     graphDeduplicateTargets(targets, config.sessionBucket)
+  }
+
+  // Disclosure: progressive 3-tier summary for huge tool_results (opt-in, lossy)
+  if (config.stages.includes('disclosure') && config.brCache && provider.name === 'anthropic') {
+    const n = discloseTargets(targets, body, provider, config.brCache)
+    if (n > 0) {
+      disclosureStats = disclosureStats || { rehydrated: 0, missed: 0, disclosed: 0 }
+      disclosureStats.disclosed += n
+    }
   }
 
   const stats = []
@@ -541,6 +590,10 @@ export async function compressRequest(body, config, provider) {
       stats.push({ index: target.index, method: 'graph', originalLen: target.text.length, compressedLen: target.compressed.length, originalTokens: countTokens(target.text), compressedTokens: countTokens(target.compressed) })
       continue
     }
+    if (target.disclosed) {
+      stats.push({ index: target.index, method: 'disclosure', originalLen: target.text.length, compressedLen: target.compressed.length, originalTokens: countTokens(target.text), compressedTokens: countTokens(target.compressed) })
+      continue
+    }
 
     const result = await compressBlock(target.text, config)
     if (result) {
@@ -551,7 +604,7 @@ export async function compressRequest(body, config, provider) {
     }
   }
   provider.apply(body, targets)
-  return { body, stats, targetCount: targets.length, outputHint }
+  return { body, stats, targetCount: targets.length, outputHint, disclosure: disclosureStats }
 }
 
 export async function compressMessages(body, config) {

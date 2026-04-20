@@ -58,16 +58,17 @@ export function createProxy(overrides = {}) {
     config.upstreams = { anthropic: overrides.upstream, openai: overrides.upstream, 'openai-responses': overrides.upstream, gemini: overrides.upstream }
   }
   const session = createSession()
-  const brCache = (config.stages?.includes('graph') || config.stages?.includes('br-cache'))
+  const brCache = (config.stages?.includes('graph') || config.stages?.includes('br-cache') || config.stages?.includes('disclosure'))
     ? createBrCache()
     : null
   const sessionStore = createSessionStore({ brCache })
   const readCache = createReadCache()
-  return { config, session, sessionStore, readCache, brCache, server: _createServer(config, session, sessionStore, readCache) }
+  return { config, session, sessionStore, readCache, brCache, server: _createServer(config, session, sessionStore, readCache, brCache) }
 }
 
-function _createServer(config, session, sessionStore, readCache) {
+function _createServer(config, session, sessionStore, readCache, brCache) {
 const log = createRequestLogger(config)
+const disclosureTotals = { rehydrated: 0, missed: 0, disclosed: 0 }
 
 function openUpstream(method, upstreamUrl, headers, res) {
   const mod = upstreamUrl.protocol === 'https:' ? https : http
@@ -151,6 +152,7 @@ return http.createServer(async (req, res) => {
         charsOriginal: totals.totalOriginal,
         blocksCompressed: totals.compressionCount,
       },
+      disclosure: disclosureTotals,
     })
     res.writeHead(200, { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body) })
     return res.end(req.method === 'HEAD' ? undefined : body)
@@ -267,12 +269,17 @@ return http.createServer(async (req, res) => {
     const sessionBucket = config.stages?.includes('graph') && sessionKey
       ? sessionStore.getBucket(sessionKey)
       : null
-    const { body, stats } = await compressRequest(parsed, { ...config, sessionBucket, sessionKey, readCache }, provider)
+    const { body, stats, disclosure } = await compressRequest(parsed, { ...config, sessionBucket, sessionKey, readCache, brCache }, provider)
     finalBody = Buffer.from(JSON.stringify(body), 'utf-8')
     // Send uncompressed — simpler and content-length is accurate
     if (decompressed) delete headers['content-encoding']
 
     session.record(stats)
+    if (disclosure) {
+      disclosureTotals.rehydrated += disclosure.rehydrated || 0
+      disclosureTotals.missed += disclosure.missed || 0
+      disclosureTotals.disclosed += disclosure.disclosed || 0
+    }
     log(formatRequestLog(stats, session, provider.name, req.url, textBody.length, config.tokenCost, sessionBucket))
     config.onCompress?.(stats, session.getTotals(), { provider: provider.name, url: req.url, bodySize: textBody.length })
   } catch (err) {

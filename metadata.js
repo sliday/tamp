@@ -23,6 +23,7 @@ export const EXTRA_STAGES = Object.freeze([
   'foundation-models',
   'graph',
   'br-cache',
+  'disclosure',
 ])
 
 export const ALL_STAGES = Object.freeze([
@@ -34,11 +35,14 @@ export const ALL_STAGES = Object.freeze([
 // `graph` is opt-in but fully lossless — it substitutes a reference marker for
 // content the model has already seen earlier in the same session. `br-cache`
 // is also lossless: it's a disk-backed store for large bodies, not a rewriter.
+// `disclosure` IS lossy: it drops body content from the outgoing turn and
+// relies on the model quoting the marker to trigger rehydration next turn.
 export const LOSSY_STAGES = Object.freeze(new Set([
   'llmlingua',
   'foundation-models',
   'textpress',
   'strip-comments',
+  'disclosure',
 ]))
 
 export function isLossy(stage) {
@@ -77,6 +81,10 @@ export const STAGE_HINTS = Object.freeze({
     summary: 'Brotli disk cache, persists across sessions, enables Phase 5 disclosure',
     setup: 'TAMP_STAGES=...,br-cache',
   },
+  disclosure: {
+    summary: 'progressive disclosure for >32KB tool_results, model can quote hash to expand',
+    setup: 'TAMP_STAGES=...,disclosure (requires br-cache)',
+  },
 })
 
 export const STAGE_DESCRIPTIONS = Object.freeze({
@@ -95,6 +103,7 @@ export const STAGE_DESCRIPTIONS = Object.freeze({
   textpress: 'LLM semantic compression (Ollama/OpenRouter)',
   graph: 'Session-scoped dedup across requests (lossless, opt-in)',
   'br-cache': 'Disk-backed Brotli store for large tool_results (lossless, opt-in)',
+  disclosure: '3-tier summary for huge tool_results with on-demand rehydration (lossy, aggressive-only)',
 })
 
 export const COMPRESSION_PRESETS = Object.freeze({
@@ -115,7 +124,7 @@ export const COMPRESSION_PRESETS = Object.freeze({
   aggressive: {
     name: 'Aggressive',
     description: 'Maximum compression, lossy stages enabled',
-    stages: ['cmd-strip', 'minify', 'toon', 'strip-lines', 'whitespace', 'llmlingua', 'dedup', 'diff', 'read-diff', 'prune', 'strip-comments', 'textpress'],
+    stages: ['cmd-strip', 'minify', 'toon', 'strip-lines', 'whitespace', 'llmlingua', 'dedup', 'diff', 'read-diff', 'prune', 'strip-comments', 'textpress', 'br-cache', 'disclosure'],
     expectedSavings: '60-68%',
     risk: 'Medium (may lose comments, verbose text)',
   },
