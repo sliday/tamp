@@ -50,6 +50,22 @@ Auto-detects API format, compresses tool output, forwards upstream. Error result
 
 Opt-in stages: `strip-comments`, `textpress` (LLM semantic compression), `graph` (session-scoped dedup — works on any coding agent: Codex, Claude Code, Aider — anywhere the same file is read twice, up to -99% per repeat block)
 
+### LLMLingua sidecar
+
+The `llmlingua` stage is enabled by default but requires a Python sidecar running on port 8788.
+
+Tamp auto-starts the sidecar when [`uv`](https://docs.astral.sh/uv/) is installed. Manual starts for all other cases:
+
+```bash
+uv run --with fastapi --with uvicorn --with llmlingua \
+  uvicorn server:app --host 127.0.0.1 --port 8788 \
+  --app-dir "$(npm root -g)/@sliday/tamp/sidecar"
+
+curl -s http://localhost:8788/health # Verify: {"status":"ok","model_loaded":true}
+
+tamp stop && tamp -y # restart Tamp, health endpoint will show `sidecar: ok`
+```
+
 ## Quick Start
 
 ```bash
@@ -180,7 +196,7 @@ Supported on all providers: Anthropic, OpenAI Chat, OpenAI Responses (Codex), Ge
 | `TAMP_MIN_SIZE` | `200` | Min content size (chars) |
 | `TAMP_LOG` | `true` | Enable logging |
 | `TAMP_CACHE_SAFE` | `true` | Compress newest only (prompt-cache safe) |
-| `TAMP_LLMLINGUA_URL` | *(none)* | LLMLingua sidecar URL |
+| `TAMP_LLMLINGUA_URL` | *(none)* | LLMLingua sidecar URL. Set to `http://localhost:8788` to skip the auto-probe (avoids startup race if sidecar is still loading the model) |
 
 **Recommended setups:**
 
