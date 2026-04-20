@@ -234,3 +234,80 @@ describe('compressRequest — output-mode end-to-end', () => {
     assert.ok(!toolResultBlock.content.includes('\n  '), `tool_result should be minified, got: ${toolResultBlock.content.slice(0, 100)}`)
   })
 })
+
+describe('Phase 4: TAMP_OUTPUT_DEFAULT env default seed', () => {
+  it('seeds outputMode from TAMP_OUTPUT_DEFAULT when TAMP_OUTPUT_MODE unset', async () => {
+    const { loadConfig } = await import('../config.js')
+    const cfg = loadConfig({ TAMP_OUTPUT_DEFAULT: 'conservative' })
+    assert.equal(cfg.outputMode, 'conservative')
+    assert.equal(cfg.outputModeDefault, 'conservative')
+  })
+
+  it('explicit TAMP_OUTPUT_MODE wins over TAMP_OUTPUT_DEFAULT', async () => {
+    const { loadConfig } = await import('../config.js')
+    const cfg = loadConfig({ TAMP_OUTPUT_MODE: 'aggressive', TAMP_OUTPUT_DEFAULT: 'conservative' })
+    assert.equal(cfg.outputMode, 'aggressive')
+    assert.equal(cfg.outputModeDefault, 'conservative', 'env default still exposed for /caveman-help')
+  })
+
+  it('falls back to "off" when neither is set', async () => {
+    const { loadConfig } = await import('../config.js')
+    const cfg = loadConfig({})
+    assert.equal(cfg.outputMode, 'off')
+    assert.equal(cfg.outputModeDefault, null)
+  })
+
+  it('rejects invalid TAMP_OUTPUT_DEFAULT values (falls back to off)', async () => {
+    const { loadConfig } = await import('../config.js')
+    const cfg = loadConfig({ TAMP_OUTPUT_DEFAULT: 'nonsense' })
+    assert.equal(cfg.outputMode, 'off')
+    assert.equal(cfg.outputModeDefault, null)
+  })
+})
+
+describe('Phase 4: generateOutputRules per-agent overrides', () => {
+  it('returns Codex override for (balanced, safe, codex)', async () => {
+    const { generateOutputRules } = await import('../lib/rules-generator.js')
+    const out = generateOutputRules('balanced', 'safe', 'codex')
+    assert.match(out, /Codex/, 'should use Codex-specific rules')
+    assert.match(out, /Code only/)
+  })
+
+  it('returns default rules for (balanced, safe, cursor) — no override defined', async () => {
+    const { generateOutputRules } = await import('../lib/rules-generator.js')
+    const out = generateOutputRules('balanced', 'safe', 'cursor')
+    assert.match(out, /Balanced Mode/)
+    assert.match(out, /Safe Task Optimizations/, 'should fall through to shared balanced+safe rules')
+  })
+
+  it('returns default rules when agent is undefined', async () => {
+    const { generateOutputRules } = await import('../lib/rules-generator.js')
+    const withAgent = generateOutputRules('balanced', 'safe', undefined)
+    const withoutAgent = generateOutputRules('balanced', 'safe')
+    assert.equal(withAgent, withoutAgent)
+    assert.match(withAgent, /Balanced Mode/)
+  })
+
+  it('exports PER_AGENT_OVERRIDES table with expected keys', async () => {
+    const { PER_AGENT_OVERRIDES } = await import('../lib/rules-generator.js')
+    assert.ok('codex' in PER_AGENT_OVERRIDES)
+    assert.ok('cursor' in PER_AGENT_OVERRIDES)
+    assert.ok('cline' in PER_AGENT_OVERRIDES)
+    assert.ok('aider' in PER_AGENT_OVERRIDES)
+    assert.ok('claude-code' in PER_AGENT_OVERRIDES)
+    // Codex has concrete overrides; others are stubs
+    assert.ok(PER_AGENT_OVERRIDES.codex.safe)
+    assert.equal(Object.keys(PER_AGENT_OVERRIDES.cursor).length, 0)
+  })
+
+  it('threads config.agent through compressRequest injection path', async () => {
+    const body = { messages: [{ role: 'user', content: 'fix typo in README' }] }
+    const result = await compressRequest(body, {
+      ...baseConfig,
+      outputMode: 'balanced',
+      agent: 'codex',
+    }, anthropic)
+    assert.ok(result.outputHint)
+    assert.match(body.messages[0].content, /Codex/, 'codex override should be injected')
+  })
+})

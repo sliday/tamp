@@ -489,7 +489,7 @@ function maybeInjectOutputHint(body, config, provider) {
   if (!userText) return null
 
   const taskType = config.autoDetectTaskType === false ? 'complex' : detectTaskType(userText)
-  const rules = generateOutputRules(mode, taskType)
+  const rules = generateOutputRules(mode, taskType, config.agent)
   if (!rules) return null
 
   // Keep the injected hint compact and clearly marked so the model knows

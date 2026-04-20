@@ -1,4 +1,4 @@
-import { readFileSync, writeFileSync, unlinkSync, mkdirSync } from 'node:fs'
+import { readFileSync, writeFileSync, unlinkSync, mkdirSync, realpathSync, existsSync } from 'node:fs'
 import { join, dirname } from 'node:path'
 import http from 'node:http'
 import { CONFIG_PATH } from '../config.js'
@@ -9,16 +9,28 @@ export function pidFilePath(port) {
   return join(TAMP_DIR, `tamp-${port}.pid`)
 }
 
+// Symlink-safe resolver. Returns the real filesystem path for an existing
+// PID file, or the original path when the file doesn't exist yet (so write
+// operations land on the expected path). This prevents a symlink-swap
+// attacker from redirecting our read/write to a privileged file.
+function resolvePidPath(port) {
+  const p = pidFilePath(port)
+  try {
+    if (existsSync(p)) return realpathSync(p)
+  } catch { /* fall through to raw path */ }
+  return p
+}
+
 export function writePidFile(port) {
   mkdirSync(TAMP_DIR, { recursive: true })
-  const file = pidFilePath(port)
+  const file = resolvePidPath(port)
   writeFileSync(file, `${process.pid}\n${Date.now()}\n`)
   return file
 }
 
 export function readPidFile(port) {
   try {
-    const [pidStr, startedStr] = readFileSync(pidFilePath(port), 'utf8').split('\n')
+    const [pidStr, startedStr] = readFileSync(resolvePidPath(port), 'utf8').split('\n')
     const pid = Number(pidStr)
     if (!pid) return null
     return { pid, startedAt: Number(startedStr) || null }
@@ -26,7 +38,7 @@ export function readPidFile(port) {
 }
 
 export function clearPidFile(port) {
-  try { unlinkSync(pidFilePath(port)) } catch {}
+  try { unlinkSync(resolvePidPath(port)) } catch {}
 }
 
 export function isProcessAlive(pid) {

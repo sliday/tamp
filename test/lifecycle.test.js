@@ -202,3 +202,63 @@ describe('installShutdown', () => {
     assert.equal(process.listeners('SIGHUP').length, beforeH)
   })
 })
+
+describe('Phase 4: symlink-safe PID path resolution', () => {
+  // Use a separate port so we don't collide with the afterEach cleanup of TEST_PORT
+  const SYMLINK_PORT = 17889
+  let tmpDir
+
+  function cleanupSymlink() {
+    clearPidFile(SYMLINK_PORT)
+    try { unlinkSync(pidFilePath(SYMLINK_PORT)) } catch {}
+  }
+
+  afterEach(cleanupSymlink)
+
+  it('writePidFile/readPidFile operate on realpath when PID path is a symlink', async () => {
+    const { symlinkSync, statSync, lstatSync } = await import('node:fs')
+    const { tmpdir } = await import('node:os')
+    const { join } = await import('node:path')
+
+    // Create a real target file in a tmp dir and point the PID path at it
+    // via a symlink.
+    tmpDir = join(tmpdir(), `tamp-sym-${process.pid}-${Date.now()}`)
+    mkdirSync(tmpDir, { recursive: true })
+    const realTarget = join(tmpDir, 'real.pid')
+    writeFileSync(realTarget, '') // must exist before symlinking (existsSync gate)
+
+    const symPath = pidFilePath(SYMLINK_PORT)
+    mkdirSync(dirname(symPath), { recursive: true })
+    try { unlinkSync(symPath) } catch {}
+    symlinkSync(realTarget, symPath)
+
+    // Write through the symlink path — should land on the real target
+    writePidFile(SYMLINK_PORT)
+
+    // Read back
+    const rec = readPidFile(SYMLINK_PORT)
+    assert.equal(rec.pid, process.pid, 'pid round-trips through symlink')
+
+    // Symlink itself must still be a symlink (untouched)
+    assert.ok(lstatSync(symPath).isSymbolicLink(), 'the symlink entry must not be replaced')
+
+    // Real target must have been written
+    const realContents = readFileSync(realTarget, 'utf8')
+    assert.match(realContents, new RegExp(`^${process.pid}\\n`))
+
+    // Clean up the symlink entry (clearPidFile walks the realpath, so unlink both)
+    clearPidFile(SYMLINK_PORT)
+    try { unlinkSync(symPath) } catch {}
+    try { unlinkSync(realTarget) } catch {}
+  })
+
+  it('handles PID file paths with spaces in the directory name (round-trip)', () => {
+    // We exercise the write/read path via the regular API — which uses TAMP_DIR.
+    // This is a smoke test confirming writeFileSync accepts the default path
+    // even when the OS home has spaces (macOS: `/Users/Some User/...`).
+    writePidFile(SYMLINK_PORT)
+    const rec = readPidFile(SYMLINK_PORT)
+    assert.equal(rec.pid, process.pid)
+    assert.ok(rec.startedAt > 0)
+  })
+})

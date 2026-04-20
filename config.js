@@ -3,6 +3,8 @@ import { homedir } from 'node:os'
 import { join } from 'node:path'
 import { DEFAULT_STAGES, VERSION, COMPRESSION_PRESETS } from './metadata.js'
 
+const VALID_OUTPUT_MODES = new Set(['off', 'conservative', 'balanced', 'aggressive'])
+
 function parseBoolean(value, defaultValue) {
   if (value === undefined) return defaultValue
   if (value === 'true') return true
@@ -63,6 +65,15 @@ export function loadConfig(env = process.env) {
   // Resolve preset to stages (or use explicit stages if provided)
   const stages = resolvePreset(presetName, explicitStages)
 
+  // Output mode precedence (highest wins):
+  //   1. TAMP_OUTPUT_MODE      — explicit per-session override
+  //   2. TAMP_OUTPUT_DEFAULT   — env-level default seed (v1.5.0 parity)
+  //   3. 'off'                 — Caveman disabled unless opted in
+  const explicitOutputMode = get('TAMP_OUTPUT_MODE')
+  const defaultOutputMode = get('TAMP_OUTPUT_DEFAULT')
+  let outputMode = explicitOutputMode || defaultOutputMode || 'off'
+  if (!VALID_OUTPUT_MODES.has(outputMode)) outputMode = 'off'
+
   return Object.freeze({
     version: VERSION,
     port: parseInt(get('TAMP_PORT'), 10) || 7778,
@@ -76,7 +87,9 @@ export function loadConfig(env = process.env) {
     minSize: parseInt(get('TAMP_MIN_SIZE'), 10) || 200,
     stages,
     preset: presetName,
-    outputMode: get('TAMP_OUTPUT_MODE') || 'off',
+    outputMode,
+    outputModeDefault: defaultOutputMode && VALID_OUTPUT_MODES.has(defaultOutputMode) ? defaultOutputMode : null,
+    agent: get('TAMP_AGENT') || null,
     autoDetectTaskType: parseBoolean(get('TAMP_AUTO_DETECT_TASK_TYPE'), true),
     log: get('TAMP_LOG') !== 'false',
     logFile: get('TAMP_LOG_FILE') || null,
@@ -109,11 +122,19 @@ export const CONFIG_TEMPLATE = `# Tamp configuration
 # Explicit stages (overrides preset if set)
 # TAMP_STAGES=minify,toon,strip-lines,whitespace,llmlingua,dedup,diff,prune
 
-# Output compression mode (conservative | balanced | aggressive)
+# Output compression mode (conservative | balanced | aggressive | off)
 # TAMP_OUTPUT_MODE=balanced
+
+# Env-level default for output mode (used when TAMP_OUTPUT_MODE is unset).
+# Valid: off | conservative | balanced | aggressive
+# TAMP_OUTPUT_DEFAULT=off
 
 # Auto-detect task type for output compression (true | false)
 # TAMP_AUTO_DETECT_TASK_TYPE=true
+
+# Agent identifier for per-agent output rule overrides
+# (e.g. codex, cursor, cline, aider, claude-code)
+# TAMP_AGENT=
 
 # TAMP_MIN_SIZE=200
 # TAMP_LOG=true

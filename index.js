@@ -10,6 +10,31 @@ import { createSession, formatRequestLog } from './stats.js'
 import { createSessionStore, deriveSessionKey } from './session-graph.js'
 import { createReadCache } from './lib/read-cache.js'
 import { createBrCache } from './lib/br-cache.js'
+import { generateOutputRules, PER_AGENT_OVERRIDES } from './lib/rules-generator.js'
+
+// Regex source strings used by the task classifier — surfaced via
+// /caveman-help so operators can see exactly how their inputs are scored.
+const CLASSIFIER_PATTERNS = Object.freeze({
+  safe: [
+    '^(add|remove|update|set|unset)\\s+(env\\s+var|environment variable|config|configuration|\\w+=)',
+    '^fix\\s+typo',
+    '^update\\s+(README|readme|documentation|docs)',
+    '^(install|uninstall).*package',
+    '^add\\s+\\w+\\s+(as\\s+)?dependency',
+    '^update\\s+version',
+    '^(format|lint|fmt)|run linter',
+  ],
+  dangerous: [
+    'security|vulnerability|exploit|attack',
+    'debug|investigate|diagnose|troubleshoot',
+    'memory leak|performance|optimization|optimize',
+    '^refactor|^architecture|^design',
+    '^fix\\s+bug',
+    '^explain|^why|^how\\s+(does|work)',
+    'test|spec|coverage',
+  ],
+  complex: 'default when neither safe nor dangerous patterns match',
+})
 
 function buildUpstreamUrl(reqPath, base) {
   const parsed = new URL(base)
@@ -128,6 +153,25 @@ return http.createServer(async (req, res) => {
       },
     })
     res.writeHead(200, { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body) })
+    return res.end(req.method === 'HEAD' ? undefined : body)
+  }
+
+  // Caveman Mode diagnostic endpoint (v1.5.0 parity)
+  if (req.url === '/caveman-help' && (req.method === 'GET' || req.method === 'HEAD')) {
+    const sampleSafe = generateOutputRules(config.outputMode, 'safe', config.agent)
+    const sampleDangerous = generateOutputRules(config.outputMode, 'dangerous', config.agent)
+    const body = JSON.stringify({
+      mode: config.outputMode,
+      defaultFromEnv: config.outputModeDefault || null,
+      agent: config.agent || null,
+      taskClassifierRules: CLASSIFIER_PATTERNS,
+      sampleInjection: {
+        safe: sampleSafe || null,
+        dangerous: sampleDangerous || null,
+      },
+      perAgent: Object.keys(PER_AGENT_OVERRIDES),
+    })
+    res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8', 'Content-Length': Buffer.byteLength(body) })
     return res.end(req.method === 'HEAD' ? undefined : body)
   }
 
