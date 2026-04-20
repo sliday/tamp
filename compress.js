@@ -8,6 +8,7 @@ import { rewriteCommandOutput } from './lib/rewriters/index.js'
 import { anthropic } from './providers.js'
 import { graphDeduplicateTargets } from './session-graph.js'
 import { detectTaskType, generateOutputRules } from './lib/rules-generator.js'
+import { extractTargetPaths } from './lib/path-extract.js'
 
 const cache = new Map()
 const MAX_CACHE = 500
@@ -76,6 +77,38 @@ function quickSimilarity(a, b) {
   const intersection = [...setA].filter(x => setB.has(x)).length
   const union = new Set([...setA, ...setB]).size
   return union > 0 ? intersection / union : 0
+}
+
+// --- Stage: read-diff ---
+// Session-scoped unified diff for re-reads. For each target whose file path
+// can be confidently attributed (via the preceding tool_use), compare against
+// the last-seen body for the same (session, path) pair. If the patch is small
+// enough, substitute it for the body. Always cache the fresh text afterwards.
+function readDiffTargets(targets, body, sessionKey, readCache) {
+  if (!readCache || !sessionKey) return
+  const paths = extractTargetPaths(body, targets)
+  for (let i = 0; i < targets.length; i++) {
+    const target = targets[i]
+    const path = paths[i]
+    if (!path) continue
+    if (target.skip || target.dedup || target.diffed || target.compressed) {
+      // Even for already-compressed targets, refresh the cache with the
+      // original text so the next request can diff against the latest copy.
+      if (typeof target.text === 'string') readCache.put(sessionKey, path, target.text)
+      continue
+    }
+    if (typeof target.text !== 'string') continue
+
+    const prior = readCache.get(sessionKey, path)
+    if (prior && prior !== target.text) {
+      const patch = createPatch(path, prior, target.text, '', '')
+      if (patch.length < target.text.length * 0.5) {
+        target.compressed = `[read-diff from prior read of ${path}]:\n${patch}`
+        target.readDiffed = true
+      }
+    }
+    readCache.put(sessionKey, path, target.text)
+  }
 }
 
 // --- Stage: prune ---
@@ -471,6 +504,11 @@ export async function compressRequest(body, config, provider) {
 
   const targets = provider.extract(body, { ...config, cacheSafe: config.cacheSafe !== false })
 
+  // Read-diff: session-scoped unified diff for re-reads (lossless, opt-in)
+  if (config.stages.includes('read-diff') && config.readCache && config.sessionKey && provider.name === 'anthropic') {
+    readDiffTargets(targets, body, config.sessionKey, config.readCache)
+  }
+
   // Dedup: replace identical blocks with reference markers
   if (config.stages.includes('dedup')) deduplicateTargets(targets)
 
@@ -493,6 +531,10 @@ export async function compressRequest(body, config, provider) {
     }
     if (target.diffed) {
       stats.push({ index: target.index, method: 'diff', originalLen: target.text.length, compressedLen: target.compressed.length, originalTokens: countTokens(target.text), compressedTokens: countTokens(target.compressed) })
+      continue
+    }
+    if (target.readDiffed) {
+      stats.push({ index: target.index, method: 'read-diff', originalLen: target.text.length, compressedLen: target.compressed.length, originalTokens: countTokens(target.text), compressedTokens: countTokens(target.compressed) })
       continue
     }
     if (target.graphed) {

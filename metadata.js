@@ -13,6 +13,7 @@ export const DEFAULT_STAGES = Object.freeze([
   'llmlingua',
   'dedup',
   'diff',
+  'read-diff',
   'prune',
 ])
 
@@ -54,6 +55,10 @@ export const STAGE_HINTS = Object.freeze({
     summary: 'cross-request dedup, lossless, -99% on re-reads',
     setup: 'TAMP_STAGES=...,graph',
   },
+  'read-diff': {
+    summary: 'replace re-reads with diffs, lossless, -80% on common flows',
+    setup: 'enabled by default in balanced preset',
+  },
   'strip-comments': {
     summary: 'remove code comments (lossy)',
     setup: null,
@@ -78,6 +83,7 @@ export const STAGE_DESCRIPTIONS = Object.freeze({
   'foundation-models': 'Apple Intelligence neural compression (macOS 15+, Apple Silicon, 100% local)',
   dedup: 'Deduplicate identical tool_results',
   diff: 'Replace similar re-reads with diffs',
+  'read-diff': 'Session-scoped unified diff for re-reads (lossless, opt-in)',
   prune: 'Strip lockfile hashes & npm metadata',
   'strip-comments': 'Remove code comments (lossy)',
   textpress: 'LLM semantic compression (Ollama/OpenRouter)',
@@ -95,14 +101,14 @@ export const COMPRESSION_PRESETS = Object.freeze({
   balanced: {
     name: 'Balanced',
     description: 'Default, includes semantic compression',
-    stages: ['cmd-strip', 'minify', 'toon', 'strip-lines', 'whitespace', 'llmlingua', 'dedup', 'diff', 'prune'],
+    stages: ['cmd-strip', 'minify', 'toon', 'strip-lines', 'whitespace', 'llmlingua', 'dedup', 'diff', 'read-diff', 'prune'],
     expectedSavings: '52-58%',
     risk: 'Low',
   },
   aggressive: {
     name: 'Aggressive',
     description: 'Maximum compression, lossy stages enabled',
-    stages: ['cmd-strip', 'minify', 'toon', 'strip-lines', 'whitespace', 'llmlingua', 'dedup', 'diff', 'prune', 'strip-comments', 'textpress'],
+    stages: ['cmd-strip', 'minify', 'toon', 'strip-lines', 'whitespace', 'llmlingua', 'dedup', 'diff', 'read-diff', 'prune', 'strip-comments', 'textpress'],
     expectedSavings: '60-68%',
     risk: 'Medium (may lose comments, verbose text)',
   },

@@ -8,6 +8,7 @@ import { compressRequest } from './compress.js'
 import { detectProvider } from './providers.js'
 import { createSession, formatRequestLog } from './stats.js'
 import { createSessionStore, deriveSessionKey } from './session-graph.js'
+import { createReadCache } from './lib/read-cache.js'
 
 function buildUpstreamUrl(reqPath, base) {
   const parsed = new URL(base)
@@ -32,10 +33,11 @@ export function createProxy(overrides = {}) {
   }
   const session = createSession()
   const sessionStore = createSessionStore()
-  return { config, session, sessionStore, server: _createServer(config, session, sessionStore) }
+  const readCache = createReadCache()
+  return { config, session, sessionStore, readCache, server: _createServer(config, session, sessionStore, readCache) }
 }
 
-function _createServer(config, session, sessionStore) {
+function _createServer(config, session, sessionStore, readCache) {
 const log = createRequestLogger(config)
 
 function openUpstream(method, upstreamUrl, headers, res) {
@@ -211,10 +213,13 @@ return http.createServer(async (req, res) => {
   try {
     const parsed = JSON.parse(textBody.toString('utf-8'))
 
-    const sessionBucket = config.stages?.includes('graph')
-      ? sessionStore.getBucket(deriveSessionKey(req.headers))
+    const sessionKey = (config.stages?.includes('graph') || config.stages?.includes('read-diff'))
+      ? deriveSessionKey(req.headers)
       : null
-    const { body, stats } = await compressRequest(parsed, { ...config, sessionBucket }, provider)
+    const sessionBucket = config.stages?.includes('graph') && sessionKey
+      ? sessionStore.getBucket(sessionKey)
+      : null
+    const { body, stats } = await compressRequest(parsed, { ...config, sessionBucket, sessionKey, readCache }, provider)
     finalBody = Buffer.from(JSON.stringify(body), 'utf-8')
     // Send uncompressed — simpler and content-length is accurate
     if (decompressed) delete headers['content-encoding']
