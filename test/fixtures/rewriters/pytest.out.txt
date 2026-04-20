@@ -1,0 +1,14 @@
+$ pytest
+============================= test session starts ==============================
+
+=================================== FAILURES ===================================
+______________________________ test_parse_invalid ______________________________
+
+    def test_parse_invalid():
+>       assert parse("bogus") == 42
+E       AssertionError: assert None == 42
+
+tests/test_utils.py:18: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_utils.py::test_parse_invalid - AssertionError
+========================= 1 failed, 17 passed in 0.42s =========================

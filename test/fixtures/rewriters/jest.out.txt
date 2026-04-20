@@ -1,0 +1,7 @@
+$ npx jest
+
+Test Suites: 5 passed, 5 total
+Tests:       47 passed, 47 total
+Snapshots:   0 total
+Time:        8.143 s
+Ran all test suites.

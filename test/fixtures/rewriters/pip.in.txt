@@ -1,0 +1,16 @@
+$ pip install -r requirements.txt
+Collecting fastapi==0.110.0
+  Downloading fastapi-0.110.0-py3-none-any.whl (92 kB)
+     |████████████████████████████████| 92 kB 3.2 MB/s
+Collecting starlette<0.37.0,>=0.36.3
+  Downloading starlette-0.36.3-py3-none-any.whl (71 kB)
+     |████████████████████████████████| 71 kB 2.8 MB/s
+Collecting pydantic!=1.8,!=1.8.1,<3.0.0,>=1.7.4
+  Using cached pydantic-2.6.4-py3-none-any.whl (394 kB)
+Collecting fastapi==0.110.0
+  Using cached fastapi-0.110.0-py3-none-any.whl (92 kB)
+Collecting anyio<5,>=3.4.0
+  Downloading anyio-4.3.0-py3-none-any.whl (85 kB)
+     |████████████████████████████████| 85 kB 5.4 MB/s
+Installing collected packages: pydantic, anyio, starlette, fastapi
+Successfully installed anyio-4.3.0 fastapi-0.110.0 pydantic-2.6.4 starlette-0.36.3

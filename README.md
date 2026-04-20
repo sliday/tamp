@@ -39,6 +39,7 @@ Auto-detects API format, compresses tool output, forwards upstream. Error result
 
 | Stage | What |
 |-------|------|
+| `cmd-strip` | Strip progress bars and spinners from command output (lossless) |
 | `minify` | Strip JSON whitespace |
 | `toon` | Columnar array encoding |
 | `strip-lines` | Remove line-number prefixes |

@@ -1,0 +1,25 @@
+$ terraform plan
+aws_iam_role.lambda_exec: Refreshing state... [id=lambda-exec-role]
+aws_lambda_function.api: Refreshing state... [id=api-lambda]
+aws_s3_bucket.uploads: Refreshing state... [id=my-uploads-prod]
+aws_s3_bucket_policy.uploads: Refreshing state... [id=my-uploads-prod]
+aws_cloudfront_distribution.cdn: Refreshing state... [id=E2ABCDEFGHIJKL]
+aws_route53_record.api: Refreshing state... [id=Z123456_api_A]
+data.aws_caller_identity.current: Reading...
+data.aws_caller_identity.current: Read complete after 0s [id=123456789012]
+
+Terraform used the selected providers to generate the following execution plan. Resource actions are indicated with the following symbols:
+  + create
+  ~ update in-place
+
+Terraform will perform the following actions:
+
+  # aws_lambda_function.api will be updated in-place
+  ~ resource "aws_lambda_function" "api" {
+        id                 = "api-lambda"
+      ~ memory_size        = 512 -> 1024
+      ~ timeout            = 10 -> 30
+        # (24 unchanged attributes hidden)
+    }
+
+Plan: 0 to add, 1 to change, 0 to destroy.

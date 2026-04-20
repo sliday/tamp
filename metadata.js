@@ -5,6 +5,7 @@ const pkg = JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 
 export const VERSION = pkg.version
 
 export const DEFAULT_STAGES = Object.freeze([
+  'cmd-strip',
   'minify',
   'toon',
   'strip-lines',
@@ -68,6 +69,7 @@ export const STAGE_HINTS = Object.freeze({
 })
 
 export const STAGE_DESCRIPTIONS = Object.freeze({
+  'cmd-strip': 'Strip progress bars and spinners from command output (lossless)',
   minify: 'Strip JSON whitespace (lossless)',
   toon: 'Columnar array encoding (lossless)',
   'strip-lines': 'Remove line-number prefixes',
@@ -86,21 +88,21 @@ export const COMPRESSION_PRESETS = Object.freeze({
   conservative: {
     name: 'Conservative',
     description: 'Safe, lossless compression only',
-    stages: ['minify', 'toon', 'strip-lines', 'whitespace', 'dedup', 'diff'],
+    stages: ['cmd-strip', 'minify', 'toon', 'strip-lines', 'whitespace', 'dedup', 'diff'],
     expectedSavings: '45-50%',
     risk: 'None',
   },
   balanced: {
     name: 'Balanced',
     description: 'Default, includes semantic compression',
-    stages: ['minify', 'toon', 'strip-lines', 'whitespace', 'llmlingua', 'dedup', 'diff', 'prune'],
+    stages: ['cmd-strip', 'minify', 'toon', 'strip-lines', 'whitespace', 'llmlingua', 'dedup', 'diff', 'prune'],
     expectedSavings: '52-58%',
     risk: 'Low',
   },
   aggressive: {
     name: 'Aggressive',
     description: 'Maximum compression, lossy stages enabled',
-    stages: ['minify', 'toon', 'strip-lines', 'whitespace', 'llmlingua', 'dedup', 'diff', 'prune', 'strip-comments', 'textpress'],
+    stages: ['cmd-strip', 'minify', 'toon', 'strip-lines', 'whitespace', 'llmlingua', 'dedup', 'diff', 'prune', 'strip-comments', 'textpress'],
     expectedSavings: '60-68%',
     risk: 'Medium (may lose comments, verbose text)',
   },

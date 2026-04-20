@@ -12,8 +12,8 @@
     "stats.js",
     "lib/"
   ],
-  "version": "0.5.10",
-  "description": "Token compression proxy for coding agents. Works with Claude Code, Aider, Cursor, Cline, Windsurf. 60-70% combined input+output savings with Caveman-integrated presets.",
+  "version": "0.6.0",
+  "description": "Token compression proxy for coding agents. Works with Claude Code, Aider, Cursor, Cline, Windsurf. 60-70% combined input+output savings with Caveman-integrated presets and per-command rewriters.",
   "type": "module",
   "main": "index.js",
   "bin": {

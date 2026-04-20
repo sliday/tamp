@@ -1,3 +1,5 @@
+import { rewriteCommandOutput } from './lib/rewriters/index.js'
+
 const LINE_NUM_RE = /^ *\d+[\t→]/
 
 export function stripLineNumbers(str) {
@@ -40,4 +42,12 @@ export function classifyContent(str) {
   if (stripped !== str && tryParseJSON(stripped).ok) return 'json-lined'
   if (str.length > 0) return 'text'
   return 'unknown'
+}
+
+// Thin wrapper around the rewriters module. Returns the rewriter name
+// that would fire for this text, or null if no rewriter matches.
+// Side-effect-free: discards the rewritten text and savedBytes.
+export function detectCommandOutput(text) {
+  const out = rewriteCommandOutput(text)
+  return out.rewriter || null
 }

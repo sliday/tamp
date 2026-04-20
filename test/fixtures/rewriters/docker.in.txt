@@ -1,0 +1,24 @@
+$ docker build -t myapp:latest .
+Sending build context to Docker daemon  2.048MB
+Step 1/6 : FROM node:20-alpine
+ ---> 1234567890ab
+Step 2/6 : WORKDIR /app
+ ---> Using cache
+ ---> abcdef123456
+Step 3/6 : COPY package*.json ./
+ ---> 0987654321fe
+Step 4/6 : RUN npm ci
+#5 [3/6] RUN npm ci 0.4s
+#5 [3/6] RUN npm ci 1.2s
+#5 [3/6] RUN npm ci 3.7s
+#5 => => transferring context: 42kB 0.1s
+#5 => => resolve sha256:deadbeefcafef00dbaadf00ddeadbeef 0.0s
+#5 [3/6] RUN npm ci DONE 5.1s
+ ---> fedcba654321
+Step 5/6 : COPY . .
+ ---> 1122334455aa
+Step 6/6 : CMD ["npm","start"]
+ ---> Running in abc123
+ ---> 998877665544
+Successfully built 998877665544
+Successfully tagged myapp:latest

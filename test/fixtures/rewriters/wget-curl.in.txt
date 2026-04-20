@@ -1,0 +1,9 @@
+$ curl -O https://example.com/big.tar.gz
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0
+  3  120M    3 3692k    0     0  2344k      0  0:00:52  0:00:01  0:00:51 2344k
+ 15  120M   15  18.2M    0     0  7234k      0  0:00:17  0:00:02  0:00:15 7234k
+ 42  120M   42  50.5M    0     0  12.4M      0  0:00:09  0:00:04  0:00:05 12.4M
+ 78  120M   78  94.1M    0     0  15.8M      0  0:00:07  0:00:05  0:00:02 15.8M
+100  120M  100  120M    0     0  16.9M      0  0:00:07  0:00:07 --:--:-- 17.2M

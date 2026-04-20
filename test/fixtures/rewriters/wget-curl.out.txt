@@ -1,0 +1,2 @@
+$ curl -O https://example.com/big.tar.gz
+100  120M  100  120M    0     0  16.9M      0  0:00:07  0:00:07 --:--:-- 17.2M

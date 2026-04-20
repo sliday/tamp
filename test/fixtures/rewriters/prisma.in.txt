@@ -1,0 +1,14 @@
+$ npx prisma generate
+Environment variables loaded from .env
+Prisma schema loaded from prisma/schema.prisma
+⠋ Generating Prisma Client...
+⠙ Generating Prisma Client...
+⠹ Generating Prisma Client...
+⠸ Generating Prisma Client...
+
+✔ Generated Prisma Client (v5.10.2) to ./node_modules/@prisma/client in 412ms
+
+Start by importing your Prisma Client (See: https://pris.ly/d/importing-client)
+
+Tip: Need your database queries to be 1000x faster? Accelerate offers you that and more:
+https://pris.ly/tip-2-accelerate

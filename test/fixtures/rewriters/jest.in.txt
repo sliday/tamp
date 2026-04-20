@@ -1,0 +1,12 @@
+$ npx jest
+ PASS  src/auth.test.ts (4.321 s)
+ PASS  src/api.test.ts
+ PASS  src/utils.test.ts (2.104 s)
+ PASS  src/db.test.ts
+ PASS  src/queue.test.ts (1.015 s)
+
+Test Suites: 5 passed, 5 total
+Tests:       47 passed, 47 total
+Snapshots:   0 total
+Time:        8.143 s
+Ran all test suites.

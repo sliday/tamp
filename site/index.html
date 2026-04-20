@@ -285,11 +285,11 @@
 <div class="section-inner"><div class="db-separator"></div></div>
 
 <!-- ============================================================
-     3. HOW IT WORKS — 8 stages + flow
+     3. HOW IT WORKS — 9 stages + flow
      ============================================================ -->
 <section id="how-it-works">
     <div class="section-inner">
-        <h2 class="db-h2" style="text-align: center;">8 stages. Zero config.</h2>
+        <h2 class="db-h2" style="text-align: center;">9 stages. Zero config.</h2>
         <p class="db-body" style="text-align: center; opacity: 0.7; margin-top: 0.5rem;">
             Tamp sits between your agent and the API. It classifies each tool result and applies the right compression &mdash; automatically.
         </p>
@@ -304,6 +304,11 @@
 
         <div class="db-card" style="padding: 1.5rem; margin-top: 2rem;">
             <ul class="stage-list">
+                <li>
+                    <span class="stage-name">cmd-strip</span>
+                    <span class="stage-type stage-type--lossless">lossless</span>
+                    <span class="db-caption">Strip progress bars and spinners from npm, pip, cargo, docker, git, pytest output.</span>
+                </li>
                 <li>
                     <span class="stage-name">minify</span>
                     <span class="stage-type stage-type--lossless">lossless</span>
@@ -949,7 +954,7 @@ Tests: ✓ Commit: d631c4f</pre>
                 <h4 class="db-h4" style="margin-bottom: 0.5rem;">🛡️ Conservative</h4>
                 <p class="db-body" style="font-size: 0.9rem; margin: 0.5rem 0;"><strong>45-50% savings</strong> — Lossless only</p>
                 <ul class="db-body" style="font-size: 0.85rem; padding-left: 1.25rem; margin: 0.5rem 0;">
-                    <li>Minify, toon, strip-lines</li>
+                    <li>Cmd-strip, minify, toon, strip-lines</li>
                     <li>Whitespace, dedup, diff</li>
                     <li>No neural compression</li>
                 </ul>

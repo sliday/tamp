@@ -1,0 +1,17 @@
+$ terraform plan
+
+Terraform used the selected providers to generate the following execution plan. Resource actions are indicated with the following symbols:
+  + create
+  ~ update in-place
+
+Terraform will perform the following actions:
+
+  # aws_lambda_function.api will be updated in-place
+  ~ resource "aws_lambda_function" "api" {
+        id                 = "api-lambda"
+      ~ memory_size        = 512 -> 1024
+      ~ timeout            = 10 -> 30
+        # (24 unchanged attributes hidden)
+    }
+
+Plan: 0 to add, 1 to change, 0 to destroy.

@@ -1,0 +1,8 @@
+$ git clone https://github.com/torvalds/linux.git
+Cloning into 'linux'...
+remote: Enumerating objects: 10, done.
+remote: Counting objects: 100% (8325/8325), done.
+remote: Compressing objects: 100% (3180/3180), done.
+remote: Total 8325 (delta 5820), reused 7100 (delta 4900), pack-reused 0
+Receiving objects: 100% (8325/8325), 10.12 MiB | 4.01 MiB/s, done.
+Resolving deltas: 100% (5820/5820), done.

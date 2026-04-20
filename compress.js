@@ -4,6 +4,7 @@ import { encode } from '@toon-format/toon'
 import { countTokens } from '@anthropic-ai/tokenizer'
 import { createPatch } from 'diff'
 import { tryParseJSON, classifyContent, stripLineNumbers } from './detect.js'
+import { rewriteCommandOutput } from './lib/rewriters/index.js'
 import { anthropic } from './providers.js'
 import { graphDeduplicateTargets } from './session-graph.js'
 import { detectTaskType, generateOutputRules } from './lib/rules-generator.js'
@@ -218,9 +219,19 @@ export function compressText(text, config) {
 
   if (cls === 'text') {
     let processed = text
+    let cmdStripRewriter = null
+    let cmdStripLen = text.length
+    if (config.stages.includes('cmd-strip')) {
+      const out = rewriteCommandOutput(processed)
+      if (out.rewriter && out.text.length < processed.length) {
+        processed = out.text
+        cmdStripRewriter = out.rewriter
+        cmdStripLen = processed.length
+      }
+    }
     if (config.stages.includes('strip-lines')) {
-      const stripped = stripLineNumbers(text)
-      if (stripped !== text) processed = stripped
+      const stripped = stripLineNumbers(processed)
+      if (stripped !== processed) processed = stripped
     }
     if (config.stages.includes('whitespace')) {
       processed = normalizeWhitespace(processed)
@@ -229,7 +240,12 @@ export function compressText(text, config) {
       processed = stripComments(processed)
     }
     if (processed.length < text.length * 0.9) {
-      return { text: processed, method: 'normalize', originalLen: text.length, compressedLen: processed.length, originalTokens: countTokens(text), compressedTokens: countTokens(processed) }
+      // If cmd-strip produced the savings and downstream stages didn't improve it further,
+      // surface the rewriter identifier in the method name so stats are legible.
+      const method = (cmdStripRewriter && processed.length === cmdStripLen)
+        ? `cmd-strip:${cmdStripRewriter}`
+        : 'normalize'
+      return { text: processed, method, originalLen: text.length, compressedLen: processed.length, originalTokens: countTokens(text), compressedTokens: countTokens(processed) }
     }
     if (config.stages.includes('llmlingua') && config.llmLinguaUrl) {
       return { async: true, asyncMethod: 'llmlingua', text: processed, cls }

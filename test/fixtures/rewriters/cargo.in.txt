@@ -1,0 +1,26 @@
+$ cargo build --release
+    Downloading crates ...
+    Downloaded serde v1.0.195
+    Downloaded tokio v1.35.1
+    Downloaded anyhow v1.0.79
+   Compiling proc-macro2 v1.0.76
+   Compiling unicode-ident v1.0.12
+   Compiling quote v1.0.35
+   Compiling syn v2.0.48
+   Compiling serde_derive v1.0.195
+   Compiling serde v1.0.195
+   Compiling tokio v1.35.1
+   Compiling anyhow v1.0.79
+   Compiling mycrate v0.1.0 (/Users/stas/code/mycrate)
+   Building [=======>               ] 14/42: mycrate(bin)
+   Building [==============>        ] 28/42: mycrate(bin)
+   Building [======================>] 41/42: mycrate(bin)
+warning: unused variable: `foo`
+  --> src/main.rs:12:9
+   |
+12 |     let foo = 1;
+   |         ^^^ help: if this is intentional, prefix with `_`: `_foo`
+   |
+   = note: `#[warn(unused_variables)]` on by default
+
+    Finished `release` profile [optimized] target(s) in 24.81s
