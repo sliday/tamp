@@ -9,6 +9,7 @@ import { detectProvider } from './providers.js'
 import { createSession, formatRequestLog } from './stats.js'
 import { createSessionStore, deriveSessionKey } from './session-graph.js'
 import { createReadCache } from './lib/read-cache.js'
+import { createBrCache } from './lib/br-cache.js'
 
 function buildUpstreamUrl(reqPath, base) {
   const parsed = new URL(base)
@@ -32,9 +33,12 @@ export function createProxy(overrides = {}) {
     config.upstreams = { anthropic: overrides.upstream, openai: overrides.upstream, 'openai-responses': overrides.upstream, gemini: overrides.upstream }
   }
   const session = createSession()
-  const sessionStore = createSessionStore()
+  const brCache = (config.stages?.includes('graph') || config.stages?.includes('br-cache'))
+    ? createBrCache()
+    : null
+  const sessionStore = createSessionStore({ brCache })
   const readCache = createReadCache()
-  return { config, session, sessionStore, readCache, server: _createServer(config, session, sessionStore, readCache) }
+  return { config, session, sessionStore, readCache, brCache, server: _createServer(config, session, sessionStore, readCache) }
 }
 
 function _createServer(config, session, sessionStore, readCache) {
@@ -225,7 +229,7 @@ return http.createServer(async (req, res) => {
     if (decompressed) delete headers['content-encoding']
 
     session.record(stats)
-    log(formatRequestLog(stats, session, provider.name, req.url, textBody.length, config.tokenCost))
+    log(formatRequestLog(stats, session, provider.name, req.url, textBody.length, config.tokenCost, sessionBucket))
     config.onCompress?.(stats, session.getTotals(), { provider: provider.name, url: req.url, bodySize: textBody.length })
   } catch (err) {
     log(`[tamp] passthrough (parse error): ${err.message}`)

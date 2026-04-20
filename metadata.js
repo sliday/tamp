@@ -22,6 +22,7 @@ export const EXTRA_STAGES = Object.freeze([
   'textpress',
   'foundation-models',
   'graph',
+  'br-cache',
 ])
 
 export const ALL_STAGES = Object.freeze([
@@ -31,7 +32,8 @@ export const ALL_STAGES = Object.freeze([
 
 // Stages that can drop or paraphrase content (semantic/neural/comment removal).
 // `graph` is opt-in but fully lossless — it substitutes a reference marker for
-// content the model has already seen earlier in the same session.
+// content the model has already seen earlier in the same session. `br-cache`
+// is also lossless: it's a disk-backed store for large bodies, not a rewriter.
 export const LOSSY_STAGES = Object.freeze(new Set([
   'llmlingua',
   'foundation-models',
@@ -71,6 +73,10 @@ export const STAGE_HINTS = Object.freeze({
     summary: 'Apple Intelligence neural (macOS 15+, lossy)',
     setup: null,
   },
+  'br-cache': {
+    summary: 'Brotli disk cache, persists across sessions, enables Phase 5 disclosure',
+    setup: 'TAMP_STAGES=...,br-cache',
+  },
 })
 
 export const STAGE_DESCRIPTIONS = Object.freeze({
@@ -88,6 +94,7 @@ export const STAGE_DESCRIPTIONS = Object.freeze({
   'strip-comments': 'Remove code comments (lossy)',
   textpress: 'LLM semantic compression (Ollama/OpenRouter)',
   graph: 'Session-scoped dedup across requests (lossless, opt-in)',
+  'br-cache': 'Disk-backed Brotli store for large tool_results (lossless, opt-in)',
 })
 
 export const COMPRESSION_PRESETS = Object.freeze({

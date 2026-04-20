@@ -9,7 +9,7 @@ const c = {
   red: '\x1b[31m',
 }
 
-export function formatRequestLog(stats, session, providerName, url, bodySize, tokenCost) {
+export function formatRequestLog(stats, session, providerName, url, bodySize, tokenCost, sessionBucket) {
   const compressed = stats.filter(s => s.method)
   const label = providerName || 'anthropic'
   const path = url || '/v1/messages'
@@ -56,6 +56,17 @@ export function formatRequestLog(stats, session, providerName, url, bodySize, to
     const dollarsSaved = (t.totalTokensSaved / 1_000_000) * costPerM
     const moneyInfo = t.totalTokensSaved > 0 ? ` ${c.green}$${dollarsSaved.toFixed(4)} saved${c.reset} ${c.dim}@ $${costPerM}/Mtok${c.reset}` : ''
     lines.push(`[tamp]   ${c.magenta}session${c.reset} ${fmtSize(t.totalSaved)} chars, ${t.totalTokensSaved} tokens saved across ${t.compressionCount} blocks ${c.dim}(${sessionPct}% avg)${c.reset}${moneyInfo}`)
+  }
+
+  // br-cache counters — only render when the bucket reports activity, so
+  // turning the stage off produces no extra rows.
+  if (sessionBucket && typeof sessionBucket.brStats === 'function') {
+    const br = sessionBucket.brStats()
+    if (br && (br.offloaded > 0 || br.hits > 0)) {
+      const totalLookups = br.offloaded + br.hits
+      const ratio = totalLookups > 0 ? ((br.hits / totalLookups) * 100).toFixed(1) : '0.0'
+      lines.push(`[tamp]   ${c.cyan}br-cache${c.reset} ${fmtSize(br.brotliBytes)} stored, ${br.offloaded} offloaded, ${br.hits} hits ${c.dim}(${ratio}% hit ratio)${c.reset}`)
+    }
   }
 
   return lines.join('\n')
