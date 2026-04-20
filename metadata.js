@@ -24,6 +24,7 @@ export const EXTRA_STAGES = Object.freeze([
   'graph',
   'br-cache',
   'disclosure',
+  'bm25-trim',
 ])
 
 export const ALL_STAGES = Object.freeze([
@@ -37,12 +38,14 @@ export const ALL_STAGES = Object.freeze([
 // is also lossless: it's a disk-backed store for large bodies, not a rewriter.
 // `disclosure` IS lossy: it drops body content from the outgoing turn and
 // relies on the model quoting the marker to trigger rehydration next turn.
+// `bm25-trim` drops low-relevance lines from huge tool_results (lossy).
 export const LOSSY_STAGES = Object.freeze(new Set([
   'llmlingua',
   'foundation-models',
   'textpress',
   'strip-comments',
   'disclosure',
+  'bm25-trim',
 ]))
 
 export function isLossy(stage) {
@@ -85,6 +88,10 @@ export const STAGE_HINTS = Object.freeze({
     summary: 'progressive disclosure for >32KB tool_results, model can quote hash to expand',
     setup: 'TAMP_STAGES=...,disclosure (requires br-cache)',
   },
+  'bm25-trim': {
+    summary: 'query-aware line ranking, preserves first+last, bypasses dangerous tasks',
+    setup: 'TAMP_STAGES=...,bm25-trim',
+  },
 })
 
 export const STAGE_DESCRIPTIONS = Object.freeze({
@@ -104,6 +111,7 @@ export const STAGE_DESCRIPTIONS = Object.freeze({
   graph: 'Session-scoped dedup across requests (lossless, opt-in)',
   'br-cache': 'Disk-backed Brotli store for large tool_results (lossless, opt-in)',
   disclosure: '3-tier summary for huge tool_results with on-demand rehydration (lossy, aggressive-only)',
+  'bm25-trim': 'Drop low-relevance lines from huge tool_results via BM25 (lossy, aggressive-only)',
 })
 
 export const COMPRESSION_PRESETS = Object.freeze({
@@ -124,8 +132,8 @@ export const COMPRESSION_PRESETS = Object.freeze({
   aggressive: {
     name: 'Aggressive',
     description: 'Maximum compression, lossy stages enabled',
-    stages: ['cmd-strip', 'minify', 'toon', 'strip-lines', 'whitespace', 'llmlingua', 'dedup', 'diff', 'read-diff', 'prune', 'strip-comments', 'textpress', 'br-cache', 'disclosure'],
-    expectedSavings: '60-68%',
+    stages: ['cmd-strip', 'minify', 'toon', 'strip-lines', 'whitespace', 'llmlingua', 'dedup', 'diff', 'read-diff', 'prune', 'strip-comments', 'textpress', 'br-cache', 'disclosure', 'bm25-trim'],
+    expectedSavings: '65-72%',
     risk: 'Medium (may lose comments, verbose text)',
   },
 })

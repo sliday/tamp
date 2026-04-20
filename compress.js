@@ -10,6 +10,7 @@ import { graphDeduplicateTargets } from './session-graph.js'
 import { detectTaskType, generateOutputRules, isDangerousTask } from './lib/rules-generator.js'
 import { extractTargetPaths } from './lib/path-extract.js'
 import { summarize, rehydrateReferences } from './lib/disclosure.js'
+import { trimLinesByRelevance } from './lib/bm25.js'
 
 const cache = new Map()
 const MAX_CACHE = 500
@@ -140,6 +141,39 @@ function discloseTargets(targets, body, provider, brCache) {
     disclosed += 1
   }
   return disclosed
+}
+
+// --- Stage: bm25-trim (Phase 6) ---
+// For tool_result bodies > 64 KB that survived earlier stages (including
+// disclosure), rank lines by BM25 against the latest user message and drop
+// low-relevance lines past a token budget. Bypassed when the latest user
+// message classifies as a dangerous task — full fidelity is non-negotiable
+// for security/debug/refactor/test flows.
+function bm25TrimTargets(targets, body, provider) {
+  if (!provider || typeof provider.getLastUserText !== 'function') return 0
+  const userText = provider.getLastUserText(body) || ''
+  if (!userText) return 0
+  if (isDangerousTask(userText)) return 0
+
+  let trimmed = 0
+  for (const target of targets) {
+    if (target.skip || target.dedup || target.diffed || target.readDiffed || target.graphed || target.disclosed || target.compressed) continue
+    if (typeof target.text !== 'string') continue
+    const byteLen = Buffer.byteLength(target.text, 'utf8')
+    if (byteLen <= 64 * 1024) continue
+
+    const result = trimLinesByRelevance(target.text, userText)
+    if (!result) continue
+    if (result.text.length >= target.text.length) continue
+    target.compressed = result.text
+    target.bm25Trimmed = true
+    target.bm25KeptLines = result.keptLines
+    target.bm25DroppedLines = result.droppedLines
+    target.bm25OriginalTokens = result.originalTokens
+    target.bm25TrimmedTokens = result.trimmedTokens
+    trimmed += 1
+  }
+  return trimmed
 }
 
 // --- Stage: prune ---
@@ -569,6 +603,11 @@ export async function compressRequest(body, config, provider) {
     }
   }
 
+  // BM25-trim: query-aware line drop for huge tool_results (opt-in, lossy)
+  if (config.stages.includes('bm25-trim')) {
+    bm25TrimTargets(targets, body, provider)
+  }
+
   const stats = []
   for (const target of targets) {
     if (target.skip) { stats.push({ index: target.index, skipped: target.skip }); continue }
@@ -592,6 +631,10 @@ export async function compressRequest(body, config, provider) {
     }
     if (target.disclosed) {
       stats.push({ index: target.index, method: 'disclosure', originalLen: target.text.length, compressedLen: target.compressed.length, originalTokens: countTokens(target.text), compressedTokens: countTokens(target.compressed) })
+      continue
+    }
+    if (target.bm25Trimmed) {
+      stats.push({ index: target.index, method: 'bm25-trim', originalLen: target.text.length, compressedLen: target.compressed.length, originalTokens: countTokens(target.text), compressedTokens: countTokens(target.compressed) })
       continue
     }
 
