@@ -133,11 +133,32 @@
             font-style: normal;
             color: var(--db-accent, var(--tamp-espresso));
         }
+        .hero-headline__rest {
+            color: rgba(255,255,255,0.95);  /* near-full foreground, not muted */
+        }
         .hero-sub {
             font-size: 1.1rem;
             color: var(--tamp-muted);
             margin-top: 0.75rem;
             line-height: 1.5;
+        }
+        .hero-sub strong { color: rgba(255,255,255,0.98); font-weight: 600; }
+        .hero-compat {
+            margin-top: 1rem;
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            align-items: center;
+            gap: 0.375rem;
+            font-size: 0.85rem;
+        }
+        .hero-compat__label {
+            color: var(--tamp-muted);
+            margin-right: 0.25rem;
+        }
+        .hero-compat .db-chip {
+            font-size: 0.78rem;
+            padding: 2px 10px;
         }
         section { padding: clamp(3rem, 8vh, 6rem) 1.5rem; }
         .section-inner { max-width: 960px; margin: 0 auto; }
@@ -397,32 +418,43 @@
             <span class="release-chip__arrow">&rarr;</span>
         </a>
         <span class="hero-eyebrow">Token proxy for coding agents</span>
-        <p class="hero-headline"><em>52.6%</em> fewer tokens.</p>
+        <p class="hero-headline"><em>52.6%</em> <span class="hero-headline__rest">fewer tokens.</span></p>
         <p class="hero-sub">
-            Measured across 120 A/B API calls. Zero code changes.
+            <strong>100% quality</strong> retention across <strong>216 A/B tasks</strong>. Zero code changes.
         </p>
-        <p class="db-caption" style="margin-top: 0.5rem; opacity: 0.45;">
-            Works with Claude Code, Codex CLI, opencode, Aider, Cursor, Cline, &#129438;&nbsp;<a href="#openclaw" style="color: inherit; text-decoration: underline; text-underline-offset: 2px;">OpenClaw</a>, and any OpenAI-compatible agent.
-        </p>
+        <div class="hero-compat">
+            <span class="hero-compat__label">Works with</span>
+            <span class="db-chip">Claude Code</span>
+            <span class="db-chip">Codex CLI</span>
+            <span class="db-chip">Cursor</span>
+            <span class="db-chip">Cline</span>
+            <span class="db-chip">opencode</span>
+            <span class="db-chip">Aider</span>
+            <span class="db-chip">Kimi</span>
+            <a href="#openclaw" class="db-chip" style="text-decoration:none;">OpenClaw</a>
+        </div>
 
-        <div class="install-card db-card db-surface--raised" style="margin-top: 2rem;">
+        <div class="hero-testimonial" style="margin-top: 1.5rem; display: flex; align-items: center; justify-content: center; gap: 0.625rem; color: var(--tamp-muted);">
+            <img src="sanches-free.png" alt="sanches.free" style="width: 28px; height: 28px; border-radius: 50%; object-fit: cover;">
+            <span style="font-size: 0.875rem; font-style: italic;">"Saved 30% of tokens IRL &mdash; $9.30 in one session"</span>
+            <span style="font-size: 0.8rem;">&mdash; <a href="https://x.com/sanches_free/status/2037419032551326165" target="_blank" rel="noopener" style="color: inherit;">@sanches_free</a></span>
+        </div>
+
+        <div class="install-card db-card db-surface--raised" style="margin-top: 1.5rem;">
             <pre style="position: relative;"><span class="prompt">$</span> <span class="cmd">npx @sliday/tamp</span><button onclick="navigator.clipboard.writeText('npx @sliday/tamp').then(()=>{this.textContent='Copied!';setTimeout(()=>this.textContent='Copy',1500)})" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);color:#ebdbb2;padding:4px 10px;border-radius:4px;font-size:0.75rem;cursor:pointer;transition:background 0.15s;">Copy</button></pre>
         </div>
-        <p class="db-caption" style="margin-top: 0.75rem; opacity: 0.55;">
-            Or install the <a href="https://github.com/sliday/tamp-plugin" target="_blank" rel="noopener" style="color: var(--db-terracotta); text-decoration: underline; text-underline-offset: 2px;">Claude Code plugin</a> for auto-start: <code onclick="navigator.clipboard.writeText('claude plugin marketplace add sliday/claude-plugins && claude plugin install tamp@sliday').then(()=>{this.dataset.og=this.dataset.og||this.textContent;this.textContent='Copied!';setTimeout(()=>this.textContent=this.dataset.og,1500)})" style="background: rgba(0,0,0,0.15); padding: 2px 6px; border-radius: 3px; cursor: pointer;" title="Click to copy">claude plugin marketplace add sliday/claude-plugins && claude plugin install tamp@sliday</code>
+        <p class="db-caption hero-plugin-label" style="margin-top: 0.75rem; color: var(--tamp-muted);">
+            Or install the <a href="https://github.com/sliday/tamp-plugin" target="_blank" rel="noopener" style="color: var(--db-terracotta); text-decoration: underline; text-underline-offset: 2px;">Claude Code plugin</a> for auto-start:
         </p>
+        <div class="install-card db-card db-surface--raised" style="margin-top: 0.5rem; max-width: 640px;">
+            <pre style="position: relative; font-size: 0.75rem;"><span class="prompt">$</span> <span class="cmd">claude plugin marketplace add sliday/claude-plugins && claude plugin install tamp@sliday</span><button onclick="navigator.clipboard.writeText('claude plugin marketplace add sliday/claude-plugins && claude plugin install tamp@sliday').then(()=>{this.textContent='Copied!';setTimeout(()=>this.textContent='Copy',1500)})" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);color:#ebdbb2;padding:4px 10px;border-radius:4px;font-size:0.75rem;cursor:pointer;transition:background 0.15s;">Copy</button></pre>
+        </div>
 
         <div class="trust-badges">
             <img src="https://img.shields.io/npm/v/@sliday/tamp?style=flat-square&color=8B6914&label=npm" alt="npm version">
             <a href="https://github.com/sliday/tamp" class="gh-stars-badge" target="_blank" rel="noopener" style="display:none; align-items:center; gap:4px; text-decoration:none; background:#8B6914; color:#fff; font-size:11px; font-weight:600; font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace; padding:3px 8px; border-radius:3px; line-height:1;">&#9733; <span class="gh-star-count"></span></a>
             <img src="https://img.shields.io/badge/license-MIT-8B6914?style=flat-square" alt="MIT License">
-            <img src="https://img.shields.io/badge/A%2FB%20tested-120%20calls-51cf66?style=flat-square" alt="A/B tested">
-        </div>
-
-        <div class="hero-testimonial" style="margin-top: 1.25rem; display: flex; align-items: center; justify-content: center; gap: 0.625rem; opacity: 0.7;">
-            <img src="sanches-free.png" alt="sanches.free" style="width: 28px; height: 28px; border-radius: 50%; object-fit: cover;">
-            <span style="font-size: 0.8125rem; font-style: italic;">"Saved 30% of tokens IRL &mdash; $9.30 in one session"</span>
-            <span style="font-size: 0.75rem; opacity: 0.5;">&mdash; <a href="https://x.com/sanches_free/status/2037419032551326165" target="_blank" rel="noopener" style="color: inherit;">@sanches_free</a></span>
+            <img src="https://img.shields.io/badge/quality-100%25%20%2F%20216%20A%2FB-51cf66?style=flat-square" alt="100% quality on 216 A/B tasks">
         </div>
     </div>
 </section>
