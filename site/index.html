@@ -16,6 +16,18 @@
             --tamp-cream: #F5E6C8;
             --tamp-dark: #1a1208;
             --db-noise: 0.114;
+            /* semantic tokens (polish pass) */
+            --tamp-accent: var(--db-accent, var(--tamp-espresso));
+            --tamp-success: #51cf66;
+            --tamp-danger: #ff6b6b;
+            --tamp-code-bg: rgba(0,0,0,0.3);
+            --tamp-hairline: rgba(255,255,255,0.08);
+            --tamp-hairline-strong: rgba(255,255,255,0.15);
+            --tamp-chip-bg: rgba(255,255,255,0.06);
+            --tamp-chip-border: rgba(255,255,255,0.12);
+            --tamp-radius-sm: 3px;
+            --tamp-radius-md: 6px;
+            --tamp-radius-lg: 8px;
         }
         html { scroll-behavior: smooth; }
         body { overflow-x: hidden; }
@@ -146,6 +158,36 @@
         .stage-type--lossless { background: rgba(81,207,102,0.15); color: #51cf66; }
         .stage-type--lossy { background: rgba(255,107,107,0.15); color: #ff6b6b; }
         .stage-type--opt { background: rgba(255,255,255,0.08); color: var(--db-color-text-muted); }
+        .stage-list li { flex-wrap: wrap; }
+        .stage-list .db-caption { flex: 1 1 220px; min-width: 0; }
+        .stage-savings {
+            margin-left: auto;
+            font-family: monospace;
+            font-weight: 700;
+            font-size: 0.8rem;
+            color: var(--tamp-success);
+            background: rgba(81,207,102,0.12);
+            border-radius: var(--tamp-radius-sm);
+            padding: 2px 8px;
+            white-space: nowrap;
+            letter-spacing: -0.01em;
+        }
+        .stage-new {
+            font-size: 0.6rem;
+            font-weight: 700;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            background: var(--tamp-accent);
+            color: #1a1208;
+            padding: 1px 5px;
+            border-radius: var(--tamp-radius-sm);
+            margin-left: 2px;
+            vertical-align: middle;
+        }
+        @media (max-width: 600px) {
+            .stage-list li { gap: 0.5rem; }
+            .stage-savings { margin-left: 0; order: 3; }
+        }
 
         .trust-badges { display: flex; align-items: center; gap: 0.75rem; justify-content: center; flex-wrap: wrap; margin-top: 1rem; }
         .trust-badges img { height: 20px; }
@@ -187,6 +229,72 @@
             color: #51cf66;
         }
         @media (hover: none) { .code-copy-btn { display: none; } }
+        /* preset cards: one default, two peers */
+        .preset-card { position: relative; transition: transform 0.2s ease, border-color 0.2s ease; }
+        .preset-card .preset-savings {
+            display: block;
+            font-family: var(--db-font-heading, inherit);
+            font-size: 1.5rem;
+            font-weight: 700;
+            line-height: 1;
+            color: var(--tamp-accent);
+            letter-spacing: -0.02em;
+            margin-top: 0.25rem;
+        }
+        .preset-card .preset-savings-label {
+            display: block;
+            font-size: 0.75rem;
+            opacity: 0.55;
+            margin-top: 0.25rem;
+            letter-spacing: 0.02em;
+        }
+        .preset-card--default {
+            border: 1px solid var(--tamp-accent);
+            box-shadow: 0 0 0 3px rgba(139,105,20,0.12);
+        }
+        .preset-card__badge {
+            position: absolute;
+            top: -10px;
+            right: 12px;
+            background: var(--tamp-accent);
+            color: #1a1208;
+            font-size: 0.6rem;
+            font-weight: 700;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            padding: 3px 8px;
+            border-radius: var(--tamp-radius-sm);
+        }
+        @media (hover: hover) {
+            .preset-card:hover { transform: translateY(-2px); }
+        }
+        /* setup callout: stronger visual separation from cards above */
+        .setup-callout {
+            border-left: 3px solid var(--tamp-accent);
+            border-radius: var(--tamp-radius-md);
+        }
+        .setup-callout__eyebrow {
+            display: inline-block;
+            font-family: monospace;
+            font-size: 0.7rem;
+            font-weight: 600;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            opacity: 0.6;
+            margin-bottom: 0.35rem;
+        }
+        /* hero eyebrow: instant 'what is this' */
+        .hero-eyebrow {
+            display: inline-block;
+            font-family: monospace;
+            font-size: 0.75rem;
+            font-weight: 600;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            color: var(--tamp-accent);
+            opacity: 0.8;
+            margin-bottom: 0.75rem;
+        }
     </style>
 </head>
 <body>
@@ -229,9 +337,9 @@
      ============================================================ -->
 <section class="hero-section" id="hero">
     <div class="hero-inner">
+        <span class="hero-eyebrow">Token proxy for coding agents</span>
         <p class="hero-headline"><em>52.6%</em> fewer tokens.</p>
         <p class="hero-sub">
-            Token compression proxy for coding agents.<br>
             Measured across 120 A/B API calls. Zero code changes.
         </p>
         <p class="db-caption" style="margin-top: 0.5rem; opacity: 0.45;">
@@ -334,7 +442,7 @@
         <div class="db-card" style="padding: 1.5rem; margin-top: 2rem;">
             <ul class="stage-list">
                 <li>
-                    <span class="stage-name">cmd-strip</span>
+                    <span class="stage-name">cmd-strip<span class="stage-new">new</span></span>
                     <span class="stage-type stage-type--lossless">lossless</span>
                     <span class="db-caption">Strip progress bars and spinners from npm, pip, cargo, docker, git, pytest output.</span>
                 </li>
@@ -351,7 +459,8 @@
                 <li>
                     <span class="stage-name">prune</span>
                     <span class="stage-type stage-type--lossless">lossless</span>
-                    <span class="db-caption">Strip lockfile hashes, registry URLs, npm metadata. <strong>-81%</strong> on lockfiles.</span>
+                    <span class="db-caption">Strip lockfile hashes, registry URLs, npm metadata.</span>
+                    <span class="stage-savings">-81% lockfiles</span>
                 </li>
                 <li>
                     <span class="stage-name">dedup</span>
@@ -364,7 +473,7 @@
                     <span class="db-caption">Tiny edit? Send a patch, not the full file.</span>
                 </li>
                 <li>
-                    <span class="stage-name">read-diff</span>
+                    <span class="stage-name">read-diff<span class="stage-new">new</span></span>
                     <span class="stage-type stage-type--lossless">lossless</span>
                     <span class="db-caption">Agent re-reads a file? Emit a unified diff vs the prior copy. Session-scoped cache.</span>
                 </li>
@@ -381,7 +490,8 @@
                 <li>
                     <span class="stage-name">llmlingua</span>
                     <span class="stage-type stage-type--lossy">neural</span>
-                    <span class="db-caption">LLMLingua-2 token pruning for text. Source code shrinks 40%. Auto-starts sidecar.</span>
+                    <span class="db-caption">LLMLingua-2 token pruning for text. Auto-starts sidecar.</span>
+                    <span class="stage-savings">-40% source</span>
                 </li>
             </ul>
         </div>
@@ -392,30 +502,33 @@
                 <li>
                     <span class="stage-name">strip-comments</span>
                     <span class="stage-type stage-type--opt">opt-in</span>
-                    <span class="db-caption">Remove <code>//</code>, <code>/* */</code>, <code>#</code> comments. -35% on commented code.</span>
+                    <span class="db-caption">Remove <code>//</code>, <code>/* */</code>, <code>#</code> comments.</span>
+                    <span class="stage-savings">-35% commented</span>
                 </li>
                 <li>
                     <span class="stage-name">textpress</span>
                     <span class="stage-type stage-type--opt">opt-in</span>
-                    <span class="db-caption">LLM semantic compression via <a href="https://github.com/sliday/textpress" style="color: var(--db-accent, #8B6914);">Ollama or OpenRouter</a>. -73% on stacktraces.</span>
+                    <span class="db-caption">LLM semantic compression via <a href="https://github.com/sliday/textpress" style="color: var(--tamp-accent);">Ollama or OpenRouter</a>.</span>
+                    <span class="stage-savings">-73% stacktraces</span>
                 </li>
                 <li>
                     <span class="stage-name">graph</span>
                     <span class="stage-type stage-type--opt">opt-in</span>
-                    <span class="db-caption">Session-scoped dedup. Works on any coding agent &mdash; Codex, Claude Code, Aider &mdash; anywhere the same file is read twice. <strong>-99%</strong> on each repeat block.</span>
+                    <span class="db-caption">Session-scoped dedup. Works on any coding agent &mdash; Codex, Claude Code, Aider &mdash; anywhere the same file is read twice.</span>
+                    <span class="stage-savings">-99% repeats</span>
                 </li>
                 <li>
-                    <span class="stage-name">br-cache</span>
+                    <span class="stage-name">br-cache<span class="stage-new">new</span></span>
                     <span class="stage-type stage-type--opt">opt-in</span>
                     <span class="db-caption">Brotli disk store under <code>~/.cache/tamp/br/</code>. Offloads entries &gt;8KB for persistence + cross-session rehydration. Lossless.</span>
                 </li>
                 <li>
-                    <span class="stage-name">disclosure</span>
+                    <span class="stage-name">disclosure<span class="stage-new">new</span></span>
                     <span class="stage-type stage-type--lossy">lossy</span>
                     <span class="db-caption">3-tier summary for tool_result bodies &gt;32KB. Emits a <code>&lt;tamp-ref:v1:HASH:BYTES&gt;</code> marker; model quotes it back to rehydrate. Aggressive only, skipped on dangerous tasks.</span>
                 </li>
                 <li>
-                    <span class="stage-name">bm25-trim</span>
+                    <span class="stage-name">bm25-trim<span class="stage-new">new</span></span>
                     <span class="stage-type stage-type--lossy">lossy</span>
                     <span class="db-caption">Pure-JS BM25 ranker. Bodies &gt;64KB get lines scored against the last user message; drops low-score lines at a 4096-token budget. Aggressive only, skipped on dangerous tasks.</span>
                 </li>
@@ -504,9 +617,10 @@ aider   # or opencode, cline, etc.</pre>
 
         </div>
 
-        <div class="db-callout" style="--callout-bg: rgba(139, 105, 20, 0.1); --callout-border: var(--tamp-espresso); margin-top: 2rem; padding: 1rem 1.25rem;">
+        <div class="db-callout setup-callout" style="--callout-bg: rgba(139, 105, 20, 0.08); --callout-border: var(--tamp-accent); margin-top: 2rem; padding: 1rem 1.25rem;">
+            <span class="setup-callout__eyebrow">Lifecycle &amp; health</span>
             <p class="db-body" style="margin: 0; font-size: 0.9rem;">
-                <strong>Lifecycle:</strong> <code>tamp stop</code> gracefully shuts down a running proxy &middot;
+                <code>tamp stop</code> gracefully shuts down a running proxy &middot;
                 <code>tamp -y --force</code> replaces an existing instance &middot;
                 <code>tamp status</code> checks health &middot;
                 <code>curl http://localhost:7778/caveman-help</code> returns the current output mode + classifier rules.
@@ -1015,20 +1129,23 @@ Tests: ✓ Commit: d631c4f</pre>
         <p class="db-body">Three intensity levels simplify configuration—no need to memorize 10 stage names:</p>
 
         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1rem; margin: 1.5rem 0;">
-            <div class="db-card db-surface--raised" style="padding: 1.5rem;">
+            <div class="db-card db-surface--raised preset-card" style="padding: 1.5rem;">
                 <h4 class="db-h4" style="margin-bottom: 0.5rem;">🛡️ Conservative</h4>
-                <p class="db-body" style="font-size: 0.9rem; margin: 0.5rem 0;"><strong>45-50% savings</strong> — Lossless only</p>
-                <ul class="db-body" style="font-size: 0.85rem; padding-left: 1.25rem; margin: 0.5rem 0;">
+                <span class="preset-savings">45–50%</span>
+                <span class="preset-savings-label">Lossless only</span>
+                <ul class="db-body" style="font-size: 0.85rem; padding-left: 1.25rem; margin: 0.75rem 0 0;">
                     <li>Cmd-strip, minify, toon, strip-lines</li>
                     <li>Whitespace, dedup, diff</li>
                     <li>No neural compression</li>
                 </ul>
             </div>
 
-            <div class="db-card db-surface--raised" style="padding: 1.5rem;">
-                <h4 class="db-h4" style="margin-bottom: 0.5rem;">⚖️ Balanced (Default)</h4>
-                <p class="db-body" style="font-size: 0.9rem; margin: 0.5rem 0;"><strong>52-58% savings</strong> — Recommended</p>
-                <ul class="db-body" style="font-size: 0.85rem; padding-left: 1.25rem; margin: 0.5rem 0;">
+            <div class="db-card db-surface--raised preset-card preset-card--default" style="padding: 1.5rem;">
+                <span class="preset-card__badge">Default</span>
+                <h4 class="db-h4" style="margin-bottom: 0.5rem;">⚖️ Balanced</h4>
+                <span class="preset-savings">52–58%</span>
+                <span class="preset-savings-label">Recommended</span>
+                <ul class="db-body" style="font-size: 0.85rem; padding-left: 1.25rem; margin: 0.75rem 0 0;">
                     <li>All conservative stages</li>
                     <li>LLMLingua neural compression</li>
                     <li>Prune lockfile metadata</li>
@@ -1036,10 +1153,11 @@ Tests: ✓ Commit: d631c4f</pre>
                 </ul>
             </div>
 
-            <div class="db-card db-surface--raised" style="padding: 1.5rem;">
+            <div class="db-card db-surface--raised preset-card" style="padding: 1.5rem;">
                 <h4 class="db-h4" style="margin-bottom: 0.5rem;">🚀 Aggressive</h4>
-                <p class="db-body" style="font-size: 0.9rem; margin: 0.5rem 0;"><strong>65-72% savings</strong> — Maximum</p>
-                <ul class="db-body" style="font-size: 0.85rem; padding-left: 1.25rem; margin: 0.5rem 0;">
+                <span class="preset-savings">65–72%</span>
+                <span class="preset-savings-label">Maximum</span>
+                <ul class="db-body" style="font-size: 0.85rem; padding-left: 1.25rem; margin: 0.75rem 0 0;">
                     <li>All balanced stages</li>
                     <li>Strip code comments</li>
                     <li>Textpress LLM compression</li>
