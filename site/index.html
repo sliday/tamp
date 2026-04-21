@@ -11,7 +11,7 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/daub-ui@latest/daub.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300..900&family=Source+Serif+4:wght@300..900&family=Cabin:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400..900&family=Cabin:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
     <style>
         :root {
             --tamp-espresso: #8B6914;
@@ -20,8 +20,9 @@
             --db-noise: 0.114;
             /* semantic tokens (polish pass) */
             --tamp-accent: var(--db-accent, var(--tamp-espresso));
-            --tamp-success: #51cf66;
-            --tamp-danger: #ff6b6b;
+            --tamp-success: #8ce99a;  /* AA-safe on dark + tinted-green bg (~8:1) */
+            --tamp-danger: #ff8787;   /* AA-safe on dark (~7:1) */
+            --tamp-muted: rgba(255,255,255,0.82);  /* replaces ambiguous muted-text */
             --tamp-code-bg: rgba(0,0,0,0.3);
             --tamp-hairline: rgba(255,255,255,0.08);
             --tamp-hairline-strong: rgba(255,255,255,0.15);
@@ -30,13 +31,14 @@
             --tamp-radius-sm: 3px;
             --tamp-radius-md: 6px;
             --tamp-radius-lg: 8px;
-            /* typography — DAUB's Fraunces (display) + Source Serif 4 (prose) + Cabin (UI) + JetBrains Mono (code) */
+            /* typography — Fraunces (headings only) + Cabin (body/UI/prose) + JetBrains Mono (code) */
             --db-font-heading: 'Fraunces', Georgia, serif;
-            --db-font-prose: 'Source Serif 4', Georgia, serif;
+            --db-font-prose: 'Cabin', system-ui, sans-serif;
             --db-font-ui: 'Cabin', system-ui, sans-serif;
             --db-font-mono: 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, monospace;
         }
-        body { font-family: var(--db-font-ui); }
+        body, .db-body, .db-caption, .db-label { font-family: var(--db-font-ui); }
+        .db-h1, .db-h2, .db-h3, .db-h4, h1, h2, h3, h4 { font-family: var(--db-font-heading); }
         code, kbd, pre, samp { font-family: var(--db-font-mono); font-feature-settings: 'calt' 1, 'liga' 1; }
         .hero-display, .db-chart, .preset-savings, .stat-value { font-feature-settings: 'ss01', 'tnum'; }
         html { scroll-behavior: smooth; }
@@ -165,18 +167,18 @@
         .stage-list li:last-child { border-bottom: none; }
         .stage-name { font-family: monospace; font-weight: 600; min-width: 110px; color: var(--db-color-accent, var(--tamp-espresso)); }
         .stage-type { font-size: 0.7rem; padding: 1px 6px; border-radius: 3px; text-transform: uppercase; letter-spacing: 0.05em; }
-        .stage-type--lossless { background: rgba(81,207,102,0.15); color: #51cf66; }
-        .stage-type--lossy { background: rgba(255,107,107,0.15); color: #ff6b6b; }
-        .stage-type--opt { background: rgba(255,255,255,0.08); color: var(--db-color-text-muted); }
+        .stage-type--lossless { background: rgba(0,0,0,0.35); color: var(--tamp-success); }
+        .stage-type--lossy { background: rgba(0,0,0,0.35); color: var(--tamp-danger); }
+        .stage-type--opt { background: rgba(0,0,0,0.35); color: var(--tamp-muted); }
         .stage-list li { flex-wrap: wrap; }
         .stage-list .db-caption { flex: 1 1 220px; min-width: 0; }
         .stage-savings {
             margin-left: auto;
-            font-family: monospace;
+            font-family: var(--db-font-mono);
             font-weight: 700;
             font-size: 0.8rem;
             color: var(--tamp-success);
-            background: rgba(81,207,102,0.12);
+            background: rgba(0,0,0,0.35);
             border-radius: var(--tamp-radius-sm);
             padding: 2px 8px;
             white-space: nowrap;
