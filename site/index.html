@@ -41,6 +41,14 @@
         .db-h1, .db-h2, .db-h3, .db-h4, h1, h2, h3, h4 { font-family: var(--db-font-heading); }
         code, kbd, pre, samp { font-family: var(--db-font-mono); font-feature-settings: 'calt' 1, 'liga' 1; }
         .hero-display, .db-chart, .preset-savings, .stat-value { font-feature-settings: 'ss01', 'tnum'; }
+        /* Accessibility — WCAG AA: body text ≥16px; captions lifted to 0.95rem (~15.2px).
+           iOS auto-zoom triggers below 16px on inputs, so body should stay at 1rem. */
+        body { font-size: 16px; line-height: 1.55; }
+        .db-caption { font-size: 0.95rem; line-height: 1.5; }
+        .db-stat__change { color: var(--tamp-muted); }
+        /* Prose-body content inside comparison cards: full body size, muted but AA-safe */
+        .before-after__body { font-size: 1rem; line-height: 1.6; color: var(--tamp-muted); }
+        .before-after__meta { color: var(--tamp-muted); }
         html { scroll-behavior: smooth; }
         body { overflow-x: hidden; }
 
@@ -127,7 +135,7 @@
         }
         .hero-sub {
             font-size: 1.1rem;
-            opacity: 0.55;
+            color: var(--tamp-muted);
             margin-top: 0.75rem;
             line-height: 1.5;
         }
@@ -751,7 +759,7 @@ aider   # or opencode, cline, etc.</pre>
             </a>
         </div>
 
-        <p class="db-caption" style="margin-top: var(--db-space-3); opacity: 0.4; text-align: center;">
+        <p class="db-caption" style="margin-top: var(--db-space-3); color: var(--tamp-muted); text-align: center;">
             Quality verified: 8/8 A/B scenarios &mdash; compressed responses identical to uncompressed. Sonnet 4.6, $3/$15 MTok in/out.
         </p>
     </div>
@@ -892,22 +900,22 @@ aider   # or opencode, cline, etc.</pre>
 
         <p class="db-body" style="text-align: center; margin-top: 1.25rem;">
             <span style="font-size: clamp(1.75rem, 5vw, 2.5rem); font-weight: 800; color: var(--db-accent, #8B6914);">66.2%</span>
-            <span style="opacity: 0.5; margin-left: 0.5rem;">fewer output tokens</span>
+            <span style="color: var(--tamp-muted); margin-left: 0.5rem;">fewer output tokens</span>
         </p>
-        <p class="db-caption" style="text-align: center; opacity: 0.4; margin-top: 0.25rem;">
+        <p class="db-caption" style="text-align: center; color: var(--tamp-muted); margin-top: 0.25rem;">
             A/B tested: 8 scenarios, 5 runs each, 80 API calls via OpenRouter with Sonnet 4.6
         </p>
 
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 1.5rem;" class="grid-2">
             <div class="db-card" style="padding: 1.5rem;">
-                <p style="font-weight: 600; color: #ff6b6b; margin-bottom: 0.75rem;">Before <span class="db-caption" style="opacity: 0.5;">(508 tokens)</span></p>
-                <p class="db-caption" style="line-height: 1.6; opacity: 0.7;">
+                <p style="font-weight: 600; color: var(--tamp-danger); margin-bottom: 0.75rem;">Before <span class="before-after__meta">(508 tokens)</span></p>
+                <p class="before-after__body">
                     &ldquo;Great question! I'd be happy to help you with this code review. Looking at your loop, I can see there's an interesting issue here. The problem is that you have an off-by-one error on line 12 where i <= arr.length should be i < arr.length. This is a common mistake that many developers make. I hope this helps! Let me know if you have any other questions.&rdquo;
                 </p>
             </div>
-            <div class="db-card" style="padding: 1.5rem; border-left: 2px solid #51cf66;">
-                <p style="font-weight: 600; color: #51cf66; margin-bottom: 0.75rem;">After <span class="db-caption" style="opacity: 0.5;">(262 tokens, &minus;48.5%)</span></p>
-                <p class="db-caption" style="line-height: 1.6; opacity: 0.7;">
+            <div class="db-card" style="padding: 1.5rem; border-left: 2px solid var(--tamp-success);">
+                <p style="font-weight: 600; color: var(--tamp-success); margin-bottom: 0.75rem;">After <span class="before-after__meta">(262 tokens, &minus;48.5%)</span></p>
+                <p class="before-after__body">
                     &ldquo;Off-by-one error: <code style="background: rgba(0,0,0,0.2); padding: 1px 4px; border-radius: 3px;">i <= arr.length</code> should be <code style="background: rgba(0,0,0,0.2); padding: 1px 4px; border-radius: 3px;">i < arr.length</code>. Array index goes out of bounds on last iteration.&rdquo;
                 </p>
             </div>
@@ -915,14 +923,14 @@ aider   # or opencode, cline, etc.</pre>
 
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 0.75rem;" class="grid-2">
             <div class="db-card" style="padding: 1.5rem;">
-                <p style="font-weight: 600; color: #ff6b6b; margin-bottom: 0.75rem;">Before <span class="db-caption" style="opacity: 0.5;">(95 tokens)</span></p>
-                <p class="db-caption" style="line-height: 1.6; opacity: 0.7;">
+                <p style="font-weight: 600; color: var(--tamp-danger); margin-bottom: 0.75rem;">Before <span class="before-after__meta">(95 tokens)</span></p>
+                <p class="before-after__body">
                     &ldquo;You're absolutely right that Python was created in 2005! Actually, I should mention that while your enthusiasm is great, Python was actually created by Guido van Rossum and first released in 1991. It's a common misconception though!&rdquo;
                 </p>
             </div>
-            <div class="db-card" style="padding: 1.5rem; border-left: 2px solid #51cf66;">
-                <p style="font-weight: 600; color: #51cf66; margin-bottom: 0.75rem;">After <span class="db-caption" style="opacity: 0.5;">(24 tokens, &minus;74.7%)</span></p>
-                <p class="db-caption" style="line-height: 1.6; opacity: 0.7;">
+            <div class="db-card" style="padding: 1.5rem; border-left: 2px solid var(--tamp-success);">
+                <p style="font-weight: 600; color: var(--tamp-success); margin-bottom: 0.75rem;">After <span class="before-after__meta">(24 tokens, &minus;74.7%)</span></p>
+                <p class="before-after__body">
                     &ldquo;Python was created by Guido van Rossum, first released in 1991, not 2005.&rdquo;
                 </p>
             </div>
@@ -1133,7 +1141,7 @@ Tests: ✓ Commit: d631c4f</pre>
         <h2 class="db-h2">Caveman-Inspired Features</h2>
         <p class="db-eyebrow" style="color: var(--db-terracotta); font-weight: 600; margin-bottom: 0.5rem;">Task-type-aware compression, presets, opt-in output rules</p>
 
-        <p class="db-body" style="font-size: 1.1rem; max-width: 640px; margin: 0 auto 2rem;">
+        <p class="db-body" style="font-size: 1.1rem; max-width: 640px; margin: 0 0 2rem;">
             Tamp now integrates the best ideas from <a href="https://github.com/JuliusBrussee/caveman" target="_blank" rel="noopener" style="color: var(--db-accent);">JuliusBrussee/caveman</a> for full-spectrum token optimization: input compression (Tamp's strength) + output compression (Caveman's strength).
         </p>
 
