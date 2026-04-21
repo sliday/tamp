@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Tamp — Cut your AI coding costs in half</title>
-    <meta name="description" content="Tamp saves 52.6% of tokens for coding agents like Claude Code, Codex CLI, opencode, Cursor, and Aider. A/B tested, open source, zero code changes. One command.">
+    <meta name="description" content="Tamp saves 45% of tokens at default level 5 with 100% quality retention across 216 A/B tasks. Works with Claude Code, Codex CLI, opencode, Cursor, Cline, Aider, Kimi. Open source, zero code changes.">
     <link rel="icon" href="favicon.ico" sizes="any">
     <link rel="icon" href="tamper-icon.png" type="image/png">
     <link rel="apple-touch-icon" href="apple-touch-icon.png">
@@ -418,7 +418,7 @@
             <span class="release-chip__arrow">&rarr;</span>
         </a>
         <span class="hero-eyebrow">Token proxy for coding agents</span>
-        <p class="hero-headline"><em>52.6%</em> <span class="hero-headline__rest">fewer tokens.</span></p>
+        <p class="hero-headline"><em>45%</em> <span class="hero-headline__rest">fewer tokens.</span></p>
         <p class="hero-sub">
             <strong>100% quality</strong> retention across <strong>216 A/B tasks</strong>. Zero code changes.
         </p>
@@ -844,20 +844,20 @@ aider   # or any OpenAI-compatible CLI</pre>
      ============================================================ -->
 <section id="proof">
     <div class="section-inner">
-        <h2 class="db-h2">Measured: 52.6% fewer tokens</h2>
-        <p class="db-body" style="margin-top: 0.5rem; opacity: 0.7;">
-            A/B tested via OpenRouter with Claude Sonnet 4.6. Twelve scenarios, five runs each, 120 API calls.
+        <h2 class="db-h2">Measured: 45% fewer tokens, 100% quality</h2>
+        <p class="db-body" style="margin-top: 0.5rem; color: var(--tamp-muted);">
+            A/B tested via OpenRouter with Sonnet Haiku 4.5 as judge. Twelve scenarios, 216 live A/B tasks at level&nbsp;5 (default). Zero quality regressions.
         </p>
 
         <div class="tamp-chart-wrap" style="margin-top: 2rem;">
             <div class="db-chart" style="height:280px;">
-                <div class="db-chart__bar" style="height:26.8%;"><span class="bar-value">21.8%</span></div>
-                <div class="db-chart__bar" style="height:79.7%;"><span class="bar-value">64.9%</span></div>
-                <div class="db-chart__bar" style="height:59.7%;"><span class="bar-value">48.6%</span></div>
-                <div class="db-chart__bar" style="height:48.8%;"><span class="bar-value">39.7%</span></div>
-                <div class="db-chart__bar" style="height:39.0%;"><span class="bar-value">31.8%</span></div>
-                <div class="db-chart__bar" style="height:100%;"><span class="bar-value">81.4%</span></div>
-                <div class="db-chart__bar db-chart__bar--secondary" style="height:45.5%;"><span class="bar-value">37.1%</span></div>
+                <div class="db-chart__bar" style="height:26.3%;"><span class="bar-value">21.3%</span></div>
+                <div class="db-chart__bar" style="height:76.9%;"><span class="bar-value">62.3%</span></div>
+                <div class="db-chart__bar" style="height:74.1%;"><span class="bar-value">60.0%</span></div>
+                <div class="db-chart__bar" style="height:2%;"><span class="bar-value">0.0%</span></div>
+                <div class="db-chart__bar" style="height:22.7%;"><span class="bar-value">18.4%</span></div>
+                <div class="db-chart__bar" style="height:97.5%;"><span class="bar-value">78.9%</span></div>
+                <div class="db-chart__bar db-chart__bar--secondary" style="height:12.1%;"><span class="bar-value">9.8%</span></div>
             </div>
             <div class="db-chart__labels">
                 <span>Small JSON</span>
@@ -1025,8 +1025,8 @@ aider   # or any OpenAI-compatible CLI</pre>
             </table>
         </div>
 
-        <p class="db-caption" style="margin-top: var(--db-space-3); opacity: 0.4;">
-            52.6% fewer input tokens + 66.2% fewer output tokens. 10-person team, 5 sessions/day.
+        <p class="db-caption" style="margin-top: var(--db-space-3); color: var(--tamp-muted);">
+            Projection at level&nbsp;5 default (45% input savings, lossless, 100%&nbsp;quality). Caveman output mode adds a further 20&ndash;30pp on output tokens. 10-person team, 5&nbsp;sessions/day.
         </p>
     </div>
 </section>
