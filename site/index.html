@@ -285,11 +285,11 @@
 <div class="section-inner"><div class="db-separator"></div></div>
 
 <!-- ============================================================
-     3. HOW IT WORKS — 9 stages + flow
+     3. HOW IT WORKS — 17 stages + flow
      ============================================================ -->
 <section id="how-it-works">
     <div class="section-inner">
-        <h2 class="db-h2" style="text-align: center;">9 stages. Zero config.</h2>
+        <h2 class="db-h2" style="text-align: center;">17 stages. Zero config.</h2>
         <p class="db-body" style="text-align: center; opacity: 0.7; margin-top: 0.5rem;">
             Tamp sits between your agent and the API. It classifies each tool result and applies the right compression &mdash; automatically.
         </p>
@@ -335,6 +335,11 @@
                     <span class="db-caption">Tiny edit? Send a patch, not the full file.</span>
                 </li>
                 <li>
+                    <span class="stage-name">read-diff</span>
+                    <span class="stage-type stage-type--lossless">lossless</span>
+                    <span class="db-caption">Agent re-reads a file? Emit a unified diff vs the prior copy. Session-scoped cache.</span>
+                </li>
+                <li>
                     <span class="stage-name">strip-lines</span>
                     <span class="stage-type stage-type--lossless">lossless</span>
                     <span class="db-caption">Remove line-number prefixes from Read tool output.</span>
@@ -369,6 +374,21 @@
                     <span class="stage-name">graph</span>
                     <span class="stage-type stage-type--opt">opt-in</span>
                     <span class="db-caption">Session-scoped dedup. Works on any coding agent &mdash; Codex, Claude Code, Aider &mdash; anywhere the same file is read twice. <strong>-99%</strong> on each repeat block.</span>
+                </li>
+                <li>
+                    <span class="stage-name">br-cache</span>
+                    <span class="stage-type stage-type--opt">opt-in</span>
+                    <span class="db-caption">Brotli disk store under <code>~/.cache/tamp/br/</code>. Offloads entries &gt;8KB for persistence + cross-session rehydration. Lossless.</span>
+                </li>
+                <li>
+                    <span class="stage-name">disclosure</span>
+                    <span class="stage-type stage-type--lossy">lossy</span>
+                    <span class="db-caption">3-tier summary for tool_result bodies &gt;32KB. Emits a <code>&lt;tamp-ref:v1:HASH:BYTES&gt;</code> marker; model quotes it back to rehydrate. Aggressive only, skipped on dangerous tasks.</span>
+                </li>
+                <li>
+                    <span class="stage-name">bm25-trim</span>
+                    <span class="stage-type stage-type--lossy">lossy</span>
+                    <span class="db-caption">Pure-JS BM25 ranker. Bodies &gt;64KB get lines scored against the last user message; drops low-score lines at a 4096-token budget. Aggressive only, skipped on dangerous tasks.</span>
                 </li>
             </ul>
         </div>
@@ -444,7 +464,8 @@ aider   # or opencode, cline, etc.</pre>
             <p class="db-body" style="margin: 0; font-size: 0.9rem;">
                 <strong>Lifecycle:</strong> <code>tamp stop</code> gracefully shuts down a running proxy &middot;
                 <code>tamp -y --force</code> replaces an existing instance &middot;
-                <code>tamp status</code> checks health.
+                <code>tamp status</code> checks health &middot;
+                <code>curl http://localhost:7778/caveman-help</code> returns the current output mode + classifier rules.
                 If the terminal dies mid-session, the PID file at <code>~/.config/tamp/tamp-&lt;port&gt;.pid</code>
                 + SIGHUP handler release the port automatically.
             </p>
@@ -967,16 +988,19 @@ Tests: ✓ Commit: d631c4f</pre>
                     <li>All conservative stages</li>
                     <li>LLMLingua neural compression</li>
                     <li>Prune lockfile metadata</li>
+                    <li>Read-diff (re-read deltas)</li>
                 </ul>
             </div>
 
             <div class="db-card db-surface--raised" style="padding: 1.5rem;">
                 <h4 class="db-h4" style="margin-bottom: 0.5rem;">🚀 Aggressive</h4>
-                <p class="db-body" style="font-size: 0.9rem; margin: 0.5rem 0;"><strong>60-68% savings</strong> — Maximum</p>
+                <p class="db-body" style="font-size: 0.9rem; margin: 0.5rem 0;"><strong>65-72% savings</strong> — Maximum</p>
                 <ul class="db-body" style="font-size: 0.85rem; padding-left: 1.25rem; margin: 0.5rem 0;">
                     <li>All balanced stages</li>
                     <li>Strip code comments</li>
                     <li>Textpress LLM compression</li>
+                    <li>Br-cache disk store</li>
+                    <li>Disclosure + bm25-trim (safe tasks)</li>
                 </ul>
             </div>
         </div>
@@ -1135,6 +1159,62 @@ tamp compress-config ~/.config/tamp/config ~/.claude/CLAUDE.md</pre>
       document.querySelectorAll('.gh-star-count').forEach(function(el) { obs.observe(el); });
     })
     .catch(function() {});
+})();
+</script>
+<script>
+// WebMCP: expose read-only site tools to AI agents that support navigator.modelContext
+(function(){
+  var api = navigator && navigator.modelContext;
+  if (!api || typeof api.provideContext !== 'function') return;
+  try {
+    api.provideContext({
+      tools: [
+        {
+          name: 'get_install_command',
+          description: 'Return the one-line install command for Tamp, the token-compression proxy.',
+          inputSchema: { type: 'object', properties: {}, additionalProperties: false },
+          execute: function(){ return { command: 'curl -fsSL https://tamp.dev/setup.sh | bash' }; }
+        },
+        {
+          name: 'get_resources',
+          description: 'Return canonical URLs for Tamp documentation, whitepaper, source, and discovery metadata.',
+          inputSchema: { type: 'object', properties: {}, additionalProperties: false },
+          execute: function(){
+            return {
+              homepage: 'https://tamp.dev/',
+              readme: 'https://github.com/sliday/tamp#readme',
+              repository: 'https://github.com/sliday/tamp',
+              setupScript: 'https://tamp.dev/setup.sh',
+              whitepaperHtml: 'https://tamp.dev/whitepaper-latest',
+              whitepaperPdf: 'https://tamp.dev/whitepaper.pdf',
+              apiCatalog: 'https://tamp.dev/.well-known/api-catalog',
+              agentSkills: 'https://tamp.dev/.well-known/agent-skills/index.json',
+              mcpServerCard: 'https://tamp.dev/.well-known/mcp/server-card.json'
+            };
+          }
+        },
+        {
+          name: 'get_config_example',
+          description: 'Return an example environment configuration for pointing a coding agent at a local Tamp proxy.',
+          inputSchema: {
+            type: 'object',
+            properties: { preset: { type: 'string', enum: ['conservative','balanced','aggressive'], description: 'Compression preset' } },
+            additionalProperties: false
+          },
+          execute: function(args){
+            var preset = (args && args.preset) || 'balanced';
+            return {
+              env: {
+                ANTHROPIC_BASE_URL: 'http://localhost:7778',
+                TAMP_COMPRESSION_PRESET: preset
+              },
+              note: 'Works with Claude Code, Codex CLI, Cursor, Cline, Continue, Aider. See https://github.com/sliday/tamp#wire-it-up-in-30-seconds for per-agent instructions.'
+            };
+          }
+        }
+      ]
+    });
+  } catch (e) { /* ignore */ }
 })();
 </script>
 </body>
