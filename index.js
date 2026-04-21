@@ -5,7 +5,7 @@ import zlib from 'node:zlib'
 import * as fzstd from 'fzstd'
 import { loadConfig } from './config.js'
 import { compressRequest } from './compress.js'
-import { detectProvider } from './providers.js'
+import { detectProvider, detectOpenAIAuthMode, resolveOpenAIUpstream } from './providers.js'
 import { createSession, formatRequestLog } from './stats.js'
 import { createSessionStore, deriveSessionKey } from './session-graph.js'
 import { createReadCache } from './lib/read-cache.js'
@@ -51,11 +51,40 @@ function buildUpstreamUrl(reqPath, base) {
   return parsed
 }
 
-export function createProxy(overrides = {}) {
-  const base = loadConfig()
+// Pick the upstream base + path transform for a resolved provider. For
+// OpenAI-like providers we inspect auth headers to detect Codex CLI ChatGPT
+// Plus mode (OAuth JWT + chatgpt-account-id), which must be routed to
+// chatgpt.com/backend-api/codex instead of api.openai.com.
+export function resolveUpstream(provider, headers, config) {
+  const defaultBase = config.upstreams?.[provider.name] || config.upstream
+  if (config.disableChatgptRoute) {
+    return { base: defaultBase, transformPath: (p) => p, mode: 'api-key' }
+  }
+  if (provider.name === 'openai' || provider.name === 'openai-responses') {
+    const mode = detectOpenAIAuthMode(headers)
+    if (mode === 'chatgpt-oauth') {
+      return resolveOpenAIUpstream({
+        mode,
+        base: config.chatgptUpstream || 'https://chatgpt.com',
+        providerName: provider.name,
+      })
+    }
+  }
+  return { base: defaultBase, transformPath: (p) => p, mode: 'api-key' }
+}
+
+export function createProxy(overrides = {}, loadOpts = {}) {
+  const base = loadConfig(process.env, loadOpts)
   const config = { ...base, ...overrides }
   if (overrides.upstream && !overrides.upstreams) {
-    config.upstreams = { anthropic: overrides.upstream, openai: overrides.upstream, 'openai-responses': overrides.upstream, gemini: overrides.upstream }
+    config.upstreams = {
+      anthropic: overrides.upstream,
+      openai: overrides.upstream,
+      'openai-responses': overrides.upstream,
+      gemini: overrides.upstream,
+      kimi: overrides.upstream,
+      moonshot: overrides.upstream,
+    }
   }
   const session = createSession()
   const brCache = (config.stages?.includes('graph') || config.stages?.includes('br-cache') || config.stages?.includes('disclosure'))
@@ -177,7 +206,7 @@ return http.createServer(async (req, res) => {
     return res.end(req.method === 'HEAD' ? undefined : body)
   }
 
-  const provider = detectProvider(req.method, req.url)
+  const provider = detectProvider(req.method, req.url, req.headers)
 
   if (!provider) {
     log(`[tamp] ${req.method} ${req.url}`)
@@ -185,8 +214,10 @@ return http.createServer(async (req, res) => {
     return pipeRequest(req, res, upstreamUrl)
   }
 
-  const upstream = config.upstreams?.[provider.name] || config.upstream
-  const reqUrl = provider.normalizeUrl ? provider.normalizeUrl(req.url) : req.url
+  const route = resolveUpstream(provider, req.headers, config)
+  const upstream = route.base
+  const normalizedUrl = provider.normalizeUrl ? provider.normalizeUrl(req.url) : req.url
+  const reqUrl = route.transformPath(normalizedUrl)
   const upstreamUrl = buildUpstreamUrl(reqUrl, upstream)
 
   const chunks = []

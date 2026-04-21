@@ -5,8 +5,8 @@ import { spawn, execFileSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
 import { homedir } from 'node:os'
-import { DEFAULT_STAGES, EXTRA_STAGES, STAGE_DESCRIPTIONS, STAGE_HINTS, VERSION, isLossy } from '../metadata.js'
-import { CONFIG_PATH, CONFIG_TEMPLATE } from '../config.js'
+import { DEFAULT_STAGES, EXTRA_STAGES, STAGE_DESCRIPTIONS, STAGE_HINTS, VERSION, isLossy, DEFAULT_LEVEL } from '../metadata.js'
+import { CONFIG_PATH, CONFIG_TEMPLATE, loadConfig } from '../config.js'
 import {
   checkPort,
   diagnoseBindConflict,
@@ -79,8 +79,82 @@ export async function startSidecar() {
   return null
 }
 
+// Write (or update) a single scalar field in the config file. Preserves
+// unrelated lines verbatim. Creates the file (seeded from CONFIG_TEMPLATE)
+// if missing. Shared by `init` and `settings` — the single writer.
+function writeConfigField(field, value) {
+  const dir = dirname(CONFIG_PATH)
+  mkdirSync(dir, { recursive: true })
+  const stringified = String(value)
+  let body
+  if (existsSync(CONFIG_PATH)) {
+    body = readFileSync(CONFIG_PATH, 'utf8')
+  } else {
+    body = CONFIG_TEMPLATE
+  }
+  const lines = body.split('\n')
+  const activeRe = new RegExp(`^\\s*${field}\\s*=`)
+  const commentedRe = new RegExp(`^\\s*#\\s*${field}\\s*=`)
+  let replaced = false
+  for (let i = 0; i < lines.length; i++) {
+    if (activeRe.test(lines[i])) {
+      lines[i] = `${field}=${stringified}`
+      replaced = true
+      break
+    }
+  }
+  if (!replaced) {
+    for (let i = 0; i < lines.length; i++) {
+      if (commentedRe.test(lines[i])) {
+        lines[i] = `${field}=${stringified}`
+        replaced = true
+        break
+      }
+    }
+  }
+  if (!replaced) {
+    if (lines.length && lines[lines.length - 1] !== '') lines.push('')
+    lines.push(`${field}=${stringified}`)
+  }
+  writeFileSync(CONFIG_PATH, lines.join('\n'))
+}
+
 // --- Subcommands ---
 const subcommand = process.argv[2]
+
+// --- Global --level flag parsing ---
+// Supports '--level N', '--level=N'. Accepts integers 1..9 or alias strings
+// (conservative, balanced, aggressive, max). Invalid values: print a friendly
+// error and exit(2). Threaded into loadConfig via options.levelOverride so the
+// precedence rules (stages-env > level-flag > level-env > preset-env > file > default)
+// live entirely in config.js.
+function parseLevelArgv(argv) {
+  const aliases = new Set(['conservative', 'balanced', 'aggressive', 'max'])
+  let raw = null
+  for (let i = 0; i < argv.length; i++) {
+    const a = argv[i]
+    if (a === '--level') { raw = argv[i + 1]; break }
+    if (a.startsWith('--level=')) { raw = a.slice('--level='.length); break }
+  }
+  if (raw === null || raw === undefined) return null
+  if (raw === '') {
+    console.error(`[tamp] --level requires a value (1..9 or one of: conservative, balanced, aggressive, max)`)
+    process.exit(2)
+  }
+  if (/^-?\d+$/.test(raw)) {
+    const n = parseInt(raw, 10)
+    if (n < 1 || n > 9) {
+      console.error(`[tamp] --level must be 1..9 (got ${raw})`)
+      process.exit(2)
+    }
+    return n
+  }
+  if (aliases.has(raw)) return raw
+  console.error(`[tamp] invalid --level=${raw} — expected 1..9 or one of: conservative, balanced, aggressive, max`)
+  process.exit(2)
+}
+
+const argvLevel = parseLevelArgv(process.argv.slice(2))
 
 if (subcommand === 'init') {
   const dir = dirname(CONFIG_PATH)
@@ -95,6 +169,55 @@ if (subcommand === 'init') {
     console.log(CONFIG_TEMPLATE)
   }
   process.exit(0)
+}
+
+if (subcommand === 'settings' || subcommand === 'config') {
+  if (process.argv.includes('--help') || process.argv.includes('-h')) {
+    console.log(`Usage: tamp settings\n`)
+    console.log('Interactive editor for compression level (1..9) and stages.')
+    console.log('Writes to: ' + CONFIG_PATH)
+    process.exit(0)
+  }
+
+  const current = loadConfig()
+  const envLevel = Number.isInteger(current.level) ? current.level : DEFAULT_LEVEL
+
+  if (!process.stdin.isTTY) {
+    console.error('[tamp] settings requires an interactive terminal (TTY). Edit ' + CONFIG_PATH + ' directly.')
+    process.exit(1)
+  }
+
+  const { render } = await import('ink')
+  const React = await import('react')
+  const { LevelPicker } = await import('./ui/LevelPicker.js')
+  const h = React.createElement
+
+  let instance = null
+  const onSelect = (payload) => {
+    try {
+      if (payload.kind === 'level') {
+        writeConfigField('level', payload.level)
+        if (instance) instance.unmount()
+        console.log(`Saved level=${payload.level} to ${CONFIG_PATH}`)
+        process.exit(0)
+      } else if (payload.kind === 'stages') {
+        writeConfigField('TAMP_STAGES', payload.stages.join(','))
+        if (instance) instance.unmount()
+        console.log(`Saved TAMP_STAGES=${payload.stages.join(',')} to ${CONFIG_PATH}`)
+        process.exit(0)
+      }
+    } catch (err) {
+      if (instance) instance.unmount()
+      console.error(`[tamp] failed to write config: ${err.message}`)
+      process.exit(1)
+    }
+  }
+  const onCancel = () => {
+    if (instance) instance.unmount()
+    process.exit(0)
+  }
+
+  instance = render(h(LevelPicker, { version: VERSION, envLevel, onSelect, onCancel }))
 }
 
 if (subcommand === 'install-service') {
@@ -245,7 +368,7 @@ if (subcommand === 'stop') {
   process.exit(0)
 }
 
-if (subcommand === 'help' || subcommand === '--help' || subcommand === '-h') {
+if (subcommand === 'help' || subcommand === '--help' || subcommand === '-h' || process.argv.includes('--help') || process.argv.includes('-h')) {
   console.log(`Tamp v${VERSION} — Token compression proxy for coding agents\n`)
   console.log('Usage: tamp [command] [options]\n')
   console.log('Commands:')
@@ -255,10 +378,14 @@ if (subcommand === 'help' || subcommand === '--help' || subcommand === '-h') {
   console.log('  stop                Stop a running Tamp on TAMP_PORT (default 7778)')
   console.log('  compress-config     Compress CLAUDE.md or config files (caveman mode)')
   console.log('  init                Create config file (~/.config/tamp/config)')
+  console.log('  settings            Edit compression level and stages')
   console.log('  status              Check if proxy is running')
   console.log('  install-service     Install systemd user service (Linux)')
   console.log('  uninstall-service   Remove systemd service')
   console.log('  help                Show this help')
+  console.log('')
+  console.log('Options:')
+  console.log('  --level N        Compression level 1..9 (or: conservative, balanced, aggressive, max)')
   console.log(`\nConfig: ${CONFIG_PATH}`)
   process.exit(0)
 }
@@ -303,8 +430,23 @@ if (skipPrompt) {
   // --- Non-interactive mode (plain text, no Ink) ---
   const { ANSI: c } = await import('./ui/theme.js')
 
-  let selectedStages = envStages ? [...envStages] : [...DEFAULT_STAGES]
-  process.env.TAMP_STAGES = selectedStages.join(',')
+  // When --level is given (and TAMP_STAGES is unset), resolve stages via
+  // loadConfig so the level ladder drives the selection. Otherwise keep legacy
+  // behavior (envStages-derived TAMP_STAGES auto-echo).
+  let selectedStages
+  if (envStages) {
+    selectedStages = [...envStages]
+    process.env.TAMP_STAGES = selectedStages.join(',')
+  } else if (argvLevel !== null) {
+    const { loadConfig } = await import('../config.js')
+    const probe = loadConfig(process.env, { levelOverride: argvLevel })
+    selectedStages = [...probe.stages]
+    // Do NOT set TAMP_STAGES — that would clobber level-flag source tracking
+    // when the full createProxy call runs below.
+  } else {
+    selectedStages = [...DEFAULT_STAGES]
+    process.env.TAMP_STAGES = selectedStages.join(',')
+  }
 
   if (selectedStages.includes('llmlingua')) {
     const sidecarUrl = await startSidecar()
@@ -320,7 +462,7 @@ if (skipPrompt) {
     }
   }
 
-  const { config, server } = createProxy()
+  const { config, server } = createProxy({}, argvLevel !== null ? { levelOverride: argvLevel } : {})
 
   await ensurePortFree(config.port)
 
@@ -402,6 +544,7 @@ if (skipPrompt) {
   render(h(App, {
     version: VERSION,
     envStages,
+    argvLevel,
     startSidecar,
     createProxy,
     getSidecarProc,

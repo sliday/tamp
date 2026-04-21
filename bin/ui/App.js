@@ -1,13 +1,13 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { Box, Text, useApp } from 'ink'
-import { StagePicker } from './StagePicker.js'
+import { LevelPicker } from './LevelPicker.js'
 import { SidecarLoader } from './SidecarLoader.js'
 import { Dashboard } from './Dashboard.js'
 import { installShutdown, writePidFile, diagnoseBindConflict } from '../lifecycle.js'
 
 const h = React.createElement
 
-export function App({ version, envStages, startSidecar, createProxy, getSidecarProc, ensurePortFree }) {
+export function App({ version, envStages, argvLevel, startSidecar, createProxy, getSidecarProc, ensurePortFree }) {
   const { exit } = useApp()
   const [phase, setPhase] = useState('pick')
   const [stages, setStages] = useState(null)
@@ -70,6 +70,14 @@ export function App({ version, envStages, startSidecar, createProxy, getSidecarP
     }
   }, [startProxy])
 
+  const onPickerSubmit = useCallback((payload) => {
+    // payload: { kind: 'level', level, stages } | { kind: 'stages', stages }
+    if (payload && payload.kind === 'level' && Number.isInteger(payload.level)) {
+      process.env.TAMP_LEVEL = String(payload.level)
+    }
+    onStagesSelected(payload.stages)
+  }, [onStagesSelected])
+
   // Use stagesRef to avoid stale closure — SidecarLoader's useEffect
   // captures onReady/onFail on first render only
   const onSidecarReady = useCallback((url) => {
@@ -85,7 +93,7 @@ export function App({ version, envStages, startSidecar, createProxy, getSidecarP
   }, [startProxy])
 
   if (phase === 'pick') {
-    return h(StagePicker, { version, envStages, onSelect: onStagesSelected })
+    return h(LevelPicker, { version, envLevel: argvLevel, envStages, onSelect: onPickerSubmit })
   }
 
   if (phase === 'loading') {

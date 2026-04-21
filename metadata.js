@@ -121,6 +121,7 @@ export const COMPRESSION_PRESETS = Object.freeze({
     stages: ['cmd-strip', 'minify', 'toon', 'strip-lines', 'whitespace', 'dedup', 'diff'],
     expectedSavings: '45-50%',
     risk: 'None',
+    level: 4,
   },
   balanced: {
     name: 'Balanced',
@@ -128,6 +129,7 @@ export const COMPRESSION_PRESETS = Object.freeze({
     stages: ['cmd-strip', 'minify', 'toon', 'strip-lines', 'whitespace', 'llmlingua', 'dedup', 'diff', 'read-diff', 'prune'],
     expectedSavings: '52-58%',
     risk: 'Low',
+    level: 5,
   },
   aggressive: {
     name: 'Aggressive',
@@ -135,5 +137,56 @@ export const COMPRESSION_PRESETS = Object.freeze({
     stages: ['cmd-strip', 'minify', 'toon', 'strip-lines', 'whitespace', 'llmlingua', 'dedup', 'diff', 'read-diff', 'prune', 'strip-comments', 'textpress', 'br-cache', 'disclosure', 'bm25-trim'],
     expectedSavings: '65-72%',
     risk: 'Medium (may lose comments, verbose text)',
+    level: 8,
   },
 })
+
+// Flat 1..9 compression ladder, parallel to the named presets. Each level
+// extends the previous level's stage list (prefix-preserving). L4/L5/L8 are
+// set-equal to conservative/balanced/aggressive respectively; L6-L7 interpolate
+// between balanced and aggressive; L9 extends past aggressive (max).
+//
+// NOTE: `lossy` goes true at L5 because `llmlingua` lives in the balanced
+// preset (= L5). The ladder is aligned to preset semantics per spec.
+function extend(base, adds) { return Object.freeze([...base, ...adds]) }
+
+const L1_STAGES = extend([], ['minify'])
+const L2_STAGES = extend(L1_STAGES, ['whitespace', 'strip-lines'])
+const L3_STAGES = extend(L2_STAGES, ['cmd-strip'])
+const L4_STAGES = extend(L3_STAGES, ['toon', 'dedup', 'diff'])
+const L5_STAGES = extend(L4_STAGES, ['llmlingua', 'read-diff', 'prune'])
+const L6_STAGES = extend(L5_STAGES, ['strip-comments'])
+const L7_STAGES = extend(L6_STAGES, ['textpress', 'br-cache'])
+const L8_STAGES = extend(L7_STAGES, ['disclosure', 'bm25-trim'])
+const L9_STAGES = extend(L8_STAGES, ['graph', 'foundation-models'])
+
+export const COMPRESSION_LEVELS = Object.freeze({
+  1: Object.freeze({ stages: L1_STAGES, lossy: false, savings: '~15%' }),
+  2: Object.freeze({ stages: L2_STAGES, lossy: false, savings: '~25%' }),
+  3: Object.freeze({ stages: L3_STAGES, lossy: false, savings: '~35%' }),
+  4: Object.freeze({ stages: L4_STAGES, lossy: false, savings: '~45%' }),
+  5: Object.freeze({ stages: L5_STAGES, lossy: true, savings: '~53%' }),
+  6: Object.freeze({ stages: L6_STAGES, lossy: true, savings: '~58%' }),
+  7: Object.freeze({ stages: L7_STAGES, lossy: true, savings: '~62%' }),
+  8: Object.freeze({ stages: L8_STAGES, lossy: true, savings: '~67%' }),
+  9: Object.freeze({ stages: L9_STAGES, lossy: true, savings: '~72%' }),
+})
+
+export const DEFAULT_LEVEL = 5
+
+export const LEVEL_ALIASES = Object.freeze({
+  conservative: 4,
+  balanced: 5,
+  aggressive: 8,
+  max: 9,
+})
+
+export function resolveLevel(input) {
+  if (typeof input === 'number' && Number.isInteger(input) && input >= 1 && input <= 9) {
+    return COMPRESSION_LEVELS[input]
+  }
+  if (typeof input === 'string' && input in LEVEL_ALIASES) {
+    return COMPRESSION_LEVELS[LEVEL_ALIASES[input]]
+  }
+  return null
+}

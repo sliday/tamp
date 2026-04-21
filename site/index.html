@@ -564,6 +564,63 @@
 <div class="section-inner"><div class="db-separator"></div></div>
 
 <!-- ============================================================
+     3a-ter. COMPRESSION LEVELS — 1..9 ladder
+     ============================================================ -->
+<section id="levels">
+    <div class="section-inner">
+        <h2 class="db-h2" style="text-align: center;">One knob. Nine stops.</h2>
+        <p class="db-body" style="text-align: center; opacity: 0.7; margin-top: 0.5rem; max-width: 640px; margin-left: auto; margin-right: auto;">
+            Pick a compression level like you pick a zip level. Each step adds stages on top of the previous &mdash; no need to memorize 17 names.
+        </p>
+
+        <div class="db-card db-surface--raised" style="padding: 1.25rem; margin-top: 1.5rem; overflow-x: auto; -webkit-overflow-scrolling: touch;">
+            <table class="levels-table" style="min-width: 520px; width: 100%; border-collapse: collapse; font-size: 0.88rem;">
+                <thead>
+                    <tr style="border-bottom: 2px solid rgba(255,255,255,0.1); text-align: left;">
+                        <th style="padding: 0.6rem 0.75rem;">Level</th>
+                        <th style="padding: 0.6rem 0.75rem;">Adds</th>
+                        <th style="padding: 0.6rem 0.75rem;">Lossy</th>
+                        <th style="padding: 0.6rem 0.75rem; text-align: right;">Savings</th>
+                        <th style="padding: 0.6rem 0.75rem;">Preset</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);"><td style="padding: 0.55rem 0.75rem;"><strong>L1</strong></td><td style="padding: 0.55rem 0.75rem;"><code>minify</code></td><td style="padding: 0.55rem 0.75rem; opacity: 0.5;">&mdash;</td><td style="padding: 0.55rem 0.75rem; text-align: right;">~15%</td><td style="padding: 0.55rem 0.75rem; opacity: 0.5;">&mdash;</td></tr>
+                    <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);"><td style="padding: 0.55rem 0.75rem;"><strong>L2</strong></td><td style="padding: 0.55rem 0.75rem;">+ <code>whitespace</code>, <code>strip-lines</code></td><td style="padding: 0.55rem 0.75rem; opacity: 0.5;">&mdash;</td><td style="padding: 0.55rem 0.75rem; text-align: right;">~25%</td><td style="padding: 0.55rem 0.75rem; opacity: 0.5;">&mdash;</td></tr>
+                    <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);"><td style="padding: 0.55rem 0.75rem;"><strong>L3</strong></td><td style="padding: 0.55rem 0.75rem;">+ <code>cmd-strip</code></td><td style="padding: 0.55rem 0.75rem; opacity: 0.5;">&mdash;</td><td style="padding: 0.55rem 0.75rem; text-align: right;">~35%</td><td style="padding: 0.55rem 0.75rem; opacity: 0.5;">&mdash;</td></tr>
+                    <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);"><td style="padding: 0.55rem 0.75rem;"><strong>L4</strong></td><td style="padding: 0.55rem 0.75rem;">+ <code>toon</code>, <code>dedup</code>, <code>diff</code></td><td style="padding: 0.55rem 0.75rem; opacity: 0.5;">&mdash;</td><td style="padding: 0.55rem 0.75rem; text-align: right;">~45%</td><td style="padding: 0.55rem 0.75rem;"><code>conservative</code></td></tr>
+                    <tr style="border-bottom: 1px solid rgba(255,255,255,0.05); background: rgba(139, 105, 20, 0.08);"><td style="padding: 0.55rem 0.75rem;"><strong>L5</strong></td><td style="padding: 0.55rem 0.75rem;">+ <code>llmlingua</code>, <code>read-diff</code>, <code>prune</code></td><td style="padding: 0.55rem 0.75rem; color: #d79921;">yes</td><td style="padding: 0.55rem 0.75rem; text-align: right;"><strong>~53%</strong></td><td style="padding: 0.55rem 0.75rem;"><strong><code>balanced</code></strong> (default)</td></tr>
+                    <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);"><td style="padding: 0.55rem 0.75rem;"><strong>L6</strong></td><td style="padding: 0.55rem 0.75rem;">+ <code>strip-comments</code></td><td style="padding: 0.55rem 0.75rem; color: #d79921;">yes</td><td style="padding: 0.55rem 0.75rem; text-align: right;">~58%</td><td style="padding: 0.55rem 0.75rem; opacity: 0.5;">&mdash;</td></tr>
+                    <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);"><td style="padding: 0.55rem 0.75rem;"><strong>L7</strong></td><td style="padding: 0.55rem 0.75rem;">+ <code>textpress</code>, <code>br-cache</code></td><td style="padding: 0.55rem 0.75rem; color: #d79921;">yes</td><td style="padding: 0.55rem 0.75rem; text-align: right;">~62%</td><td style="padding: 0.55rem 0.75rem; opacity: 0.5;">&mdash;</td></tr>
+                    <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);"><td style="padding: 0.55rem 0.75rem;"><strong>L8</strong></td><td style="padding: 0.55rem 0.75rem;">+ <code>disclosure</code>, <code>bm25-trim</code></td><td style="padding: 0.55rem 0.75rem; color: #d79921;">yes</td><td style="padding: 0.55rem 0.75rem; text-align: right;">~67%</td><td style="padding: 0.55rem 0.75rem;"><code>aggressive</code></td></tr>
+                    <tr><td style="padding: 0.55rem 0.75rem;"><strong>L9</strong></td><td style="padding: 0.55rem 0.75rem;">+ <code>graph</code>, <code>foundation-models</code></td><td style="padding: 0.55rem 0.75rem; color: #d79921;">yes</td><td style="padding: 0.55rem 0.75rem; text-align: right;">~72%</td><td style="padding: 0.55rem 0.75rem;"><code>max</code></td></tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 0.75rem; margin-top: 1.25rem;">
+            <div class="db-card" style="padding: 1rem;">
+                <p class="db-caption" style="opacity: 0.7; margin-bottom: 0.35rem; font-size: 0.75rem;">CLI flag</p>
+                <pre style="background: rgba(0,0,0,0.3); padding: 0.6rem 0.75rem; border-radius: 4px; margin: 0; font-size: 0.8rem;">tamp --level 7</pre>
+            </div>
+            <div class="db-card" style="padding: 1rem;">
+                <p class="db-caption" style="opacity: 0.7; margin-bottom: 0.35rem; font-size: 0.75rem;">Environment</p>
+                <pre style="background: rgba(0,0,0,0.3); padding: 0.6rem 0.75rem; border-radius: 4px; margin: 0; font-size: 0.8rem;">TAMP_LEVEL=7 tamp</pre>
+            </div>
+            <div class="db-card" style="padding: 1rem;">
+                <p class="db-caption" style="opacity: 0.7; margin-bottom: 0.35rem; font-size: 0.75rem;">Interactive</p>
+                <pre style="background: rgba(0,0,0,0.3); padding: 0.6rem 0.75rem; border-radius: 4px; margin: 0; font-size: 0.8rem;">tamp settings</pre>
+            </div>
+        </div>
+        <p class="db-caption" style="margin-top: 0.75rem; text-align: center; opacity: 0.5;">
+            Precedence: <code>--level</code> &gt; <code>TAMP_LEVEL</code> &gt; config file &gt; preset alias &gt; default (L5).
+        </p>
+    </div>
+</section>
+
+<div class="section-inner"><div class="db-separator"></div></div>
+
+<!-- ============================================================
      3a-bis. SETUP FOR EVERY AGENT — how to wire Tamp to your tool
      ============================================================ -->
 <section id="setup">
@@ -598,6 +655,7 @@ base_url = "http://localhost:7778/v1"
 env_key = "OPENAI_API_KEY"
 wire_api = "responses"</pre>
                 </div>
+                <p class="db-caption" style="opacity: 0.7; margin-top: 0.5rem; font-size: 0.75rem;">Works with ChatGPT Plus/Pro OAuth &mdash; add <code>openai_base_url = "http://localhost:7778/v1"</code> to <code>~/.codex/config.toml</code>. Tamp routes OAuth bearers to <code>chatgpt.com</code> automatically.</p>
             </div>
 
             <div class="db-card db-surface--raised" style="padding: 1.5rem;">
@@ -610,7 +668,7 @@ wire_api = "responses"</pre>
 # Pick an OpenAI-family model
 # (gpt-4o, gpt-5-codex, etc.)</pre>
                 </div>
-                <p class="db-caption" style="opacity: 0.5; margin-top: 0.5rem; font-size: 0.75rem;">Bundled <code>cursor-*</code> / <code>claude-*</code> models bypass the override.</p>
+                <p class="db-caption" style="opacity: 0.65; margin-top: 0.5rem; font-size: 0.75rem; color: #d79921;">Cursor Pro caveat: bundled <code>cursor-*</code>, <code>composer-*</code>, <code>claude-*</code>, <code>gpt-*</code> models route through <code>api2.cursor.sh</code> and cannot be intercepted. Tamp works with BYOK on external model names via a public tunnel.</p>
             </div>
 
             <div class="db-card db-surface--raised" style="padding: 1.5rem;">
@@ -626,13 +684,30 @@ Model ID: gpt-4o</pre>
             </div>
 
             <div class="db-card db-surface--raised" style="padding: 1.5rem;">
-                <h4 class="db-h4" style="margin-bottom: 0.5rem;">Aider / opencode / other</h4>
-                <p class="db-caption" style="opacity: 0.7; margin-bottom: 0.75rem;">Any OpenAI-compatible CLI</p>
+                <h4 class="db-h4" style="margin-bottom: 0.5rem;">Aider / other OpenAI CLIs</h4>
+                <p class="db-caption" style="opacity: 0.7; margin-bottom: 0.75rem;">Any tool that honors <code>OPENAI_API_BASE</code></p>
                 <div class="code-copy-wrap">
                     <button class="code-copy-btn" type="button" aria-label="Copy code to clipboard">copy</button>
                     <pre style="background: rgba(0,0,0,0.3); padding: 1rem; border-radius: 4px; overflow-x: auto; font-size: 0.8rem; margin: 0;">export OPENAI_API_BASE=http://localhost:7778/v1
-aider   # or opencode, cline, etc.</pre>
+aider   # or any OpenAI-compatible CLI</pre>
                 </div>
+            </div>
+
+            <div class="db-card db-surface--raised" style="padding: 1.5rem;">
+                <h4 class="db-h4" style="margin-bottom: 0.5rem;">opencode</h4>
+                <p class="db-caption" style="opacity: 0.7; margin-bottom: 0.75rem;">Per-provider <code>baseURL</code> in <code>~/.config/opencode/opencode.json</code></p>
+                <div class="code-copy-wrap">
+                    <button class="code-copy-btn" type="button" aria-label="Copy code to clipboard">copy</button>
+                    <pre style="background: rgba(0,0,0,0.3); padding: 1rem; border-radius: 4px; overflow-x: auto; font-size: 0.75rem; margin: 0;">{
+  "provider": {
+    "anthropic":  { "options": { "baseURL": "http://localhost:7778" } },
+    "openai":     { "options": { "baseURL": "http://localhost:7778/v1" } },
+    "openrouter": { "options": { "baseURL": "http://localhost:7778/v1/openrouter" } },
+    "opencode":   { "options": { "baseURL": "http://localhost:7778/v1/zen" } }
+  }
+}</pre>
+                </div>
+                <p class="db-caption" style="opacity: 0.65; margin-top: 0.5rem; font-size: 0.75rem;">opencode silently ignores <code>OPENAI_API_BASE</code> / <code>OPENAI_BASE_URL</code> env vars &mdash; per-provider config is required.</p>
             </div>
 
         </div>

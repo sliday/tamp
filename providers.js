@@ -235,8 +235,30 @@ const anthropic = {
   },
 }
 
+// OpenAI-compatible block types we don't know how to recompress safely.
+// Kimi's "thinking" / "partial" deltas in particular must be left alone —
+// they are not tool_result text and compressing them breaks the wire format.
+const OPENAI_COMPAT_SKIP_BLOCK_TYPES = new Set(['thinking', 'partial'])
+
 function extractOpenAIChatTargets(msg, i) {
-  if (msg.role !== 'tool' || typeof msg.content !== 'string') return []
+  if (msg.role !== 'tool') return []
+  // Some OpenAI-compat providers (Kimi, etc.) emit non-string tool content
+  // with typed blocks like { type: 'thinking' }. Skip those.
+  if (typeof msg.content !== 'string') {
+    if (Array.isArray(msg.content)) {
+      const targets = []
+      for (let j = 0; j < msg.content.length; j++) {
+        const block = msg.content[j]
+        if (!block || typeof block !== 'object') continue
+        if (OPENAI_COMPAT_SKIP_BLOCK_TYPES.has(block.type)) continue
+        if (block.type === 'text' && typeof block.text === 'string') {
+          targets.push({ path: ['messages', i, 'content', j, 'text'], text: block.text, index: i })
+        }
+      }
+      return targets
+    }
+    return []
+  }
   return [{ path: ['messages', i, 'content'], text: msg.content, index: i }]
 }
 
@@ -291,6 +313,54 @@ const openai = {
     }
     return false
   },
+}
+
+// Kimi Code (subscription) + Moonshot (OpenAI-compat API key) share wire
+// format with OpenAI chat-completions aside from extra block types on
+// streamed messages. Treat them as passthrough: same extract/apply contract
+// as the openai adapter, but a different name so index.js can route them to
+// api.kimi.com / api.moonshot.cn upstreams.
+const kimi = {
+  name: 'kimi',
+  match(method, url) {
+    if (method !== 'POST') return false
+    return (
+      url.startsWith('/coding/v1/chat/completions') ||
+      url.startsWith('/kimi/v1/chat/completions') ||
+      url.startsWith('/kimi/coding/v1/chat/completions')
+    )
+  },
+  normalizeUrl(url) {
+    // Strip the tamp-mount prefix so the upstream receives the canonical
+    // Kimi Code path.
+    if (url.startsWith('/kimi/coding/v1/')) return url.slice('/kimi'.length)
+    if (url.startsWith('/kimi/v1/')) return '/coding' + url.slice('/kimi'.length)
+    return url
+  },
+  extract: openai.extract,
+  apply: openai.apply,
+  getLastUserText: openai.getLastUserText,
+  injectOutputHint: openai.injectOutputHint,
+}
+
+const moonshot = {
+  name: 'moonshot',
+  match(method, url) {
+    if (method !== 'POST') return false
+    return (
+      url.startsWith('/moonshot/v1/chat/completions') ||
+      url.startsWith('/moonshot/chat/completions')
+    )
+  },
+  normalizeUrl(url) {
+    if (url.startsWith('/moonshot/v1/')) return url.slice('/moonshot'.length)
+    if (url.startsWith('/moonshot/chat/completions')) return '/v1' + url.slice('/moonshot'.length)
+    return url
+  },
+  extract: openai.extract,
+  apply: openai.apply,
+  getLastUserText: openai.getLastUserText,
+  injectOutputHint: openai.injectOutputHint,
 }
 
 function extractGeminiContentTargets(content, ci) {
@@ -442,13 +512,103 @@ const openaiResponses = {
   },
 }
 
-const providers = [anthropic, openai, openaiResponses, gemini]
+// ---- Auth-mode detection for OpenAI-like providers ----
+//
+// Codex CLI running in ChatGPT Plus mode does NOT use a traditional
+// `sk-*` API key. It sends an OAuth JWT as the Bearer token, plus a
+// `chatgpt-account-id` header. The upstream in that mode is
+// https://chatgpt.com/backend-api/codex (NOT api.openai.com). See
+// openai/codex `model-provider-info/src/lib.rs` for the canonical list.
+//
+// Returns:
+//   'api-key'        — classic `Authorization: Bearer sk-...`
+//   'chatgpt-oauth'  — JWT bearer OR chatgpt-account-id header present
+//   'unknown'        — neither
+function headerValue(headers, name) {
+  if (!headers) return null
+  // Node's IncomingHeaders are already lowercased, but be defensive for
+  // plain objects passed from tests.
+  if (headers[name] !== undefined) return headers[name]
+  const lower = name.toLowerCase()
+  if (headers[lower] !== undefined) return headers[lower]
+  for (const k of Object.keys(headers)) {
+    if (k.toLowerCase() === lower) return headers[k]
+  }
+  return null
+}
 
-export function detectProvider(method, url) {
+function extractBearer(auth) {
+  if (typeof auth !== 'string') return null
+  const m = auth.match(/^\s*Bearer\s+(.+?)\s*$/i)
+  return m ? m[1] : null
+}
+
+function looksLikeJwt(token) {
+  if (typeof token !== 'string') return false
+  // Compact JWS: three base64url segments separated by dots. Header segment
+  // starts with "eyJ" (base64-encoded `{"`). Good enough for detection.
+  if (!token.startsWith('eyJ')) return false
+  const parts = token.split('.')
+  return parts.length === 3 && parts.every(p => p.length > 0)
+}
+
+export function detectOpenAIAuthMode(headersOrRequest) {
+  const headers = headersOrRequest?.headers || headersOrRequest || {}
+  const accountId = headerValue(headers, 'chatgpt-account-id')
+  const auth = headerValue(headers, 'authorization')
+  const token = extractBearer(auth)
+
+  if (accountId) return 'chatgpt-oauth'
+  if (token && token.startsWith('sk-')) return 'api-key'
+  if (token && looksLikeJwt(token)) return 'chatgpt-oauth'
+  return 'unknown'
+}
+
+// Route selection for OpenAI-like requests. Returns the upstream base URL
+// and a path transformer. Callers are responsible for enforcing
+// TAMP_DISABLE_CHATGPT_ROUTE (handled in index.js).
+export function resolveOpenAIUpstream({ mode, base, providerName }) {
+  if (mode === 'chatgpt-oauth') {
+    return {
+      base: 'https://chatgpt.com',
+      transformPath(path) {
+        // Codex calls land on /v1/responses or /v1/chat/completions. The
+        // ChatGPT backend expects /backend-api/codex<rest>.
+        if (path.startsWith('/backend-api/codex')) return path
+        return '/backend-api/codex' + path
+      },
+      mode,
+      providerName,
+    }
+  }
+  return {
+    base,
+    transformPath(path) { return path },
+    mode,
+    providerName,
+  }
+}
+
+const providers = [anthropic, openai, openaiResponses, gemini, kimi, moonshot]
+
+// detectProvider(method, url, headers?) — headers is optional for b/c. When
+// the path is OpenAI-like but headers carry a `x-tamp-target: kimi|moonshot`
+// hint we route to the corresponding adapter. Path-based matching runs
+// first so existing mounts keep working.
+export function detectProvider(method, url, headers) {
+  const hint = headers ? headerValue(headers, 'x-tamp-target') : null
+  if (hint) {
+    const hinted = providers.find(p => p.name === hint)
+    if (hinted && hinted.match(method, url)) return hinted
+    // Hint may point to a kimi/moonshot provider even if path doesn't carry
+    // the tamp mount prefix (e.g. user pointed their client at /v1/...).
+    if (hint === 'kimi' && openai.match(method, url)) return kimi
+    if (hint === 'moonshot' && openai.match(method, url)) return moonshot
+  }
   for (const p of providers) {
     if (p.match(method, url)) return p
   }
   return null
 }
 
-export { anthropic, openai, openaiResponses, gemini }
+export { anthropic, openai, openaiResponses, gemini, kimi, moonshot }

@@ -4,7 +4,7 @@ import { writeFileSync, mkdirSync, unlinkSync, rmdirSync } from 'node:fs'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { loadConfig, loadConfigFile } from '../config.js'
-import { DEFAULT_STAGES, VERSION } from '../metadata.js'
+import { DEFAULT_STAGES, VERSION, COMPRESSION_LEVELS, DEFAULT_LEVEL } from '../metadata.js'
 
 describe('loadConfig', () => {
   it('returns defaults when no env vars set', () => {
@@ -166,5 +166,151 @@ describe('loadConfigFile', () => {
   it('cleanup temp files', () => {
     try { unlinkSync(tmpFile) } catch {}
     try { rmdirSync(tmpDir) } catch {}
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Phase C — TAMP_LEVEL / --level precedence matrix
+// ---------------------------------------------------------------------------
+
+describe('loadConfig — level precedence matrix (Phase C)', () => {
+  // Swallow stderr writes from loadConfig's invalid-input warnings so the test
+  // runner output stays clean. Restored after each case via the helper.
+  function withSilencedStderr(fn) {
+    const orig = process.stderr.write.bind(process.stderr)
+    process.stderr.write = () => true
+    try { return fn() } finally { process.stderr.write = orig }
+  }
+
+  // Build a clean env with all level-related TAMP_* keys stripped, so no
+  // ambient shell state can leak into the matrix.
+  function cleanEnv(extra = {}) {
+    const env = {}
+    return { ...env, ...extra }
+  }
+
+  const cases = [
+    {
+      name: 'TAMP_STAGES beats everything',
+      env: { TAMP_STAGES: 'minify' },
+      opts: {},
+      expectedSource: 'stages-env',
+      expectedLevel: null,
+      expectedStages: ['minify'],
+    },
+    {
+      name: '--level flag beats TAMP_LEVEL env',
+      env: { TAMP_LEVEL: '7' },
+      opts: { levelOverride: 3 },
+      expectedSource: 'level-flag',
+      expectedLevel: 3,
+    },
+    {
+      name: 'TAMP_LEVEL beats TAMP_COMPRESSION_PRESET',
+      env: { TAMP_LEVEL: '7', TAMP_COMPRESSION_PRESET: 'aggressive' },
+      opts: {},
+      expectedSource: 'level-env',
+      expectedLevel: 7,
+    },
+    {
+      name: 'TAMP_COMPRESSION_PRESET resolves to preset level (conservative = L4)',
+      env: { TAMP_COMPRESSION_PRESET: 'conservative' },
+      opts: {},
+      expectedSource: 'preset-env',
+      expectedLevel: 4,
+    },
+    {
+      name: 'no inputs → default level 5',
+      env: {},
+      opts: {},
+      expectedSource: 'default',
+      expectedLevel: DEFAULT_LEVEL,
+    },
+    {
+      name: 'TAMP_STAGES still wins even when --level also set',
+      env: { TAMP_STAGES: 'minify' },
+      opts: { levelOverride: 9 },
+      expectedSource: 'stages-env',
+      expectedLevel: null,
+      expectedStages: ['minify'],
+    },
+    {
+      name: "--level accepts alias string ('aggressive' = L8)",
+      env: {},
+      opts: { levelOverride: 'aggressive' },
+      expectedSource: 'level-flag',
+      expectedLevel: 8,
+    },
+    {
+      name: '--level=99 rejected, falls back to default',
+      env: {},
+      opts: { levelOverride: 99 },
+      expectedSource: 'default',
+      expectedLevel: DEFAULT_LEVEL,
+    },
+    {
+      name: 'TAMP_LEVEL=0 rejected, falls back to default',
+      env: { TAMP_LEVEL: '0' },
+      opts: {},
+      expectedSource: 'default',
+      expectedLevel: DEFAULT_LEVEL,
+    },
+  ]
+
+  let pass = 0
+  for (const c of cases) {
+    it(c.name, () => {
+      withSilencedStderr(() => {
+        const cfg = loadConfig(cleanEnv(c.env), c.opts)
+        assert.equal(cfg.levelSource, c.expectedSource,
+          `levelSource mismatch for "${c.name}" — got ${cfg.levelSource}`)
+        assert.equal(cfg.level, c.expectedLevel,
+          `level mismatch for "${c.name}" — got ${cfg.level}`)
+        if (c.expectedStages) {
+          assert.deepEqual(cfg.stages, c.expectedStages,
+            `stages mismatch for "${c.name}"`)
+        } else if (typeof cfg.level === 'number') {
+          // Sanity: stages must be non-empty and aligned with the ladder OR
+          // with the preset's stage list (since L4/L5/L8 are preset-anchored).
+          assert.ok(Array.isArray(cfg.stages) && cfg.stages.length > 0,
+            `stages empty for "${c.name}"`)
+        }
+        pass++
+      })
+    })
+  }
+
+  it(`precedence matrix coverage: ${cases.length} cases executed`, () => {
+    assert.equal(pass, cases.length,
+      `only ${pass}/${cases.length} precedence cases ran — check for early exits`)
+  })
+
+  it('does not leak env state between invocations', () => {
+    // Two calls with different envs must not see each other's state.
+    const a = loadConfig({ TAMP_LEVEL: '3' })
+    const b = loadConfig({})
+    assert.equal(a.level, 3)
+    assert.equal(a.levelSource, 'level-env')
+    assert.equal(b.level, DEFAULT_LEVEL)
+    assert.equal(b.levelSource, 'default')
+  })
+
+  it('resolves level to a valid stages array for every ladder rung', () => {
+    for (let n = 1; n <= 9; n++) {
+      const cfg = loadConfig({}, { levelOverride: n })
+      assert.equal(cfg.level, n, `level ${n} mismatch`)
+      assert.equal(cfg.levelSource, 'level-flag')
+      assert.ok(Array.isArray(cfg.stages) && cfg.stages.length > 0,
+        `level ${n} produced empty stages`)
+      // Set-equality with COMPRESSION_LEVELS[n] (order may differ for
+      // preset-anchored levels L4/L5/L8 — use Set compare).
+      const expectedSet = new Set(COMPRESSION_LEVELS[n].stages)
+      const actualSet = new Set(cfg.stages)
+      assert.equal(actualSet.size, expectedSet.size,
+        `level ${n} stage count mismatch`)
+      for (const s of expectedSet) {
+        assert.ok(actualSet.has(s), `level ${n} missing stage ${s}`)
+      }
+    }
   })
 })

@@ -1,6 +1,7 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
-import { detectProvider, anthropic, openai, openaiResponses, gemini } from '../providers.js'
+import { detectProvider, anthropic, openai, openaiResponses, gemini, kimi, moonshot } from '../providers.js'
+import { loadConfig } from '../config.js'
 
 describe('detectProvider', () => {
   it('returns anthropic for POST /v1/messages', () => {
@@ -408,5 +409,122 @@ describe('round-trip extract -> apply', () => {
     for (const t of targets) { if (!t.skip) t.compressed = '{"data":[1,2,3]}' }
     gemini.apply(body, targets)
     assert.deepEqual(body.contents[0].parts[0].functionResponse.response, { data: [1, 2, 3] })
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Track C: Kimi / Moonshot routing, adapter passthrough, upstream allowlist
+// ---------------------------------------------------------------------------
+
+describe('detectProvider (kimi / moonshot)', () => {
+  it('returns kimi for POST /coding/v1/chat/completions', () => {
+    const p = detectProvider('POST', '/coding/v1/chat/completions')
+    assert.equal(p?.name, 'kimi')
+  })
+
+  it('returns kimi for POST /kimi/v1/chat/completions (tamp mount)', () => {
+    const p = detectProvider('POST', '/kimi/v1/chat/completions')
+    assert.equal(p?.name, 'kimi')
+  })
+
+  it('returns kimi when x-tamp-target: kimi on openai-compat path', () => {
+    const p = detectProvider('POST', '/v1/chat/completions', { 'x-tamp-target': 'kimi' })
+    assert.equal(p?.name, 'kimi')
+  })
+
+  it('returns moonshot for POST /moonshot/v1/chat/completions', () => {
+    const p = detectProvider('POST', '/moonshot/v1/chat/completions')
+    assert.equal(p?.name, 'moonshot')
+  })
+
+  it('returns moonshot when x-tamp-target: moonshot on openai-compat path', () => {
+    const p = detectProvider('POST', '/v1/chat/completions', { 'x-tamp-target': 'moonshot' })
+    assert.equal(p?.name, 'moonshot')
+  })
+
+  it('kimi normalizeUrl strips tamp mount prefix', () => {
+    assert.equal(kimi.normalizeUrl('/kimi/coding/v1/chat/completions'), '/coding/v1/chat/completions')
+    assert.equal(kimi.normalizeUrl('/kimi/v1/chat/completions'), '/coding/v1/chat/completions')
+    assert.equal(kimi.normalizeUrl('/coding/v1/chat/completions'), '/coding/v1/chat/completions')
+  })
+
+  it('moonshot normalizeUrl strips tamp mount prefix', () => {
+    assert.equal(moonshot.normalizeUrl('/moonshot/v1/chat/completions'), '/v1/chat/completions')
+    assert.equal(moonshot.normalizeUrl('/moonshot/chat/completions'), '/v1/chat/completions')
+  })
+})
+
+describe('kimi adapter (OpenAI-compat passthrough)', () => {
+  it('extracts tool messages like openai adapter', () => {
+    const body = {
+      messages: [
+        { role: 'user', content: 'read file' },
+        { role: 'tool', tool_call_id: 'c1', content: '{"file":"contents"}' },
+      ],
+    }
+    const targets = kimi.extract(body)
+    assert.equal(targets.length, 1)
+    assert.equal(targets[0].text, '{"file":"contents"}')
+  })
+
+  it('extract() skips thinking blocks on array content', () => {
+    // Kimi/Moonshot sometimes emit typed blocks on tool content. The
+    // "thinking" / "partial" block types are skipped — they must be passed
+    // through verbatim so the model receives its own reasoning stream.
+    const body = {
+      messages: [
+        {
+          role: 'tool',
+          tool_call_id: 'c1',
+          content: [
+            { type: 'thinking', thinking: 'hidden scratchpad' },
+            { type: 'text', text: '{"ok":true}' },
+            { type: 'partial', text: 'streaming fragment' },
+          ],
+        },
+      ],
+    }
+    const targets = kimi.extract(body)
+    // Only the text block should be extracted; thinking/partial must be
+    // untouched and contribute no targets.
+    assert.equal(targets.length, 1)
+    assert.equal(targets[0].text, '{"ok":true}')
+    assert.deepEqual(targets[0].path, ['messages', 0, 'content', 1, 'text'])
+  })
+
+  it('apply + round-trip works for kimi tool messages', () => {
+    const body = {
+      messages: [
+        { role: 'tool', tool_call_id: 'c1', content: '{\n  "a": 1\n}' },
+      ],
+    }
+    const targets = kimi.extract(body)
+    for (const t of targets) { if (!t.skip) t.compressed = '{"a":1}' }
+    kimi.apply(body, targets)
+    assert.equal(body.messages[0].content, '{"a":1}')
+  })
+})
+
+describe('config upstream allowlist (kimi / moonshot)', () => {
+  it('defaults to api.kimi.com and api.moonshot.cn', () => {
+    const c = loadConfig({})
+    assert.equal(c.upstreams.kimi, 'https://api.kimi.com')
+    assert.equal(c.upstreams.moonshot, 'https://api.moonshot.cn')
+  })
+
+  it('TAMP_UPSTREAM_KIMI overrides default', () => {
+    const c = loadConfig({ TAMP_UPSTREAM_KIMI: 'https://test.kimi.local' })
+    assert.equal(c.upstreams.kimi, 'https://test.kimi.local')
+  })
+
+  it('TAMP_UPSTREAM_MOONSHOT overrides default', () => {
+    const c = loadConfig({ TAMP_UPSTREAM_MOONSHOT: 'https://test.moonshot.local' })
+    assert.equal(c.upstreams.moonshot, 'https://test.moonshot.local')
+  })
+
+  it('leaves openai and anthropic upstreams untouched when kimi override is set', () => {
+    const c = loadConfig({ TAMP_UPSTREAM_KIMI: 'https://x' })
+    assert.equal(c.upstreams.openai, 'https://api.openai.com')
+    assert.equal(c.upstreams.anthropic, 'https://api.anthropic.com')
   })
 })

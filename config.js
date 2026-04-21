@@ -1,7 +1,15 @@
 import { readFileSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
-import { DEFAULT_STAGES, VERSION, COMPRESSION_PRESETS } from './metadata.js'
+import {
+  DEFAULT_STAGES,
+  VERSION,
+  COMPRESSION_PRESETS,
+  COMPRESSION_LEVELS,
+  DEFAULT_LEVEL,
+  LEVEL_ALIASES,
+  resolveLevel,
+} from './metadata.js'
 
 const VALID_OUTPUT_MODES = new Set(['off', 'conservative', 'balanced', 'aggressive'])
 
@@ -12,20 +20,47 @@ function parseBoolean(value, defaultValue) {
   return defaultValue
 }
 
-function resolvePreset(presetName, explicitStages) {
-  // If user explicitly set TAMP_STAGES, ignore preset
-  if (explicitStages && explicitStages.length > 0) {
-    return explicitStages
+// Coerce numeric strings to integers; leave alias strings untouched.
+// Returns { value, valid } — value is the coerced input for resolveLevel(),
+// valid is whether the input is recognisable as a level at all.
+function coerceLevelInput(raw) {
+  if (raw === undefined || raw === null || raw === '') return { value: null, valid: false }
+  if (typeof raw === 'number') {
+    const v = resolveLevel(raw) ? raw : null
+    return { value: v, valid: v !== null }
   }
-
-  // Resolve preset name to stages
-  const preset = COMPRESSION_PRESETS[presetName]
-  if (preset) {
-    return preset.stages
+  const s = String(raw).trim()
+  if (s === '') return { value: null, valid: false }
+  if (/^-?\d+$/.test(s)) {
+    const n = parseInt(s, 10)
+    const v = resolveLevel(n) ? n : null
+    return { value: v, valid: v !== null }
   }
+  if (s in LEVEL_ALIASES) return { value: s, valid: true }
+  return { value: null, valid: false }
+}
 
-  // Default to balanced preset if preset name not recognized
-  return COMPRESSION_PRESETS.balanced.stages
+// Convert a level input (number or alias) to its canonical integer.
+function levelInputToInt(input) {
+  if (typeof input === 'number') return input
+  if (typeof input === 'string' && input in LEVEL_ALIASES) return LEVEL_ALIASES[input]
+  return null
+}
+
+// Preset levels are the "anchor" rungs of the ladder — when a resolved level
+// matches one of these, prefer the preset's stage ordering. This preserves
+// the L4 === conservative / L5 === balanced / L8 === aggressive identity
+// promise and keeps pre-Phase-C stage ordering stable for downstream code.
+const LEVEL_TO_PRESET = Object.freeze({
+  4: 'conservative',
+  5: 'balanced',
+  8: 'aggressive',
+})
+
+function stagesForLevel(level) {
+  const presetName = LEVEL_TO_PRESET[level]
+  if (presetName) return [...COMPRESSION_PRESETS[presetName].stages]
+  return [...COMPRESSION_LEVELS[level].stages]
 }
 
 export const CONFIG_PATH = join(homedir(), '.config', 'tamp', 'config')
@@ -51,19 +86,97 @@ export function loadConfigFile(path) {
   } catch { return {} }
 }
 
-export function loadConfig(env = process.env) {
+export function loadConfig(env = process.env, options = {}) {
   const fileVars = (env === process.env) ? loadConfigFile() : {}
   const get = (key) => env[key] !== undefined ? env[key] : fileVars[key]
 
-  // Get explicit stages (if user set TAMP_STAGES directly)
+  // --- Stage/level resolution with explicit precedence ---
+  // 1. TAMP_STAGES (explicit stage list)     — power-user override
+  // 2. --level CLI flag (options.levelOverride)
+  // 3. TAMP_LEVEL env
+  // 4. TAMP_COMPRESSION_PRESET env
+  // 5. config-file `level` field
+  // 6. DEFAULT_LEVEL (5)
+
   const explicitStagesStr = get('TAMP_STAGES')
-  const explicitStages = explicitStagesStr ? explicitStagesStr.split(',').map(s => s.trim()).filter(Boolean) : []
+  const explicitStages = explicitStagesStr
+    ? explicitStagesStr.split(',').map(s => s.trim()).filter(Boolean)
+    : []
 
-  // Get compression preset
-  const presetName = get('TAMP_COMPRESSION_PRESET') || 'balanced'
+  const presetNameRaw = get('TAMP_COMPRESSION_PRESET')
+  const presetExplicit = typeof presetNameRaw === 'string' && presetNameRaw.length > 0
 
-  // Resolve preset to stages (or use explicit stages if provided)
-  const stages = resolvePreset(presetName, explicitStages)
+  const fileLevelRaw = fileVars.level
+  const levelFlagRaw = options.levelOverride
+  const levelEnvRaw = get('TAMP_LEVEL')
+
+  let stages = null
+  let level = null
+  let levelSource = null
+  let presetName = presetExplicit ? presetNameRaw : 'balanced'
+
+  if (explicitStages.length > 0) {
+    stages = explicitStages
+    level = null
+    levelSource = 'stages-env'
+  } else {
+    // Try level inputs in precedence order: CLI flag > env
+    const candidates = [
+      { raw: levelFlagRaw, source: 'level-flag' },
+      { raw: levelEnvRaw,  source: 'level-env' },
+    ]
+    let chosen = null
+    for (const c of candidates) {
+      if (c.raw === undefined || c.raw === null || c.raw === '') continue
+      const { value, valid } = coerceLevelInput(c.raw)
+      if (valid) {
+        chosen = { value, source: c.source }
+        break
+      } else {
+        const label = c.source === 'level-flag' ? '--level' : 'TAMP_LEVEL'
+        process.stderr.write(
+          `[tamp] invalid ${label}=${JSON.stringify(c.raw)} — expected 1..9 or one of: ${Object.keys(LEVEL_ALIASES).join(', ')}. Ignoring.\n`
+        )
+      }
+    }
+
+    if (chosen) {
+      level = levelInputToInt(chosen.value)
+      stages = stagesForLevel(level)
+      levelSource = chosen.source
+    } else if (presetExplicit) {
+      const preset = COMPRESSION_PRESETS[presetNameRaw]
+      if (preset) {
+        stages = [...preset.stages]
+        level = typeof preset.level === 'number' ? preset.level : null
+        levelSource = 'preset-env'
+      } else {
+        // Unknown preset name — fall through to default balanced
+        stages = [...COMPRESSION_PRESETS.balanced.stages]
+        level = COMPRESSION_PRESETS.balanced.level
+        levelSource = 'default'
+        presetName = 'balanced'
+      }
+    } else if (fileLevelRaw !== undefined && fileLevelRaw !== '') {
+      const { value, valid } = coerceLevelInput(fileLevelRaw)
+      if (valid) {
+        level = levelInputToInt(value)
+        stages = stagesForLevel(level)
+        levelSource = 'config-file'
+      } else {
+        process.stderr.write(
+          `[tamp] invalid level=${JSON.stringify(fileLevelRaw)} in config file — expected 1..9 or one of: ${Object.keys(LEVEL_ALIASES).join(', ')}. Ignoring.\n`
+        )
+        level = DEFAULT_LEVEL
+        stages = stagesForLevel(DEFAULT_LEVEL)
+        levelSource = 'default'
+      }
+    } else {
+      level = DEFAULT_LEVEL
+      stages = stagesForLevel(DEFAULT_LEVEL)
+      levelSource = 'default'
+    }
+  }
 
   // Output mode precedence (highest wins):
   //   1. TAMP_OUTPUT_MODE      — explicit per-session override
@@ -83,10 +196,23 @@ export function loadConfig(env = process.env) {
       openai: get('TAMP_UPSTREAM_OPENAI') || 'https://api.openai.com',
       'openai-responses': get('TAMP_UPSTREAM_OPENAI') || 'https://api.openai.com',
       gemini: get('TAMP_UPSTREAM_GEMINI') || 'https://generativelanguage.googleapis.com',
+      // Kimi Code (subscription CLI) — proprietary path /coding/v1/*
+      kimi: get('TAMP_UPSTREAM_KIMI') || 'https://api.kimi.com',
+      // Moonshot public OpenAI-compat API — strictly /v1/*
+      moonshot: get('TAMP_UPSTREAM_MOONSHOT') || 'https://api.moonshot.cn',
     }),
+    // Codex CLI ChatGPT Plus routes to https://chatgpt.com/backend-api/codex
+    // by default (not api.openai.com). Set TAMP_DISABLE_CHATGPT_ROUTE=1 to
+    // force legacy api.openai.com routing even when a JWT bearer / account
+    // id is detected.
+    disableChatgptRoute: parseBoolean(get('TAMP_DISABLE_CHATGPT_ROUTE'), false) ||
+      get('TAMP_DISABLE_CHATGPT_ROUTE') === '1',
+    chatgptUpstream: get('TAMP_UPSTREAM_CHATGPT') || 'https://chatgpt.com',
     minSize: parseInt(get('TAMP_MIN_SIZE'), 10) || 200,
     stages,
     preset: presetName,
+    level,
+    levelSource,
     outputMode,
     outputModeDefault: defaultOutputMode && VALID_OUTPUT_MODES.has(defaultOutputMode) ? defaultOutputMode : null,
     agent: get('TAMP_AGENT') || null,
@@ -115,6 +241,15 @@ export const CONFIG_TEMPLATE = `# Tamp configuration
 # TAMP_UPSTREAM=https://api.anthropic.com
 # TAMP_UPSTREAM_OPENAI=https://api.openai.com
 # TAMP_UPSTREAM_GEMINI=https://generativelanguage.googleapis.com
+# TAMP_UPSTREAM_KIMI=https://api.kimi.com
+# TAMP_UPSTREAM_MOONSHOT=https://api.moonshot.cn
+
+# Codex CLI ChatGPT Plus routing (OAuth/JWT bearers land on chatgpt.com)
+# Set to 1 to force legacy api.openai.com routing even when JWT is detected
+# TAMP_DISABLE_CHATGPT_ROUTE=0
+
+# Compression level 1..9 (or: conservative, balanced, aggressive, max)
+# level=5
 
 # Compression preset (conservative | balanced | aggressive)
 # TAMP_COMPRESSION_PRESET=balanced
