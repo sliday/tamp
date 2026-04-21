@@ -139,10 +139,10 @@ function generateScenarioTable(rows) {
 function generateSubscriptionTable() {
   const rows = [
     ['Claude Code (Pro/Max)', 'API path via proxy', 'Full', 'Tamp proxy intercepts Anthropic API calls transparently.'],
-    ['Codex (ChatGPT OAuth)', 'Browser session', 'None', 'Traffic is browser-bound; no MITM surface for a local proxy.'],
-    ['Kimi (Moonshot)', 'OpenAI-compatible API', 'Partial', 'Routing works via <code>OPENAI_BASE_URL</code>; tool-result shape matches, but no session replay yet.'],
+    ['Codex (ChatGPT OAuth)', 'ChatGPT OAuth / JWT', 'Full (with config)', 'Add <code>openai_base_url = "http://localhost:7778/v1"</code> to <code>~/.codex/config.toml</code>. Tamp auto-detects the JWT OAuth bearer and routes to <code>chatgpt.com/backend-api/codex</code> (not <code>api.openai.com</code>). Sideband WebRTC voice calls remain unreachable.'],
+    ['Kimi (Moonshot)', 'OpenAI-compatible API', 'Partial (with config)', 'Kimi CLI reads <code>~/.kimi/config.toml</code> (not env vars). Tamp exposes <code>/coding/v1/*</code> for Kimi Code OAuth and <code>/moonshot/v1/*</code> for Moonshot API-key mode. Wire format is OpenAI-compatible but includes <code>thinking</code> and <code>partial</code> blocks which tamp passes through untouched.'],
     ['opencode', 'Config-driven provider', 'Full', 'Point provider <code>baseURL</code> at Tamp; compression applies to every request.'],
-    ['Cursor (Pro)', 'Server-side proxy', 'None', 'Cursor routes through its own backend; user-side proxy is invisible to it.'],
+    ['Cursor (Pro)', 'Hardcoded server routes', 'Blocked by design', 'Bundled <code>cursor-*</code> / <code>composer-*</code> / <code>claude-*</code> / <code>gpt-*</code> model names are hardcoded to Cursor\'s server infrastructure (<code>api2.cursor.sh</code>) and cannot be intercepted client-side. BYOK with unknown model names + a public tunnel to tamp can work, but Cursor Tab (inline completions) always bypasses.'],
   ]
   let html = '<table>\n<caption>Table 5: Subscription-mode compatibility (qualitative audit).</caption>\n'
   html += '<tr><th>Client</th><th>Surface</th><th>Tamp Fit</th><th>Notes</th></tr>\n'
@@ -162,40 +162,66 @@ function generateQualityBadge(rows) {
 }
 
 // --- Figures ------------------------------------------------------------
+// Figure 1: marginal contribution per ladder step. Each bar shows the
+// per-level delta over the previous level, revealing L5 as the sole
+// inflection point. Cumulative total labelled above each bar.
 function generateLadderBar(rows) {
   const ladder = rows.filter(r => r.kind === 'ladder')
-  const w = 600, h = 300, pad = { top: 24, right: 20, bottom: 48, left: 56 }
+  const w = 600, h = 300, pad = { top: 28, right: 20, bottom: 56, left: 56 }
   const chartW = w - pad.left - pad.right
   const chartH = h - pad.top - pad.bottom
-  const bars = ladder.map(r => ({ label: r.configId, pct: r.avg.tokenSavingsPct, lossy: r.lossy }))
-  const maxPct = Math.max(50, ...bars.map(b => b.pct))
+  // Per-level marginal contribution (pp over previous level)
+  const bars = ladder.map((r, i) => {
+    const prev = i === 0 ? 0 : ladder[i - 1].avg.tokenSavingsPct
+    return {
+      label: r.configId,
+      marginal: r.avg.tokenSavingsPct - prev,
+      cumulative: r.avg.tokenSavingsPct,
+      // Visual spec: L1-L4 green (lossless floor), L5-L9 blue (lossy tier entered)
+      lossyBand: i >= 4,
+    }
+  })
+  const maxMarginal = Math.max(5, ...bars.map(b => b.marginal)) * 1.15
   const barW = chartW / bars.length * 0.72
   const gap = chartW / bars.length * 0.28
 
   let svg = `<svg viewBox="0 0 ${w} ${h}" xmlns="http://www.w3.org/2000/svg" style="font-family:system-ui,sans-serif">\n`
   svg += `<rect width="${w}" height="${h}" fill="white"/>\n`
 
-  for (let tick = 0; tick <= maxPct; tick += 10) {
-    const y = pad.top + chartH - (tick / maxPct) * chartH
+  const tickStep = maxMarginal > 15 ? 5 : 2
+  for (let tick = 0; tick <= maxMarginal; tick += tickStep) {
+    const y = pad.top + chartH - (tick / maxMarginal) * chartH
     svg += `<line x1="${pad.left}" y1="${y}" x2="${w - pad.right}" y2="${y}" stroke="#e6e6e6" stroke-width="0.5"/>\n`
-    svg += `<text x="${pad.left - 5}" y="${y + 3.5}" text-anchor="end" font-size="9" fill="#666">${tick}%</text>\n`
+    svg += `<text x="${pad.left - 5}" y="${y + 3.5}" text-anchor="end" font-size="9" fill="#666">+${tick}pp</text>\n`
   }
+
+  // Identify "the one meaningful step" (max marginal) to highlight distinctly
+  const maxIdx = bars.reduce((m, b, i) => b.marginal > bars[m].marginal ? i : m, 0)
 
   bars.forEach((b, i) => {
     const x = pad.left + i * (barW + gap) + gap / 2
-    const barH = Math.max(2, (b.pct / maxPct) * chartH)
+    const barH = Math.max(1, (Math.max(0, b.marginal) / maxMarginal) * chartH)
     const y = pad.top + chartH - barH
-    const color = b.lossy ? '#1a5c9e' : '#2d7d46'
+    // Color: green lossless floor (L1-L4); L5 highlighted as inflection;
+    // L6-L9 blue muted since we've entered the lossy/plateau band.
+    let color
+    if (i === maxIdx) color = '#1a5c9e' // inflection spike (L5)
+    else if (b.lossyBand) color = '#7fa3c9' // lossy band, muted
+    else color = '#2d7d46' // lossless green
     svg += `<rect x="${x}" y="${y}" width="${barW}" height="${barH}" fill="${color}" rx="2"/>\n`
-    svg += `<text x="${x + barW / 2}" y="${y - 5}" text-anchor="middle" font-size="8.5" fill="#222" font-weight="600">${b.pct.toFixed(1)}%</text>\n`
+    // Marginal value inside / above bar
+    svg += `<text x="${x + barW / 2}" y="${y - 14}" text-anchor="middle" font-size="8.5" fill="#222" font-weight="600">+${b.marginal.toFixed(2)}pp</text>\n`
+    // Cumulative total (small, above marginal label)
+    svg += `<text x="${x + barW / 2}" y="${y - 4}" text-anchor="middle" font-size="7.5" fill="#666">(&Sigma; ${b.cumulative.toFixed(1)}%)</text>\n`
     svg += `<text x="${x + barW / 2}" y="${pad.top + chartH + 14}" text-anchor="middle" font-size="9" fill="#333">${esc(b.label)}</text>\n`
   })
 
   svg += `<text x="${pad.left - 40}" y="${pad.top + chartH / 2}" text-anchor="middle" font-size="10" fill="#333" transform="rotate(-90 ${pad.left - 40} ${pad.top + chartH / 2})">Tokens Saved (%)</text>\n`
   // Legend
-  svg += `<g transform="translate(${pad.left + 8},${pad.top + 4})">`
-  svg += `<rect width="10" height="10" fill="#2d7d46"/><text x="14" y="9" font-size="9" fill="#333">lossless</text>`
-  svg += `<rect x="70" width="10" height="10" fill="#1a5c9e"/><text x="84" y="9" font-size="9" fill="#333">lossy</text>`
+  svg += `<g transform="translate(${pad.left + 8},${pad.top - 20})">`
+  svg += `<rect width="10" height="10" fill="#2d7d46"/><text x="14" y="9" font-size="9" fill="#333">lossless floor (L1&ndash;L4)</text>`
+  svg += `<rect x="140" width="10" height="10" fill="#1a5c9e"/><text x="154" y="9" font-size="9" fill="#333">inflection (L5)</text>`
+  svg += `<rect x="240" width="10" height="10" fill="#7fa3c9"/><text x="254" y="9" font-size="9" fill="#333">lossy plateau (L6&ndash;L9)</text>`
   svg += `</g>`
   svg += '</svg>'
   return svg
@@ -267,11 +293,30 @@ function generateScenarioScatter(rows) {
   svg += `<text x="${w - pad.right + 2}" y="${yOne + 3}" font-size="8" fill="#d44">no savings</text>\n`
 
   const colors = ['#2d7d46', '#1a5c9e', '#9c4dcc', '#d4a017', '#d44', '#0a8a8a', '#888', '#5f6b52', '#c47a00', '#3a6d3a', '#703f7a', '#aa4444']
-  points.forEach((p, i) => {
+  // Compute pixel coordinates first, then assign alternating label anchors
+  // (above/below the point) and small offsets to avoid overlaps in dense regions.
+  const placed = points.map((p, i) => {
     const px = pad.left + (p.x / maxX) * chartW
     const py = pad.top + chartH - ((p.y - minY) / yRange * chartH)
-    svg += `<circle cx="${px}" cy="${py}" r="5" fill="${colors[i % colors.length]}" opacity="0.85"/>\n`
-    svg += `<text x="${px + 7}" y="${py + 3}" font-size="7.5" fill="#333">${esc(p.name)}</text>\n`
+    return { ...p, px, py, idx: i }
+  })
+  // Sort by x so neighbours are considered in order; flip anchor when too close
+  const sorted = [...placed].sort((a, b) => a.px - b.px)
+  let lastY = -Infinity, lastX = -Infinity, flip = false
+  for (const p of sorted) {
+    const near = Math.abs(p.px - lastX) < 55 && Math.abs(p.py - lastY) < 18
+    p.labelAbove = near ? !flip : (p.py > pad.top + chartH * 0.6)
+    if (near) flip = !flip
+    lastX = p.px
+    lastY = p.py
+  }
+  placed.sort((a, b) => a.idx - b.idx)
+  placed.forEach((p) => {
+    const color = colors[p.idx % colors.length]
+    svg += `<circle cx="${p.px}" cy="${p.py}" r="5" fill="${color}" opacity="0.85"/>\n`
+    const ly = p.labelAbove ? p.py - 8 : p.py + 12
+    const lx = p.px + 7
+    svg += `<text x="${lx}" y="${ly}" font-size="7.5" fill="#333">${esc(p.name)}</text>\n`
   })
 
   svg += `<text x="${pad.left + chartW / 2}" y="${h - 5}" text-anchor="middle" font-size="9" fill="#333">Payload Size (bytes)</text>\n`
@@ -304,7 +349,7 @@ function generateDiscussionV8(sweep) {
   const cmdstrip = byId(rows, 'loo:cmd-strip')
   const aggr = byId(rows, 'preset:aggressive')
   const cmdDelta = (cmdstrip.avg.savingsPct - aggr.avg.savingsPct).toFixed(2)
-  let t = `<p>The level ladder reveals a clear inflection point between L4 and L5. L1&ndash;L4 are lossless structural passes (minify, whitespace, line-strip, cmd-strip, dedup, diff) and cap around ${pct(L4.avg.savingsPct, 1)} bytes saved. L5 unlocks the combined effect of TOON columnar encoding, <code>prune</code>, and LLMLingua-2 neural text compression, jumping bytes savings from ${pct(L4.avg.savingsPct, 1)} to ${pct(L5.avg.savingsPct, 1)}. L6&ndash;L9 add graph compaction, Brotli-cache substitution, comment stripping, textpress, progressive disclosure, BM25 trimming, and an optional on-device Foundation Models pass.</p>`
+  let t = `<p>The level ladder reveals a clear inflection point between L4 and L5. L1&ndash;L4 are lossless structural passes (minify, whitespace, line-strip, cmd-strip, dedup, diff) and cap around ${pct(L4.avg.savingsPct, 1)} bytes saved. L5 unlocks TOON columnar encoding and <code>prune</code> (both lossless) plus LLMLingua-2 neural text compression (the first lossy stage), jumping bytes savings from ${pct(L4.avg.savingsPct, 1)} to ${pct(L5.avg.savingsPct, 1)}. L6&ndash;L9 add graph compaction, Brotli-cache substitution, comment stripping, textpress, progressive disclosure, BM25 trimming, and an optional on-device Foundation Models pass.</p>`
   t += `<p>On these micro-fixtures the top of the ladder plateaus: L9 edges out the v0.5 baseline by only ${(L9.avg.savingsPct - v05.avg.savingsPct).toFixed(2)} percentage points. The leave-one-out sweep pinpoints why &mdash; dropping <code>cmd-strip</code> from aggressive moves the needle by ${cmdDelta} percentage points, while dropping <code>read-diff</code>, <code>br-cache</code>, <code>disclosure</code>, or <code>bm25-trim</code> each register exactly 0.00%. Those four stages are session-scoped: they eliminate re-reads of the same file across requests, deduplicate content via a Brotli-keyed cache, disclose large blobs progressively over a conversation, and retrieve only BM25-ranked snippets from long histories. Single-turn fixtures cannot exercise them. This is not a bug; it is a measurement gap, and we call it out in the Limitations section.</p>`
   t += `<p>Where the stages do light up, they behave as designed. Under balanced, structured data compresses the hardest: lockfiles shed 81.7% of their tokens, large JSON 65.1%, tabular data 50.2%. Source code and error results pass through untouched (0.0%), validating the content-classification gate. The spread across scenarios is large precisely because Tamp refuses to apply lossy stages to content that would be degraded by them.</p>`
   return t
