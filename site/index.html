@@ -276,6 +276,64 @@
             .release-chip__arrow { display: none; }
         }
 
+        /* Agent-setup tabs — full-width code panels, no truncation */
+        .setup-tabs {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 4px;
+            margin: 2rem 0 0;
+            padding: 4px;
+            background: rgba(0,0,0,0.2);
+            border-radius: 8px;
+        }
+        .setup-tabs__tab {
+            flex: 1 1 auto;
+            min-width: 110px;
+            padding: 8px 14px;
+            background: transparent;
+            border: 1px solid transparent;
+            color: var(--tamp-muted);
+            font-family: var(--db-font-ui);
+            font-size: 0.85rem;
+            font-weight: 500;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: background 0.15s, color 0.15s, border-color 0.15s;
+            white-space: nowrap;
+        }
+        .setup-tabs__tab:hover { background: rgba(255,255,255,0.05); color: rgba(255,255,255,0.95); }
+        .setup-tabs__tab.is-active {
+            background: var(--db-surface-raised, rgba(255,255,255,0.08));
+            color: rgba(255,255,255,0.98);
+            border-color: var(--tamp-hairline-strong);
+        }
+        .setup-tabs__tab:focus-visible { outline: 2px solid var(--tamp-accent); outline-offset: 2px; }
+        .setup-panels { margin-top: 0.75rem; }
+        .setup-panel { padding: 1.5rem; }
+        .setup-panel[hidden] { display: none; }
+        .setup-panel__desc {
+            color: var(--tamp-muted);
+            font-size: 0.9rem;
+            margin: 0 0 1rem;
+            line-height: 1.55;
+        }
+        .setup-panel__code {
+            background: rgba(0,0,0,0.35);
+            padding: 1.25rem 1.5rem;
+            border-radius: 6px;
+            overflow-x: auto;
+            font-family: var(--db-font-mono);
+            font-size: 0.875rem;
+            line-height: 1.6;
+            margin: 0;
+            color: #ebdbb2;
+        }
+        @media (max-width: 680px) {
+            .setup-tabs { overflow-x: auto; flex-wrap: nowrap; }
+            .setup-tabs__tab { flex: 0 0 auto; }
+            .setup-panel__code { font-size: 0.8rem; padding: 1rem; }
+        }
+
         /* Copy-to-clipboard button for code snippets */
         .code-copy-wrap { position: relative; }
         .code-copy-btn {
@@ -443,12 +501,9 @@
         <div class="install-card db-card db-surface--raised" style="margin-top: 1.5rem;">
             <pre style="position: relative;"><span class="prompt">$</span> <span class="cmd">npx @sliday/tamp</span><button onclick="navigator.clipboard.writeText('npx @sliday/tamp').then(()=>{this.textContent='Copied!';setTimeout(()=>this.textContent='Copy',1500)})" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);color:#ebdbb2;padding:4px 10px;border-radius:4px;font-size:0.75rem;cursor:pointer;transition:background 0.15s;">Copy</button></pre>
         </div>
-        <p class="db-caption hero-plugin-label" style="margin-top: 0.75rem; color: var(--tamp-muted);">
-            Or install the <a href="https://github.com/sliday/tamp-plugin" target="_blank" rel="noopener" style="color: var(--db-terracotta); text-decoration: underline; text-underline-offset: 2px;">Claude Code plugin</a> for auto-start:
+        <p class="db-caption hero-plugin-label" style="margin-top: 0.5rem; color: var(--tamp-muted); font-size: 0.8rem;">
+            or auto-start via the <a href="https://github.com/sliday/tamp-plugin" target="_blank" rel="noopener" style="color: var(--db-terracotta); text-decoration: underline; text-underline-offset: 2px;">Claude Code plugin</a> &rarr;
         </p>
-        <div class="install-card db-card db-surface--raised" style="margin-top: 0.5rem; max-width: 640px;">
-            <pre style="position: relative; font-size: 0.75rem;"><span class="prompt">$</span> <span class="cmd">claude plugin marketplace add sliday/claude-plugins && claude plugin install tamp@sliday</span><button onclick="navigator.clipboard.writeText('claude plugin marketplace add sliday/claude-plugins && claude plugin install tamp@sliday').then(()=>{this.textContent='Copied!';setTimeout(()=>this.textContent='Copy',1500)})" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);color:#ebdbb2;padding:4px 10px;border-radius:4px;font-size:0.75rem;cursor:pointer;transition:background 0.15s;">Copy</button></pre>
-        </div>
 
         <div class="trust-badges">
             <img src="https://img.shields.io/npm/v/@sliday/tamp?style=flat-square&color=8B6914&label=npm" alt="npm version">
@@ -701,75 +756,80 @@
             One tamp instance, any coding agent. Point the base URL at <code>localhost:7778</code> and go.
         </p>
 
-        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1rem; margin-top: 2rem;">
+        <div class="setup-tabs" role="tablist" aria-label="Agent setup instructions">
+            <button class="setup-tabs__tab is-active" type="button" role="tab" aria-selected="true" aria-controls="setup-claude" data-tab="claude">Claude Code</button>
+            <button class="setup-tabs__tab" type="button" role="tab" aria-selected="false" aria-controls="setup-codex" data-tab="codex">Codex CLI</button>
+            <button class="setup-tabs__tab" type="button" role="tab" aria-selected="false" aria-controls="setup-cursor" data-tab="cursor">Cursor</button>
+            <button class="setup-tabs__tab" type="button" role="tab" aria-selected="false" aria-controls="setup-cline" data-tab="cline">VS Code (Cline)</button>
+            <button class="setup-tabs__tab" type="button" role="tab" aria-selected="false" aria-controls="setup-aider" data-tab="aider">Aider / OpenAI</button>
+            <button class="setup-tabs__tab" type="button" role="tab" aria-selected="false" aria-controls="setup-opencode" data-tab="opencode">opencode</button>
+            <button class="setup-tabs__tab" type="button" role="tab" aria-selected="false" aria-controls="setup-kimi" data-tab="kimi">Kimi CLI</button>
+        </div>
 
-            <div class="db-card db-surface--raised" style="padding: 1.5rem;">
-                <h4 class="db-h4" style="margin-bottom: 0.5rem;">Claude Code</h4>
-                <p class="db-caption" style="opacity: 0.7; margin-bottom: 0.75rem;">Anthropic API format &mdash; <code>/v1/messages</code></p>
+        <div class="setup-panels">
+
+            <div class="setup-panel is-active db-card db-surface--raised" id="setup-claude" role="tabpanel" data-panel="claude">
+                <p class="setup-panel__desc">Anthropic API format &mdash; <code>/v1/messages</code>. Works with BYOK and Claude Console OAuth (Pro/Max plans) &mdash; tamp forwards the bearer verbatim.</p>
                 <div class="code-copy-wrap">
                     <button class="code-copy-btn" type="button" aria-label="Copy code to clipboard">copy</button>
-                    <pre style="background: rgba(0,0,0,0.3); padding: 1rem; border-radius: 4px; overflow-x: auto; font-size: 0.8rem; margin: 0;">export ANTHROPIC_BASE_URL=http://localhost:7778
+                    <pre class="setup-panel__code">export ANTHROPIC_BASE_URL=http://localhost:7778
 claude</pre>
                 </div>
             </div>
 
-            <div class="db-card db-surface--raised" style="padding: 1.5rem;">
-                <h4 class="db-h4" style="margin-bottom: 0.5rem;">Codex CLI</h4>
-                <p class="db-caption" style="opacity: 0.7; margin-bottom: 0.75rem;">Responses API &mdash; edit <code>~/.codex/config.toml</code></p>
+            <div class="setup-panel db-card db-surface--raised" id="setup-codex" role="tabpanel" data-panel="codex" hidden>
+                <p class="setup-panel__desc">Responses API &mdash; edit <code>~/.codex/config.toml</code>. Works with ChatGPT Plus/Pro OAuth: tamp auto-detects the JWT bearer and routes to <code>chatgpt.com/backend-api/codex</code>.</p>
                 <div class="code-copy-wrap">
                     <button class="code-copy-btn" type="button" aria-label="Copy code to clipboard">copy</button>
-                    <pre style="background: rgba(0,0,0,0.3); padding: 1rem; border-radius: 4px; overflow-x: auto; font-size: 0.8rem; margin: 0;">model_provider = "tamp"
+                    <pre class="setup-panel__code">model_provider = "tamp"
 
 [model_providers.tamp]
 name = "Tamp Proxy"
 base_url = "http://localhost:7778/v1"
 env_key = "OPENAI_API_KEY"
-wire_api = "responses"</pre>
+wire_api = "responses"
+
+# ChatGPT Plus/Pro OAuth — also set:
+openai_base_url = "http://localhost:7778/v1"</pre>
                 </div>
-                <p class="db-caption" style="opacity: 0.7; margin-top: 0.5rem; font-size: 0.75rem;">Works with ChatGPT Plus/Pro OAuth &mdash; add <code>openai_base_url = "http://localhost:7778/v1"</code> to <code>~/.codex/config.toml</code>. Tamp routes OAuth bearers to <code>chatgpt.com</code> automatically.</p>
             </div>
 
-            <div class="db-card db-surface--raised" style="padding: 1.5rem;">
-                <h4 class="db-h4" style="margin-bottom: 0.5rem;">Cursor</h4>
-                <p class="db-caption" style="opacity: 0.7; margin-bottom: 0.75rem;">Settings &rarr; Models &rarr; Override OpenAI Base URL</p>
+            <div class="setup-panel db-card db-surface--raised" id="setup-cursor" role="tabpanel" data-panel="cursor" hidden>
+                <p class="setup-panel__desc">Settings &rarr; Models &rarr; Override OpenAI Base URL. <strong style="color: #d79921;">Caveat:</strong> bundled <code>cursor-*</code>, <code>composer-*</code>, <code>claude-*</code>, <code>gpt-*</code> models route through <code>api2.cursor.sh</code> and cannot be intercepted. Tamp works with BYOK on external model names via a public tunnel.</p>
                 <div class="code-copy-wrap">
                     <button class="code-copy-btn" type="button" aria-label="Copy code to clipboard">copy</button>
-                    <pre style="background: rgba(0,0,0,0.3); padding: 1rem; border-radius: 4px; overflow-x: auto; font-size: 0.8rem; margin: 0;">http://localhost:7778/v1
+                    <pre class="setup-panel__code">http://localhost:7778/v1
 
-# Pick an OpenAI-family model
-# (gpt-4o, gpt-5-codex, etc.)</pre>
+# Pick an OpenAI-family model the Cursor router
+# doesn't hijack, e.g.:
+# gpt-4o-mini-sliday / claude-3.7-sonnet-sliday</pre>
                 </div>
-                <p class="db-caption" style="opacity: 0.65; margin-top: 0.5rem; font-size: 0.75rem; color: #d79921;">Cursor Pro caveat: bundled <code>cursor-*</code>, <code>composer-*</code>, <code>claude-*</code>, <code>gpt-*</code> models route through <code>api2.cursor.sh</code> and cannot be intercepted. Tamp works with BYOK on external model names via a public tunnel.</p>
             </div>
 
-            <div class="db-card db-surface--raised" style="padding: 1.5rem;">
-                <h4 class="db-h4" style="margin-bottom: 0.5rem;">VS Code (Cline)</h4>
-                <p class="db-caption" style="opacity: 0.7; margin-bottom: 0.75rem;">API Provider &rarr; OpenAI Compatible</p>
+            <div class="setup-panel db-card db-surface--raised" id="setup-cline" role="tabpanel" data-panel="cline" hidden>
+                <p class="setup-panel__desc">API Provider &rarr; OpenAI Compatible. Continue extension also works &mdash; see <a href="https://github.com/sliday/tamp#vs-code" style="color: var(--db-accent);">README</a>. GitHub Copilot cannot be intercepted (closed proprietary endpoint).</p>
                 <div class="code-copy-wrap">
                     <button class="code-copy-btn" type="button" aria-label="Copy code to clipboard">copy</button>
-                    <pre style="background: rgba(0,0,0,0.3); padding: 1rem; border-radius: 4px; overflow-x: auto; font-size: 0.8rem; margin: 0;">Base URL: http://localhost:7778/v1
-API Key: sk-...
-Model ID: gpt-4o</pre>
+                    <pre class="setup-panel__code">Base URL:  http://localhost:7778/v1
+API Key:   sk-...
+Model ID:  gpt-4o</pre>
                 </div>
-                <p class="db-caption" style="opacity: 0.5; margin-top: 0.5rem; font-size: 0.75rem;">Continue extension also works &mdash; see <a href="https://github.com/sliday/tamp#vs-code" style="color: var(--db-accent);">README</a>. GitHub Copilot cannot be intercepted.</p>
             </div>
 
-            <div class="db-card db-surface--raised" style="padding: 1.5rem;">
-                <h4 class="db-h4" style="margin-bottom: 0.5rem;">Aider / other OpenAI CLIs</h4>
-                <p class="db-caption" style="opacity: 0.7; margin-bottom: 0.75rem;">Any tool that honors <code>OPENAI_API_BASE</code></p>
+            <div class="setup-panel db-card db-surface--raised" id="setup-aider" role="tabpanel" data-panel="aider" hidden>
+                <p class="setup-panel__desc">Any CLI that honors <code>OPENAI_API_BASE</code>. Aider, sgpt, llm, mods, and the OpenAI SDK itself all respect this env var.</p>
                 <div class="code-copy-wrap">
                     <button class="code-copy-btn" type="button" aria-label="Copy code to clipboard">copy</button>
-                    <pre style="background: rgba(0,0,0,0.3); padding: 1rem; border-radius: 4px; overflow-x: auto; font-size: 0.8rem; margin: 0;">export OPENAI_API_BASE=http://localhost:7778/v1
+                    <pre class="setup-panel__code">export OPENAI_API_BASE=http://localhost:7778/v1
 aider   # or any OpenAI-compatible CLI</pre>
                 </div>
             </div>
 
-            <div class="db-card db-surface--raised" style="padding: 1.5rem;">
-                <h4 class="db-h4" style="margin-bottom: 0.5rem;">opencode</h4>
-                <p class="db-caption" style="opacity: 0.7; margin-bottom: 0.75rem;">Per-provider <code>baseURL</code> in <code>~/.config/opencode/opencode.json</code></p>
+            <div class="setup-panel db-card db-surface--raised" id="setup-opencode" role="tabpanel" data-panel="opencode" hidden>
+                <p class="setup-panel__desc">Per-provider <code>baseURL</code> in <code>~/.config/opencode/opencode.json</code>. <strong>opencode silently ignores <code>OPENAI_API_BASE</code> / <code>OPENAI_BASE_URL</code> env vars</strong> &mdash; per-provider config is required.</p>
                 <div class="code-copy-wrap">
                     <button class="code-copy-btn" type="button" aria-label="Copy code to clipboard">copy</button>
-                    <pre style="background: rgba(0,0,0,0.3); padding: 1rem; border-radius: 4px; overflow-x: auto; font-size: 0.75rem; margin: 0;">{
+                    <pre class="setup-panel__code">{
   "provider": {
     "anthropic":  { "options": { "baseURL": "http://localhost:7778" } },
     "openai":     { "options": { "baseURL": "http://localhost:7778/v1" } },
@@ -778,7 +838,20 @@ aider   # or any OpenAI-compatible CLI</pre>
   }
 }</pre>
                 </div>
-                <p class="db-caption" style="opacity: 0.65; margin-top: 0.5rem; font-size: 0.75rem;">opencode silently ignores <code>OPENAI_API_BASE</code> / <code>OPENAI_BASE_URL</code> env vars &mdash; per-provider config is required.</p>
+            </div>
+
+            <div class="setup-panel db-card db-surface--raised" id="setup-kimi" role="tabpanel" data-panel="kimi" hidden>
+                <p class="setup-panel__desc">Edit <code>~/.kimi/config.toml</code>. Tamp routes both Kimi Code OAuth (private <code>api.kimi.com/coding/v1</code>) and Moonshot API-key traffic (<code>api.moonshot.cn/v1</code>) transparently.</p>
+                <div class="code-copy-wrap">
+                    <button class="code-copy-btn" type="button" aria-label="Copy code to clipboard">copy</button>
+                    <pre class="setup-panel__code"># Kimi Code subscription (OAuth)
+[providers.kimi-for-coding]
+base_url = "http://localhost:7778/coding/v1"
+
+# Or Moonshot API key (pay-per-token)
+[providers.moonshot]
+base_url = "http://localhost:7778/v1/moonshot"</pre>
+                </div>
             </div>
 
         </div>
@@ -1547,6 +1620,21 @@ tamp compress-config ~/.config/tamp/config ~/.claude/CLAUDE.md</pre>
 </script>
 <script>
 (function () {
+  document.querySelectorAll('.setup-tabs__tab').forEach(function (tab) {
+    tab.addEventListener('click', function () {
+      var target = tab.getAttribute('data-tab');
+      document.querySelectorAll('.setup-tabs__tab').forEach(function (t) {
+        var active = t.getAttribute('data-tab') === target;
+        t.classList.toggle('is-active', active);
+        t.setAttribute('aria-selected', active ? 'true' : 'false');
+      });
+      document.querySelectorAll('.setup-panel').forEach(function (p) {
+        var active = p.getAttribute('data-panel') === target;
+        p.classList.toggle('is-active', active);
+        if (active) { p.removeAttribute('hidden'); } else { p.setAttribute('hidden', ''); }
+      });
+    });
+  });
   document.querySelectorAll('.code-copy-btn').forEach(function (btn) {
     btn.addEventListener('click', function () {
       var pre = btn.parentElement.querySelector('pre');
