@@ -221,6 +221,40 @@
         .hero-inner > *:nth-child(5) { animation-delay: 0.35s; }
         .hero-inner > *:nth-child(6) { animation-delay: 0.45s; }
 
+        /* v0.8 release callout — slim chip above hero */
+        .release-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 5px 10px 5px 5px;
+            margin-bottom: 1rem;
+            border: 1px solid var(--tamp-hairline-strong);
+            background: rgba(139, 105, 20, 0.08);
+            border-radius: 999px;
+            font-size: 0.82rem;
+            color: var(--tamp-muted);
+            text-decoration: none;
+            transition: background 0.15s, border-color 0.15s, transform 0.15s;
+        }
+        .release-chip:hover { background: rgba(139, 105, 20, 0.15); border-color: var(--tamp-accent); transform: translateY(-1px); }
+        .release-chip__tag {
+            background: var(--tamp-accent);
+            color: #1a1208;
+            font-family: var(--db-font-mono);
+            font-size: 0.7rem;
+            font-weight: 700;
+            padding: 3px 8px;
+            border-radius: 999px;
+            letter-spacing: 0.02em;
+        }
+        .release-chip__text { white-space: nowrap; }
+        .release-chip__arrow { opacity: 0.6; }
+        @media (max-width: 520px) {
+            .release-chip { font-size: 0.72rem; padding: 4px 8px 4px 4px; gap: 0.35rem; }
+            .release-chip__text { white-space: normal; text-align: left; }
+            .release-chip__arrow { display: none; }
+        }
+
         /* Copy-to-clipboard button for code snippets */
         .code-copy-wrap { position: relative; }
         .code-copy-btn {
@@ -357,6 +391,11 @@
      ============================================================ -->
 <section class="hero-section" id="hero">
     <div class="hero-inner">
+        <a href="#levels" class="release-chip" aria-label="What's new in v0.8.0">
+            <span class="release-chip__tag">v0.8.0</span>
+            <span class="release-chip__text">zip-like 1–9 compression levels + Codex ChatGPT + Kimi CLI support</span>
+            <span class="release-chip__arrow">&rarr;</span>
+        </a>
         <span class="hero-eyebrow">Token proxy for coding agents</span>
         <p class="hero-headline"><em>52.6%</em> fewer tokens.</p>
         <p class="hero-sub">
