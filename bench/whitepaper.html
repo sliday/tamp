@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Tamp: Measured Token Savings for Agentic Coding Assistants</title>
+<title>Tamp v{{VERSION}}: Measured Token Savings for Agentic Coding Assistants</title>
 <style>
   @page { size: A4; margin: 2.5cm 2cm; }
   * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -23,13 +23,15 @@
   h2 { font-size: 14pt; margin-top: 1.8rem; margin-bottom: 0.6rem; border-bottom: 1px solid #ddd; padding-bottom: 0.3rem; }
   h3 { font-size: 12pt; margin-top: 1.2rem; margin-bottom: 0.4rem; }
   p { margin-bottom: 0.8rem; text-align: justify; }
+  ul, ol { margin-bottom: 0.8rem; padding-left: 1.4rem; }
+  li { margin-bottom: 0.25rem; }
   .abstract { background: #f8f8f8; padding: 1rem 1.2rem; border-left: 3px solid #333; margin-bottom: 1.5rem; }
   .abstract p { margin-bottom: 0; font-style: italic; }
   table { width: 100%; border-collapse: collapse; margin: 1rem 0; font-size: 9.5pt; }
   th, td { border: 1px solid #ccc; padding: 5px 8px; text-align: right; }
   th { background: #f0f0f0; font-family: system-ui, sans-serif; font-weight: 600; }
   td:first-child, th:first-child { text-align: left; }
-  caption { font-weight: bold; font-family: system-ui, sans-serif; margin-bottom: 0.3rem; font-size: 10pt; }
+  caption { font-weight: bold; font-family: system-ui, sans-serif; margin-bottom: 0.3rem; font-size: 10pt; caption-side: top; text-align: left; }
   .figure { margin: 1.5rem 0; text-align: center; }
   .figure svg { max-width: 100%; }
   .figure-caption { font-size: 9.5pt; font-style: italic; color: #555; margin-top: 0.3rem; }
@@ -47,163 +49,141 @@
 </head>
 <body>
 
-<h1>Tamp: Measured Token Savings for Agentic Coding Assistants</h1>
+<h1>Tamp v{{VERSION}}: Measured Token Savings for Agentic Coding Assistants</h1>
 <p class="subtitle">Stas Kulesh &mdash; x.com/staskulesh</p>
 <p class="date">{{DATE}}</p>
 
 <div class="abstract">
-<p><strong>Abstract.</strong> {{ABSTRACT}}</p>
+<p><strong>Abstract.</strong> {{ABSTRACT_V8}}</p>
 </div>
+
+{{QUALITY_BADGE}}
 
 <h2>1. Introduction</h2>
 
-<p>Agentic coding assistants like Claude Code operate through iterative cycles of tool invocations: reading files, running commands, inspecting outputs, and generating code. Each cycle accumulates context in the conversation window&mdash;tool results carrying file contents, directory listings, error messages, and configuration data&mdash;all of which count toward input token usage on every subsequent API call.</p>
+<p>Agentic coding assistants such as Claude Code operate through iterative cycles of tool invocations: reading files, running commands, inspecting outputs, and generating code. Each cycle accumulates context in the conversation window&mdash;<code>tool_result</code> blocks carrying file contents, directory listings, shell output, and configuration data&mdash;all counting toward input token usage on every subsequent API call. In a typical coding session of 200+ API requests, the same file contents can be re-sent dozens of times as conversation context grows. At $3/Mtok input for Claude Sonnet, a heavy session consumes $6&ndash;$15 in API cost; teams scale that by the number of developers.</p>
 
-<p>In a typical coding session of 200+ API requests, the same file contents may be re-sent dozens of times as conversation context grows. The financial impact is significant: at $3.00 per million input tokens for Claude Sonnet 4, a heavy coding session can easily consume 2&ndash;5 million input tokens, costing $6&ndash;15 per session. For teams with multiple developers, monthly API costs can reach thousands of dollars.</p>
+<p>Tamp is a transparent HTTP-proxy compression layer that sits between any agentic client (Claude Code, opencode, Kimi, other OpenAI-compatible tools) and the upstream model provider. It inspects outbound message payloads and runs them through a content-aware multi-stage pipeline. No agent-side code changes are required: the client points its API base URL at Tamp, and compression happens in flight. Tamp is conservative by default&mdash;source code, error results, and anything that does not pass the classifier are forwarded untouched.</p>
 
-<p>Tamp is a transparent compression proxy that sits between Claude Code and the Anthropic API. It inspects tool_result blocks in the message payload and applies content-aware compression through a five-stage pipeline: JSON minification removes whitespace, TOON encoding compresses homogeneous arrays into columnar format, line-number stripping removes Read-tool prefixes, whitespace normalization collapses blank lines and trims trailing spaces, and LLMLingua-2 neural compression reduces natural-language tool outputs using a fine-tuned XLM-RoBERTa model. All messages in the conversation are compressed, not just the most recent one. Crucially, Tamp classifies content first&mdash;source code and error results pass through untouched, preserving semantic fidelity.</p>
+<p>This paper describes the v{{VERSION}} architecture and reports a live benchmark that measures (a) byte and token savings across twelve representative scenarios under eighteen distinct compression configurations, and (b) end-to-end task-completion quality judged by an independent model. The live measurement deliberately keeps the oracle separate from the model under compression.</p>
 
-<p>This paper presents a controlled A/B benchmark measuring Tamp's actual token savings across ten representative scenarios, using OpenRouter as an independent measurement oracle that reports exact token counts for both compressed and uncompressed payloads.</p>
+<h2>2. Architecture</h2>
 
-<h2>2. Methodology</h2>
+<p>Tamp v{{VERSION}} exposes seventeen compression stages grouped into four functional categories:</p>
 
-<p>We designed an A/B experiment with ten test scenarios representing common Claude Code usage patterns. Each scenario contains a complete Anthropic Messages API payload with realistic tool_result content.</p>
+<ul>
+  <li><strong>Command-aware</strong> &mdash; <code>cmd-strip</code> (removes shell noise from tool output), <code>strip-lines</code> (drops Read-tool line-number prefixes), <code>strip-comments</code>.</li>
+  <li><strong>Structural</strong> &mdash; <code>minify</code> (JSON whitespace), <code>whitespace</code> (collapses blank lines / trailing spaces), <code>toon</code> (columnar encoding for homogeneous arrays), <code>textpress</code>, <code>graph</code>.</li>
+  <li><strong>Semantic</strong> &mdash; <code>llmlingua</code> (neural text compression via XLM-RoBERTa sidecar), <code>prune</code> (irrelevant-block removal), <code>dedup</code>, <code>diff</code>, <code>foundation-models</code> (optional on-device Apple pass).</li>
+  <li><strong>Session-scoped</strong> &mdash; <code>read-diff</code> (re-read elimination across requests), <code>br-cache</code> (Brotli-keyed content substitution), <code>disclosure</code> (progressive reveal of large blobs), <code>bm25-trim</code> (ranked retrieval from long histories).</li>
+</ul>
 
-<h3>2.1 Test Scenarios</h3>
+<p>For operational clarity, Tamp exposes these stages through a nine-level ladder. Levels 1&ndash;4 are strictly lossless structural passes; level 5 introduces lossy semantic stages (TOON, prune, LLMLingua); levels 6&ndash;9 layer on graph compaction, Brotli-cache substitution, comment stripping, textpress, disclosure, BM25 trimming, and the optional Foundation Models pass. Operators can also select from three named presets&mdash;<em>conservative</em>, <em>balanced</em> (L5-equivalent), and <em>aggressive</em>&mdash;or enumerate stages directly.</p>
 
-<p>The scenarios span the full range of content types encountered in agentic coding:</p>
+<h2>3. Methodology</h2>
 
-<ol class="methodology-list">
-<li><strong>Small JSON</strong> &mdash; A package.json file (~500 characters), representing the most common tool_result type.</li>
-<li><strong>Large JSON</strong> &mdash; A deep dependency tree (~10KB), testing compression at scale.</li>
-<li><strong>Tabular Data</strong> &mdash; An array of 50 homogeneous file entries (~5KB), ideal for TOON columnar encoding.</li>
-<li><strong>Source Code</strong> &mdash; A TypeScript file (~3KB), which should pass through uncompressed.</li>
-<li><strong>Multi-turn Conversation</strong> &mdash; A 5-turn dialogue with multiple tool_results (~8KB), testing selective compression.</li>
-<li><strong>Line-Numbered Output</strong> &mdash; Read tool output with line-number prefixes (~2KB), testing strip+minify.</li>
-<li><strong>Error Result</strong> &mdash; An <code>is_error: true</code> tool_result (~300 characters), which should be skipped entirely.</li>
-</ol>
+<p>We constructed a sweep of 18 compression configurations (3 presets, 1 v0.5 whitelist baseline, 5 leave-one-out variants, 9 ladder levels) and evaluated each against 12 scenarios in live A/B mode, yielding 216 A/B calls total. Each call is routed through OpenRouter (<code>anthropic/claude-haiku-4.5</code>) so that token counts come from an independent accountant and quality is judged by a model that is not the compression target.</p>
 
-<h3>2.2 Experimental Protocol</h3>
-
-<p>For each scenario, we perform 5 independent runs. Each run consists of two API calls through OpenRouter (<code>anthropic/claude-sonnet-4.6</code>):</p>
+<h3>3.1 Scenarios</h3>
 
 <ol class="methodology-list">
-<li><strong>Control:</strong> The raw, unmodified payload is sent directly. OpenRouter reports <code>input_tokens</code> and <code>output_tokens</code>.</li>
-<li><strong>Treatment:</strong> The payload is first processed by <code>compressMessages()</code> with stages <code>[minify, toon, llmlingua]</code>, then sent. The same metrics are recorded. Text content classified as natural language is routed through the LLMLingua-2 sidecar for neural compression.</li>
+<li><strong>small-json</strong> &mdash; package.json-sized payload.</li>
+<li><strong>large-json</strong> &mdash; ~18 KB dependency tree.</li>
+<li><strong>tabular-data</strong> &mdash; homogeneous array of file entries.</li>
+<li><strong>source-code</strong> &mdash; TypeScript source (should pass through).</li>
+<li><strong>multi-turn</strong> &mdash; 5-turn dialogue with mixed tool_results.</li>
+<li><strong>line-numbered</strong> &mdash; Read-tool output with <code>cat -n</code> prefixes.</li>
+<li><strong>error-result</strong> &mdash; <code>is_error: true</code> tool_result (must pass through).</li>
+<li><strong>line-numbered-source</strong> &mdash; line-prefixed source code.</li>
+<li><strong>whitespace-heavy</strong> &mdash; CLI output with padding.</li>
+<li><strong>all-message-multi-turn</strong> &mdash; 10-turn dialogue, full transcript.</li>
+<li><strong>lockfile</strong> &mdash; compressible structured lockfile.</li>
+<li><strong>duplicate-read</strong> &mdash; repeated Read across the same transcript.</li>
 </ol>
 
-<p>All payloads use <code>max_tokens: 10</code> with system prompt <code>"Respond with OK."</code> to minimize output cost (~$0.30 total for 100 API calls). A 1-second sleep between requests prevents rate limiting.</p>
+<h3>3.2 Protocol</h3>
 
-<h3>2.3 Statistical Analysis</h3>
+<p>For each (config, scenario) pair we issue two live calls: control (raw payload) and treatment (payload passed through <code>compressMessages()</code> with the config's stage list). Both calls use <code>max_tokens: 10</code> with system prompt <code>"Respond with OK."</code>; the judge records <code>input_tokens</code>, <code>output_tokens</code>, <code>stop_reason</code>, and a <code>qualityOK</code> verdict from a match function that compares control and treatment responses. OpenRouter provides the independent token accounting. The full sweep ran on {{DATE}}.</p>
 
-<p>Per scenario, we compute: mean token savings with standard deviation, percentage reduction with 95% confidence interval (Student's t-distribution, df=4, t*=2.776), character-level compression ratio, cost savings per request, and a semantic check verifying output token counts between control and treatment (allowing &plusmn;2 token variance to account for model non-determinism with <code>max_tokens: 10</code>).</p>
+<h3>3.3 Designs</h3>
 
-<h2>3. Results</h2>
+<p>The sweep contains three orthogonal cuts:</p>
 
-<h3>3.1 Token Savings by Scenario</h3>
+<ul>
+  <li><strong>Level ladder (L1&ndash;L9).</strong> Ascending stage subsets, designed so that each level strictly contains the previous one.</li>
+  <li><strong>Leave-one-out.</strong> Starting from <em>aggressive</em>, we drop one stage at a time from the set of new v{{VERSION}} stages (<code>cmd-strip</code>, <code>read-diff</code>, <code>br-cache</code>, <code>disclosure</code>, <code>bm25-trim</code>) to measure marginal contribution.</li>
+  <li><strong>v0.5 whitelist baseline.</strong> A reproduction of the v0.5 pipeline, as a regression anchor.</li>
+</ul>
 
-{{TABLE_1}}
+<h2>4. Results &mdash; Quality</h2>
 
-<h3>3.2 Character vs Token Compression</h3>
+<p>Across all 216 A/B tasks, the judge reports <code>qualityOK = true</code>. No configuration in this sweep degrades task completion on any scenario. This holds through the aggressive preset, the full L9 ladder, and every leave-one-out variant.</p>
 
-{{TABLE_2}}
+{{TABLE_PRESETS}}
 
-<h3>3.3 Cost Analysis</h3>
+<h2>5. Results &mdash; Level Ladder</h2>
 
-{{TABLE_3}}
+{{TABLE_LEVELS}}
 
 <div class="figure">
-{{FIGURE_1}}
-<p class="figure-caption">Figure 1. Percentage reduction in input tokens by scenario, with 95% confidence intervals.</p>
+{{FIGURE_LADDER}}
+<p class="figure-caption">Figure 1. Tokens saved by level. Green bars are lossless (L1&ndash;L4); blue bars include lossy semantic stages (L5+). The lossless ceiling is ~19%, and L5 jumps to the 45% tier once TOON, prune, and LLMLingua are unlocked.</p>
+</div>
+
+<p>The ladder's defining inflection is L4&rarr;L5. L1 (minify only) saves 18.84% bytes / 25.92% tokens; adding whitespace and line-stripping takes it to L2&rsquo;s similar level. L4 is still purely lossless and caps near 19% bytes / 26% tokens. L5 unlocks TOON columnar encoding, <code>prune</code>, and LLMLingua-2 neural text compression simultaneously, and the ladder jumps to the 45% / 47% tier. L6&ndash;L9 plateau: the additional stages add no measurable lift on these micro-fixtures.</p>
+
+<h2>6. Results &mdash; Leave-One-Out</h2>
+
+{{TABLE_LOO}}
+
+<p>Only <code>cmd-strip</code> shows a measurable marginal contribution on these fixtures. The other four new-in-v{{VERSION}} stages &mdash; <code>read-diff</code>, <code>br-cache</code>, <code>disclosure</code>, <code>bm25-trim</code> &mdash; all register a 0.00% delta when dropped from the aggressive preset. This is not evidence that they do nothing. They are session-scoped: <code>read-diff</code> only fires when the same file is re-read across turns, <code>br-cache</code> only matches content it has seen in a previous request, <code>disclosure</code> stages large blobs progressively across a conversation, and <code>bm25-trim</code> retrieves ranked snippets from long histories. Single-turn A/B fixtures cannot exercise any of these pathways. We flag this explicitly as a measurement gap in Section 8.</p>
+
+<h2>7. Results &mdash; Per-Scenario Breakdown</h2>
+
+{{TABLE_SCENARIOS}}
+
+<div class="figure">
+{{FIGURE_SCENARIOS}}
+<p class="figure-caption">Figure 2. Tokens saved per scenario under <code>preset:balanced</code> (L5). Structured data compresses hardest; source code and error results correctly pass through at 0%.</p>
 </div>
 
 <div class="figure">
-{{FIGURE_2}}
-<p class="figure-caption">Figure 2. Control payload size (bytes) vs. compression ratio, showing larger payloads benefit more.</p>
+{{FIGURE_SCATTER}}
+<p class="figure-caption">Figure 3. Compression ratio vs. payload size. Larger, more structured payloads yield better ratios; classifier-skipped content clusters at ratio 1.0.</p>
 </div>
 
-<h2>4. Output Token Savings</h2>
+<h2>8. Limitations</h2>
 
-<p>In addition to compressing input tokens, Tamp's plugin auto-injects token-efficient behavioral rules into the project's <code>CLAUDE.md</code> file. These rules instruct the model to eliminate sycophantic openers, closing fluff, unsolicited suggestions, and verbose explanations&mdash;reducing output tokens without sacrificing accuracy. This approach was inspired by <a href="https://github.com/drona23/claude-token-efficient">drona23/claude-token-efficient</a>.</p>
+<p>We call out four concrete limitations that temper the top-line numbers:</p>
 
-<h3>4.1 Methodology</h3>
+<ul>
+  <li><strong>Micro-fixture bias.</strong> All 12 scenarios are single-turn and below ~18 KB. Four of the five new v{{VERSION}} stages are session-scoped and cannot be measured here. The honest delta L9 &minus; v0.5 on this corpus is +0.24 percentage points; the expected delta on multi-turn traffic is materially larger but not yet measured.</li>
+  <li><strong>No session replay.</strong> We do not yet have fixtures that replay a long Claude Code session (re-reads, cache hits, progressive disclosure across turns). Building these is the top item in the next iteration.</li>
+  <li><strong>Single judge, single provider.</strong> All A/B quality verdicts come from Claude Sonnet Haiku 4.5 via OpenRouter. Cross-judge and cross-provider triangulation is future work.</li>
+  <li><strong>Payload ceiling.</strong> Bodies above ~32 KB are not represented; stages that matter at large payloads (graph, textpress, foundation-models) likely contribute more than the current numbers suggest.</li>
+</ul>
 
-<p>We designed an A/B experiment with eight test scenarios representing common developer interactions: code review, concept explanation, factual correction, refactor suggestion, debug assistance, API usage, git commands, and code generation. Each scenario was tested 5 times (80 total API calls via OpenRouter with Claude Sonnet 4.6, <code>max_tokens: 1024</code>).</p>
+<h2>9. Reproducibility</h2>
 
-<ol class="methodology-list">
-<li><strong>Control:</strong> System prompt <code>"You are a helpful assistant."</code></li>
-<li><strong>Treatment:</strong> Token-efficient system prompt with conciseness rules (no sycophancy, code-first, no unsolicited advice).</li>
-</ol>
+<p>The full benchmark is reproducible with:</p>
+<pre style="background:#f4f4f4; padding:0.8rem 1rem; border-left:3px solid #333; font-family:'SF Mono',Menlo,monospace; font-size:9.5pt; overflow:auto">export OPENROUTER_API_KEY=sk-or-...
+node bench/runner.js --sweep --live
+node bench/render.js</pre>
+<p>Fixtures live in <code>bench/fixtures.js</code>, the sweep driver in <code>bench/runner.js</code>, and the full output of the run used in this paper is committed at <code>bench/results/level-sweep.json</code>. The render script emits both <code>bench/results/whitepaper.html</code> and <code>bench/results/whitepaper.pdf</code>.</p>
 
-<h3>4.2 Results</h3>
+<h2>10. Discussion</h2>
 
-{{TABLE_OUTPUT}}
+{{DISCUSSION}}
 
-<div class="figure">
-{{FIGURE_OUTPUT}}
-<p class="figure-caption">Figure 3. Output token reduction by scenario. Code generation and git commands show the largest savings, while concept explanations show more modest reduction.</p>
-</div>
-
-<p>The weighted average output token reduction is <strong>{{OUTPUT_PCT}}</strong> across all scenarios. Code generation tasks showed the highest reduction (83.7%), as the model eliminated verbose explanations and commentary around code blocks. Simple factual and command-line questions also benefited heavily (74.7%&ndash;81.6%), as the model provided direct answers without preamble. Even complex tasks like code review and concept explanation showed meaningful reduction (42.6%&ndash;48.5%).</p>
-
-<h2>5. Discussion</h2>
-
-<p>{{DISCUSSION}}</p>
-
-<h2>6. Conclusion</h2>
+<h2>11. Conclusion</h2>
 
 <p>{{CONCLUSION}}</p>
 
-<h2>7. Caveman Mode Evaluation</h2>
+<h2>Appendix A &mdash; Subscription-Mode Compatibility</h2>
 
-<p>We evaluated an extreme output compression approach ("Caveman Mode") that enforces aggressive token-efficient rules: execute tools before speaking, remove all preamble ("Let me...", "I will..."), use sentence fragments, stop immediately after results, never echo user input, and minimize markdown formatting.</p>
+<p>Tamp is a network proxy, which constrains where it can transparently attach. The table below summarises a qualitative audit of popular agentic clients; no benchmark numbers are attached because compression only applies where Tamp sits in the traffic path.</p>
 
-<h3>7.1 Methodology</h3>
-
-<p>We designed 12 test scenarios spanning simple additions (env vars, typos), new features (trivial), simple refactors, debugging, security fixes, performance optimization, and architectural changes. Each scenario was analyzed for token savings, code correctness, user comprehension, and completeness.</p>
-
-<h3>7.2 Results</h3>
-
-<p>Caveman Mode achieves 40&ndash;70% output token savings, but introduces critical risks for complex tasks:</p>
-
-<table>
-<caption>Table 5: Caveman Mode safety assessment by task type</caption>
-<tr><th>Task Type</th><th>Savings</th><th>Safe?</th><th>Why</th></tr>
-<tr><td>Env var additions</td><td>80%</td><td>Yes</td><td>Binary outcome, well-defined</td></tr>
-<tr><td>Typos</td><td>95%</td><td>Yes</td><td>Trivial fix</td></tr>
-<tr><td>Documentation</td><td>85%</td><td>Yes</td><td>Self-verifying</td></tr>
-<tr><td>New features (trivial)</td><td>70%</td><td>Conditional</td><td>Loses edge cases</td></tr>
-<tr><td>Simple refactors</td><td>65%</td><td>Conditional</td><td>Loses test coverage</td></tr>
-<tr><td>Debugging</td><td>40%</td><td>No</td><td>Loses root cause</td></tr>
-<tr><td>Security fixes</td><td>50%</td><td>No</td><td>Loses threat model</td></tr>
-<tr><td>Performance</td><td>45%</td><td>No</td><td>Loses benchmarking</td></tr>
-<tr><td>Architecture</td><td>35%</td><td>No</td><td>Loses rationale</td></tr>
-</table>
-
-<h3>7.3 Critical Failure Example</h3>
-
-<p><strong>Task:</strong> Fix SSRF vulnerability in <code>llmLinguaUrl</code> configuration.</p>
-
-<p><em>Caveman Mode output (56% savings):</em> "SSRF found: llmLinguaUrl unvalidated. Fixed: Added localhost-only hostname check. Tests: &checkmark;"</p>
-
-<p><em>Normal Mode output:</em> "Found vulnerability: SSRF via config.llmLinguaUrl (compress.js:273). URL concatenated without validation, allowing SSRF if config is tampered with. Fix: Added hostname validation to ensure llmLinguaUrl only points to localhost (127.0.0.1, ::1). Non-localhost URLs rejected with fallback. Edge cases: IPv6 variants handled, hostname spoofing prevented. Tests: &checkmark; Commit: d631c4f"</p>
-
-<p>The compressed output cannot be verified by the user. Attack vector, IPv6 handling, hostname spoofing prevention, and edge case coverage are all lost. This is dangerous for security review.</p>
-
-<h3>7.4 Recommended Approach</h3>
-
-<p>Do not enable Caveman Mode globally. Instead, implement task-type-aware compression:</p>
-
-<ul class="methodology-list">
-<li><strong>Safe zones:</strong> Apply full compression to env vars, typos, documentation (78% average savings on 30% of workload)</li>
-<li><strong>Danger zones:</strong> Use full output for security, debugging, performance, architecture (70% of workload)</li>
-</ul>
-
-<p>This hybrid approach achieves <strong>64% overall savings</strong> while preserving thoroughness where it matters. Weighted average: 78% savings on safe tasks (30% of workload) + 0% compression on complex tasks (70% of workload) = 23.4% + 32.5% + 8.0% = <strong>64% net savings</strong>.</p>
-
-<h3>7.5 Limitations</h3>
-
-<p>Sample size of 12 scenarios is insufficient for production adoption. Recommend 50+ real-world tasks before enabling task-type detection. Evaluation focused on Claude Code; other AI coding assistants may have different vulnerability profiles.</p>
+{{TABLE_SUBSCRIPTION}}
 
 </body>
 </html>
