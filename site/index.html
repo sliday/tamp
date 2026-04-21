@@ -158,6 +158,35 @@
         .hero-inner > *:nth-child(4) { animation-delay: 0.25s; }
         .hero-inner > *:nth-child(5) { animation-delay: 0.35s; }
         .hero-inner > *:nth-child(6) { animation-delay: 0.45s; }
+
+        /* Copy-to-clipboard button for code snippets */
+        .code-copy-wrap { position: relative; }
+        .code-copy-btn {
+            position: absolute;
+            top: 0.5rem;
+            right: 0.5rem;
+            background: rgba(255,255,255,0.06);
+            border: 1px solid rgba(255,255,255,0.12);
+            color: inherit;
+            font: inherit;
+            font-size: 0.7rem;
+            padding: 3px 8px;
+            border-radius: 3px;
+            cursor: pointer;
+            opacity: 0;
+            transition: opacity 0.15s, background 0.15s, border-color 0.15s;
+            z-index: 1;
+        }
+        .code-copy-wrap:hover .code-copy-btn,
+        .code-copy-btn:focus-visible { opacity: 1; }
+        .code-copy-btn:hover { background: rgba(255,255,255,0.12); }
+        .code-copy-btn.copied {
+            opacity: 1;
+            background: rgba(81, 207, 102, 0.18);
+            border-color: rgba(81, 207, 102, 0.4);
+            color: #51cf66;
+        }
+        @media (hover: none) { .code-copy-btn { display: none; } }
     </style>
 </head>
 <body>
@@ -416,46 +445,61 @@
             <div class="db-card db-surface--raised" style="padding: 1.5rem;">
                 <h4 class="db-h4" style="margin-bottom: 0.5rem;">Claude Code</h4>
                 <p class="db-caption" style="opacity: 0.7; margin-bottom: 0.75rem;">Anthropic API format &mdash; <code>/v1/messages</code></p>
-                <pre style="background: rgba(0,0,0,0.3); padding: 1rem; border-radius: 4px; overflow-x: auto; font-size: 0.8rem; margin: 0;">export ANTHROPIC_BASE_URL=http://localhost:7778
+                <div class="code-copy-wrap">
+                    <button class="code-copy-btn" type="button" aria-label="Copy code to clipboard">copy</button>
+                    <pre style="background: rgba(0,0,0,0.3); padding: 1rem; border-radius: 4px; overflow-x: auto; font-size: 0.8rem; margin: 0;">export ANTHROPIC_BASE_URL=http://localhost:7778
 claude</pre>
+                </div>
             </div>
 
             <div class="db-card db-surface--raised" style="padding: 1.5rem;">
                 <h4 class="db-h4" style="margin-bottom: 0.5rem;">Codex CLI</h4>
                 <p class="db-caption" style="opacity: 0.7; margin-bottom: 0.75rem;">Responses API &mdash; edit <code>~/.codex/config.toml</code></p>
-                <pre style="background: rgba(0,0,0,0.3); padding: 1rem; border-radius: 4px; overflow-x: auto; font-size: 0.8rem; margin: 0;">model_provider = "tamp"
+                <div class="code-copy-wrap">
+                    <button class="code-copy-btn" type="button" aria-label="Copy code to clipboard">copy</button>
+                    <pre style="background: rgba(0,0,0,0.3); padding: 1rem; border-radius: 4px; overflow-x: auto; font-size: 0.8rem; margin: 0;">model_provider = "tamp"
 
 [model_providers.tamp]
 name = "Tamp Proxy"
 base_url = "http://localhost:7778/v1"
 env_key = "OPENAI_API_KEY"
 wire_api = "responses"</pre>
+                </div>
             </div>
 
             <div class="db-card db-surface--raised" style="padding: 1.5rem;">
                 <h4 class="db-h4" style="margin-bottom: 0.5rem;">Cursor</h4>
                 <p class="db-caption" style="opacity: 0.7; margin-bottom: 0.75rem;">Settings &rarr; Models &rarr; Override OpenAI Base URL</p>
-                <pre style="background: rgba(0,0,0,0.3); padding: 1rem; border-radius: 4px; overflow-x: auto; font-size: 0.8rem; margin: 0;">http://localhost:7778/v1
+                <div class="code-copy-wrap">
+                    <button class="code-copy-btn" type="button" aria-label="Copy code to clipboard">copy</button>
+                    <pre style="background: rgba(0,0,0,0.3); padding: 1rem; border-radius: 4px; overflow-x: auto; font-size: 0.8rem; margin: 0;">http://localhost:7778/v1
 
 # Pick an OpenAI-family model
 # (gpt-4o, gpt-5-codex, etc.)</pre>
+                </div>
                 <p class="db-caption" style="opacity: 0.5; margin-top: 0.5rem; font-size: 0.75rem;">Bundled <code>cursor-*</code> / <code>claude-*</code> models bypass the override.</p>
             </div>
 
             <div class="db-card db-surface--raised" style="padding: 1.5rem;">
                 <h4 class="db-h4" style="margin-bottom: 0.5rem;">VS Code (Cline)</h4>
                 <p class="db-caption" style="opacity: 0.7; margin-bottom: 0.75rem;">API Provider &rarr; OpenAI Compatible</p>
-                <pre style="background: rgba(0,0,0,0.3); padding: 1rem; border-radius: 4px; overflow-x: auto; font-size: 0.8rem; margin: 0;">Base URL: http://localhost:7778/v1
+                <div class="code-copy-wrap">
+                    <button class="code-copy-btn" type="button" aria-label="Copy code to clipboard">copy</button>
+                    <pre style="background: rgba(0,0,0,0.3); padding: 1rem; border-radius: 4px; overflow-x: auto; font-size: 0.8rem; margin: 0;">Base URL: http://localhost:7778/v1
 API Key: sk-...
 Model ID: gpt-4o</pre>
+                </div>
                 <p class="db-caption" style="opacity: 0.5; margin-top: 0.5rem; font-size: 0.75rem;">Continue extension also works &mdash; see <a href="https://github.com/sliday/tamp#vs-code" style="color: var(--db-accent);">README</a>. GitHub Copilot cannot be intercepted.</p>
             </div>
 
             <div class="db-card db-surface--raised" style="padding: 1.5rem;">
                 <h4 class="db-h4" style="margin-bottom: 0.5rem;">Aider / opencode / other</h4>
                 <p class="db-caption" style="opacity: 0.7; margin-bottom: 0.75rem;">Any OpenAI-compatible CLI</p>
-                <pre style="background: rgba(0,0,0,0.3); padding: 1rem; border-radius: 4px; overflow-x: auto; font-size: 0.8rem; margin: 0;">export OPENAI_API_BASE=http://localhost:7778/v1
+                <div class="code-copy-wrap">
+                    <button class="code-copy-btn" type="button" aria-label="Copy code to clipboard">copy</button>
+                    <pre style="background: rgba(0,0,0,0.3); padding: 1rem; border-radius: 4px; overflow-x: auto; font-size: 0.8rem; margin: 0;">export OPENAI_API_BASE=http://localhost:7778/v1
 aider   # or opencode, cline, etc.</pre>
+                </div>
             </div>
 
         </div>
@@ -1215,6 +1259,38 @@ tamp compress-config ~/.config/tamp/config ~/.claude/CLAUDE.md</pre>
       ]
     });
   } catch (e) { /* ignore */ }
+})();
+</script>
+<script>
+(function () {
+  document.querySelectorAll('.code-copy-btn').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var pre = btn.parentElement.querySelector('pre');
+      if (!pre) return;
+      var text = pre.textContent;
+      var done = function () {
+        var original = 'copy';
+        btn.textContent = 'copied';
+        btn.classList.add('copied');
+        setTimeout(function () {
+          btn.textContent = original;
+          btn.classList.remove('copied');
+        }, 1500);
+      };
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(done, function () {
+          var ta = document.createElement('textarea');
+          ta.value = text;
+          ta.style.position = 'fixed';
+          ta.style.opacity = '0';
+          document.body.appendChild(ta);
+          ta.select();
+          try { document.execCommand('copy'); done(); } catch (e) {}
+          document.body.removeChild(ta);
+        });
+      }
+    });
+  });
 })();
 </script>
 </body>
