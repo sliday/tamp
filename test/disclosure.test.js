@@ -187,6 +187,41 @@ describe('rehydrateReferences - cache hit injects full body', () => {
   })
 })
 
+describe('rehydrateReferences - same marker quoted twice in one block', () => {
+  const dir = freshDir('dup')
+  after(() => rmSync(dir, { recursive: true, force: true }))
+
+  it('expands every occurrence of a repeated marker, leaving no raw marker behind', () => {
+    const cache = createBrCache({ cacheDir: dir, minSize: 1024 })
+    const fullText = bigBody('DUP', 64 * 1024)
+    const put = cache.put(fullText)
+    assert.ok(put)
+    const bytes = Buffer.byteLength(fullText, 'utf8')
+    const marker = `<tamp-ref:v1:${put.hash}:${bytes}>`
+    const body = {
+      model: 'claude-3-5-sonnet-20241022',
+      max_tokens: 1024,
+      messages: [
+        { role: 'user', content: 'Please compress this file.' },
+        {
+          role: 'user',
+          content: [
+            { type: 'text', text: `Compare the start of ${marker} with the end of ${marker}.` },
+          ],
+        },
+      ],
+    }
+
+    const result = rehydrateReferences(body, anthropic, cache)
+    assert.equal(result.rehydrated, 2, 'both quoted markers should count as rehydrated')
+
+    const updated = body.messages[1].content[0].text
+    assert.ok(!updated.includes(marker), 'no raw <tamp-ref:...:BYTES> marker may remain after rehydration')
+    const headerCount = updated.split(`<tamp-ref:v1:${put.hash} expanded -`).length - 1
+    assert.equal(headerCount, 2, 'both markers must be expanded into full blocks')
+  })
+})
+
 describe('compressRequest - two-turn disclosure + rehydration pipeline', () => {
   const dir = freshDir('pipeline')
   after(() => rmSync(dir, { recursive: true, force: true }))
