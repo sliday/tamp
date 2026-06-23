@@ -353,6 +353,14 @@ Where v0.8 actually pays off is **session-scoped work**, which is what coding ag
 
 The real win in v0.8 is **the level knob itself** — a zip-like 1–9 dial that lets you trade compression aggressiveness for risk without memorizing stage names. To reproduce the numbers above, run `node bench/runner.js --sweep` (set `OPENROUTER_API_KEY` for the live A/B pass).
 
+## Security
+
+Tamp runs on `localhost` and forwards to the upstream you configure. Most stages are local-only: `llmlingua` talks to a sidecar on `127.0.0.1`, `foundation-models` stays on-device. The one stage that sends content off-box is `textpress` (opt-in, level 7+), which posts to OpenRouter when `OPENROUTER_API_KEY` is set — leave it off if your tool output is sensitive.
+
+**Secret redaction** is on the roadmap ([#6](https://github.com/sliday/tamp/issues/6)): a `redact` stage that masks API keys, tokens, and `.env` values before anything leaves the machine, running ahead of every other stage. Until it lands, Tamp forwards file contents verbatim — treat your upstream's data policy as the boundary.
+
+This repo ships an agent harness (built with [harn.app](https://harn.app)): `AGENTS.md` plus PreToolUse / Stop hooks under `scripts/harness/` that block dangerous shell commands and gate completion on `npm test`. See `.claude/settings.json`.
+
 ## Development
 
 ```bash
