@@ -184,12 +184,20 @@ function applyAnthropicRehydration(body, refs) {
     if (typeof current !== 'string') continue
 
     let updated = current
+    const seenMatch = new Set()
     for (const ref of items) {
+      if (seenMatch.has(ref.match)) continue
+      seenMatch.add(ref.match)
       const expandedSentinel = `<tamp-ref:v1:${ref.hash} expanded -`
-      if (updated.indexOf(expandedSentinel) !== -1) continue
-      const idx = updated.indexOf(ref.match)
-      if (idx === -1) continue
-      updated = updated.slice(0, idx) + ref.expansion + updated.slice(idx + ref.match.length)
+      // Idempotency across passes: skip if the INCOMING body already carried
+      // this expansion. Check `current` (the original), not `updated`, so an
+      // expansion we insert this pass cannot suppress a sibling marker that
+      // shares the same hash.
+      if (current.indexOf(expandedSentinel) !== -1) continue
+      if (current.indexOf(ref.match) === -1) continue
+      // Replace every occurrence: the model may quote the same marker more
+      // than once in one block.
+      updated = updated.split(ref.match).join(ref.expansion)
     }
 
     if (updated === current) continue
