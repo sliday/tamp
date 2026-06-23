@@ -37,8 +37,11 @@ function deduplicateTargets(targets) {
     const prev = seen.get(key)
     if (prev && prev.text === target.text) {
       const ref = `[see tool_result in message ${prev.path[1]}, block ${prev.index} — identical content]`
-      target.compressed = ref
-      target.dedup = true
+      // Never expand: a tiny duplicate can be shorter than the reference itself.
+      if (ref.length < target.text.length) {
+        target.compressed = ref
+        target.dedup = true
+      }
     } else {
       seen.set(key, target)
     }
