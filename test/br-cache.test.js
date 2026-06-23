@@ -123,6 +123,24 @@ describe('br-cache — eviction', () => {
   })
 })
 
+describe('br-cache — single payload larger than the whole budget', () => {
+  const dir = freshDir('oversized')
+  after(() => rmSync(dir, { recursive: true, force: true }))
+
+  it('put() returns null when one entry alone exceeds maxBytes (no phantom record)', () => {
+    const cache = createBrCache({ cacheDir: dir, minSize: 1024, maxBytes: 4 * 1024 })
+    // ~64 KB of incompressible data: the brotli output far exceeds the 4 KB
+    // budget, so pruneInternal() evicts it immediately after the write.
+    const text = `seed-${incompressible(64 * 1024)}`
+    const put = cache.put(text)
+    // Contract: if put() returns a record, the content MUST be retrievable.
+    // Claiming success for content it just evicted creates a phantom brHash
+    // that get() can never resolve.
+    assert.equal(put, null, 'put must not claim success for content it immediately evicts')
+    assert.equal(cache.stats().entries, 0, 'no entry should remain on disk')
+  })
+})
+
 describe('br-cache — decompression failure is a miss', () => {
   const dir = freshDir('corrupt')
   after(() => rmSync(dir, { recursive: true, force: true }))
