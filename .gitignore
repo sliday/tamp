@@ -14,3 +14,8 @@ CHECKPOINT.json
 !site/apple-touch-icon.png
 !site/icon-192.png
 !site/sanches-free.png
+
+# Claude container isolation (sandbox for the improvement loop)
+.claude-container/
+scripts/container
+scripts/sandbox-test

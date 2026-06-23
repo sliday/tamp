@@ -9,10 +9,30 @@ const c = {
   red: '\x1b[31m',
 }
 
+// Strip secret values from a request URL before logging. Some providers
+// (Gemini and OpenAI-compatible gateways) carry the API key in the query
+// string (?key=, ?api_key=), which would otherwise land in stdout, log
+// files, and the systemd journal. Path-relative URLs only — no base needed.
+const SECRET_QUERY_PARAM = /^(key|api_key|apikey|access_token|token)$/i
+export function redactUrl(url) {
+  if (typeof url !== 'string') return url
+  const q = url.indexOf('?')
+  if (q === -1) return url
+  const path = url.slice(0, q)
+  const query = url.slice(q + 1)
+  const redacted = query.split('&').map((pair) => {
+    const eq = pair.indexOf('=')
+    if (eq === -1) return pair
+    const name = pair.slice(0, eq)
+    return SECRET_QUERY_PARAM.test(name) ? `${name}=REDACTED` : pair
+  }).join('&')
+  return `${path}?${redacted}`
+}
+
 export function formatRequestLog(stats, session, providerName, url, bodySize, tokenCost, sessionBucket) {
   const compressed = stats.filter(s => s.method)
   const label = providerName || 'anthropic'
-  const path = url || '/v1/messages'
+  const path = redactUrl(url) || '/v1/messages'
   const sizeInfo = bodySize ? ` ${c.dim}${fmtSize(bodySize)}${c.reset}` : ''
 
   if (!compressed.length && !stats.length) {

@@ -1,6 +1,32 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
-import { formatRequestLog, createSession } from '../stats.js'
+import { formatRequestLog, createSession, redactUrl } from '../stats.js'
+
+describe('redactUrl', () => {
+  it('masks the Gemini key query param', () => {
+    const out = redactUrl('/v1beta/models/gemini-2.0-flash:generateContent?key=AIzaSecret123')
+    assert.ok(!out.includes('AIzaSecret123'), 'secret must not appear')
+    assert.ok(out.includes('key=REDACTED'))
+    assert.ok(out.startsWith('/v1beta/models/gemini-2.0-flash:generateContent?'))
+  })
+
+  it('masks common secret param names, preserves others', () => {
+    const out = redactUrl('/v1/x?api_key=sk-abc&model=gpt-4&access_token=tok99')
+    assert.ok(!out.includes('sk-abc'))
+    assert.ok(!out.includes('tok99'))
+    assert.ok(out.includes('model=gpt-4'))
+    assert.ok(out.includes('api_key=REDACTED'))
+    assert.ok(out.includes('access_token=REDACTED'))
+  })
+
+  it('returns urls without a query string unchanged', () => {
+    assert.equal(redactUrl('/v1/messages'), '/v1/messages')
+  })
+
+  it('handles non-string input safely', () => {
+    assert.equal(redactUrl(undefined), undefined)
+  })
+})
 
 describe('formatRequestLog', () => {
   it('shows compression details for compressed blocks', () => {
@@ -24,6 +50,12 @@ describe('formatRequestLog', () => {
   it('shows passthrough when stats empty', () => {
     const output = formatRequestLog([], null)
     assert.ok(output.includes('passthrough'))
+  })
+
+  it('redacts secret query params from the logged url', () => {
+    const output = formatRequestLog([], null, 'gemini', '/v1beta/models/gemini:generateContent?key=AIzaSecret123')
+    assert.ok(!output.includes('AIzaSecret123'), 'API key must not leak into logs')
+    assert.ok(output.includes('key=REDACTED'))
   })
 
   it('shows nothing to compress when all skipped', () => {

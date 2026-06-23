@@ -6,7 +6,7 @@ import * as fzstd from 'fzstd'
 import { loadConfig } from './config.js'
 import { compressRequest } from './compress.js'
 import { detectProvider, detectOpenAIAuthMode, resolveOpenAIUpstream } from './providers.js'
-import { createSession, formatRequestLog } from './stats.js'
+import { createSession, formatRequestLog, redactUrl } from './stats.js'
 import { createSessionStore, deriveSessionKey } from './session-graph.js'
 import { createReadCache } from './lib/read-cache.js'
 import { createBrCache } from './lib/br-cache.js'
@@ -95,6 +95,41 @@ export function createProxy(overrides = {}, loadOpts = {}) {
   return { config, session, sessionStore, readCache, brCache, server: _createServer(config, session, sessionStore, readCache, brCache) }
 }
 
+// Stream-decompress a zstd body, aborting as soon as the running output size
+// crosses `limit`. fzstd's one-shot decompress() inflates the entire frame
+// into memory before any size check, so a small "bomb" frame could OOM the
+// proxy; streaming bounds peak memory to ~limit + one block. Throws on excess.
+export function decompressZstd(bytes, limit) {
+  const input = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes)
+  const parts = []
+  let total = 0
+  const dctx = new fzstd.Decompress((chunk) => {
+    total += chunk.length
+    if (total > limit) throw new Error('zstd decompression exceeded size limit')
+    parts.push(chunk)
+  })
+  dctx.push(input, true)
+  const out = Buffer.allocUnsafe(total)
+  let offset = 0
+  for (const p of parts) { out.set(p, offset); offset += p.length }
+  return out
+}
+
+// Surface an upstream connection error to the client. Before any response
+// bytes are sent we can emit a clean 502 JSON body. Once the response has
+// started streaming (headersSent) or finished (writableEnded), appending JSON
+// would corrupt the (possibly SSE) stream the client is reading, so we tear
+// the socket down instead. Returns true if a JSON error body was written.
+export function sendUpstreamError(res) {
+  if (res.headersSent || res.writableEnded) {
+    res.destroy()
+    return false
+  }
+  res.writeHead(502, { 'Content-Type': 'application/json' })
+  res.end(JSON.stringify({ error: 'upstream_error', message: 'failed to connect to upstream' }))
+  return true
+}
+
 function _createServer(config, session, sessionStore, readCache, brCache) {
 const log = createRequestLogger(config)
 const disclosureTotals = { rehydrated: 0, missed: 0, disclosed: 0 }
@@ -118,10 +153,7 @@ function openUpstream(method, upstreamUrl, headers, res) {
 
   upstream.on('error', (err) => {
     log(`[tamp] upstream error: ${err.code || ''} ${err.message}`)
-    if (!res.headersSent) {
-      res.writeHead(502, { 'Content-Type': 'application/json' })
-    }
-    res.end(JSON.stringify({ error: 'upstream_error', message: 'failed to connect to upstream' }))
+    sendUpstreamError(res)
   })
 
   res.on('error', (err) => {
@@ -209,7 +241,7 @@ return http.createServer(async (req, res) => {
   const provider = detectProvider(req.method, req.url, req.headers)
 
   if (!provider) {
-    log(`[tamp] ${req.method} ${req.url}`)
+    log(`[tamp] ${req.method} ${redactUrl(req.url)}`)
     const upstreamUrl = buildUpstreamUrl(req.url, config.upstream)
     return pipeRequest(req, res, upstreamUrl)
   }
@@ -263,11 +295,7 @@ return http.createServer(async (req, res) => {
       textBody = zlib.brotliDecompressSync(rawBody, { maxOutputLength: MAX_DECOMPRESSED })
       decompressed = true
     } else if (encoding === 'zstd') {
-      const decompressedBytes = fzstd.decompress(new Uint8Array(rawBody))
-      if (decompressedBytes.length > MAX_DECOMPRESSED) {
-        throw new Error('zstd decompression exceeded size limit')
-      }
-      textBody = Buffer.from(decompressedBytes)
+      textBody = decompressZstd(rawBody, MAX_DECOMPRESSED)
       decompressed = true
     } else if (encoding && encoding !== 'identity') {
       // Unknown encoding — can't decompress, passthrough as-is
