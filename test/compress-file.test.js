@@ -76,6 +76,27 @@ describe('compressContent', () => {
     assert(jsonResult.success || jsonResult.skipped)
     assert(textResult.success || textResult.skipped)
   })
+
+  it('json strategy output stays valid JSON (a .json file must not become TOON)', async () => {
+    // Tabular data where TOON encoding would otherwise win on size.
+    const content = JSON.stringify([
+      { id: 1, name: 'Alice', email: 'alice@example.com', role: 'admin' },
+      { id: 2, name: 'Bob', email: 'bob@example.com', role: 'user' },
+      { id: 3, name: 'Charlie', email: 'charlie@example.com', role: 'user' },
+      { id: 4, name: 'Diana', email: 'diana@example.com', role: 'admin' },
+    ], null, 2)
+    const result = await compressContent(content, 'json', { log: false })
+    assert(result.success, 'tabular JSON should compress')
+    assert.doesNotThrow(
+      () => JSON.parse(result.compressed),
+      'json-strategy output must remain parseable JSON — the file keeps its .json extension'
+    )
+    assert.deepStrictEqual(
+      JSON.parse(result.compressed),
+      JSON.parse(content),
+      'minified JSON must preserve the original data'
+    )
+  })
 })
 
 describe('compressFile', () => {
