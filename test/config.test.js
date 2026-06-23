@@ -41,6 +41,33 @@ describe('loadConfig', () => {
     assert.deepEqual(cfg.stages, ['minify', 'toon'])
   })
 
+  it('drops unknown stage names from TAMP_STAGES (with a warning) and keeps valid ones', () => {
+    const orig = process.stderr.write
+    let warned = ''
+    process.stderr.write = (s) => { warned += s; return true }
+    try {
+      const cfg = loadConfig({ TAMP_STAGES: 'minify,bogus,toon' })
+      assert.deepEqual(cfg.stages, ['minify', 'toon'], 'unknown stage must be dropped')
+      assert.match(warned, /bogus/, 'must warn about the unknown stage')
+    } finally {
+      process.stderr.write = orig
+    }
+  })
+
+  it('warns on an unknown TAMP_COMPRESSION_PRESET and falls back to balanced', () => {
+    const orig = process.stderr.write
+    let warned = ''
+    process.stderr.write = (s) => { warned += s; return true }
+    try {
+      const cfg = loadConfig({ TAMP_COMPRESSION_PRESET: 'baalanced' })
+      assert.match(warned, /baalanced/, 'must warn about the unknown preset')
+      // Behaviour unchanged: still the balanced preset's stages.
+      assert.ok(Array.isArray(cfg.stages) && cfg.stages.length > 0)
+    } finally {
+      process.stderr.write = orig
+    }
+  })
+
   it('overrides minSize from TAMP_MIN_SIZE', () => {
     const cfg = loadConfig({ TAMP_MIN_SIZE: '500' })
     assert.equal(cfg.minSize, 500)

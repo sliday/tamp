@@ -1,18 +1,29 @@
 import { rewriteCommandOutput } from './lib/rewriters/index.js'
 
 const LINE_NUM_RE = /^ *\d+[\t→]/
+// Genuine line-numbered output (cat -n, the Read tool) is right-aligned, so the
+// number carries leading padding. Requiring padding distinguishes it from
+// unpadded numeric first columns in TSV/CSV tool output.
+const PADDED_LINE_NUM_RE = /^ +\d+[\t→]/
 
 export function stripLineNumbers(str) {
   if (typeof str !== 'string') return str
   const lines = str.split('\n')
   if (lines.length < 2) return str
-  // Check first 3 non-empty lines for line number pattern
-  let matches = 0
+  // Collect the leading numbers from the first few non-empty lines. Only treat
+  // them as line numbers when they are padded AND strictly consecutive — the
+  // invariants of real line numbering. This avoids silently dropping the first
+  // column of numeric tabular data (e.g. "1\tAlice\t30").
+  const nums = []
   for (const line of lines.slice(0, 5)) {
     if (line.length === 0) continue
-    if (LINE_NUM_RE.test(line)) matches++
+    if (!PADDED_LINE_NUM_RE.test(line)) continue
+    nums.push(parseInt(line, 10))
   }
-  if (matches < 2) return str
+  if (nums.length < 2) return str
+  for (let i = 1; i < nums.length; i++) {
+    if (nums[i] !== nums[i - 1] + 1) return str
+  }
   return lines.map(l => l.replace(LINE_NUM_RE, '')).join('\n')
 }
 

@@ -118,6 +118,19 @@ describe('stripLineNumbers', () => {
     assert.equal(stripLineNumbers(input), input)
   })
 
+  it('does not strip a numeric first column from unpadded TSV data', () => {
+    // Real data (id, name, age) — not cat -n / Read output. The leading column
+    // must survive; stripping it silently drops a field.
+    const tsv = '1\tAlice\t30\n2\tBob\t25\n3\tCarol\t40'
+    assert.equal(stripLineNumbers(tsv), tsv)
+  })
+
+  it('does not strip when leading numbers are not consecutive', () => {
+    // Padded but non-sequential -> these are IDs, not line numbers.
+    const data = '  1001\tA\n  1005\tB\n  1002\tC'
+    assert.equal(stripLineNumbers(data), data)
+  })
+
   it('returns non-string input unchanged', () => {
     assert.equal(stripLineNumbers(42), 42)
   })

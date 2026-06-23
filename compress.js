@@ -476,8 +476,15 @@ async function compressWithFoundationModels(text, config) {
       responseData += chunk.toString()
     })
 
+    const timeoutMs = config.foundationModelsTimeout || 10000
     const response = await new Promise((resolve, reject) => {
+      // Bound the subprocess: a hung apfel must not hang the request forever.
+      const timer = setTimeout(() => {
+        try { proc.kill('SIGKILL') } catch { /* already gone */ }
+        reject(new Error(`apfel timed out after ${timeoutMs}ms`))
+      }, timeoutMs)
       proc.on('close', (code) => {
+        clearTimeout(timer)
         if (code === 5) {
           reject(new Error('FoundationModels not available (requires macOS 15+, Apple Silicon)'))
           return
@@ -495,6 +502,7 @@ async function compressWithFoundationModels(text, config) {
       })
 
       proc.on('error', (err) => {
+        clearTimeout(timer)
         reject(err)
       })
     })

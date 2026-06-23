@@ -3,6 +3,7 @@ import { homedir } from 'node:os'
 import { join } from 'node:path'
 import {
   DEFAULT_STAGES,
+  ALL_STAGES,
   VERSION,
   COMPRESSION_PRESETS,
   COMPRESSION_LEVELS,
@@ -100,7 +101,13 @@ export function loadConfig(env = process.env, options = {}) {
 
   const explicitStagesStr = get('TAMP_STAGES')
   const explicitStages = explicitStagesStr
-    ? explicitStagesStr.split(',').map(s => s.trim()).filter(Boolean)
+    ? explicitStagesStr.split(',').map(s => s.trim()).filter(Boolean).filter(s => {
+        if (ALL_STAGES.includes(s)) return true
+        process.stderr.write(
+          `[tamp] unknown stage in TAMP_STAGES: ${JSON.stringify(s)} — ignoring. Valid stages: ${ALL_STAGES.join(', ')}\n`
+        )
+        return false
+      })
     : []
 
   const presetNameRaw = get('TAMP_COMPRESSION_PRESET')
@@ -151,7 +158,10 @@ export function loadConfig(env = process.env, options = {}) {
         level = typeof preset.level === 'number' ? preset.level : null
         levelSource = 'preset-env'
       } else {
-        // Unknown preset name — fall through to default balanced
+        // Unknown preset name — warn and fall through to default balanced
+        process.stderr.write(
+          `[tamp] unknown TAMP_COMPRESSION_PRESET=${JSON.stringify(presetNameRaw)} — expected one of: ${Object.keys(COMPRESSION_PRESETS).join(', ')}. Using balanced.\n`
+        )
         stages = [...COMPRESSION_PRESETS.balanced.stages]
         level = COMPRESSION_PRESETS.balanced.level
         levelSource = 'default'
