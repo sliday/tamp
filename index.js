@@ -256,7 +256,11 @@ return http.createServer(async (req, res) => {
   let size = 0
   let overflow = false
 
-  for await (const chunk of req) {
+  // destroyOnReturn:false so breaking out on overflow does NOT destroy the
+  // request stream — pipeRequest() still needs to forward the unread remainder
+  // to the upstream. Without this, an over-maxBody body is truncated while its
+  // original content-length is preserved, hanging the upstream.
+  for await (const chunk of req.iterator({ destroyOnReturn: false })) {
     size += chunk.length
     chunks.push(chunk)
     if (size > config.maxBody) {
