@@ -247,7 +247,11 @@ Supported on all providers: Anthropic, OpenAI Chat, OpenAI Responses (Codex), Ge
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `TAMP_PORT` | `7778` | Listen port |
-| `TAMP_UPSTREAM` | `https://api.anthropic.com` | Default upstream |
+| `TAMP_UPSTREAM` | `https://api.anthropic.com` | Anthropic (default) upstream |
+| `TAMP_UPSTREAM_OPENAI` | `https://api.openai.com` | Upstream for OpenAI-compatible routes (`/v1/chat/completions`, `/v1/responses`) |
+| `TAMP_UPSTREAM_GEMINI` | `https://generativelanguage.googleapis.com` | Upstream for Gemini (`generateContent`) routes |
+| `TAMP_UPSTREAM_KIMI` | `https://api.kimi.com` | Upstream for Kimi Code routes |
+| `TAMP_UPSTREAM_MOONSHOT` | `https://api.moonshot.cn` | Upstream for Moonshot OpenAI-compatible routes |
 | `TAMP_MIN_SIZE` | `200` | Min content size (chars) |
 | `TAMP_LOG` | `true` | Enable logging |
 | `TAMP_CACHE_SAFE` | `true` | Compress newest only (prompt-cache safe) |
