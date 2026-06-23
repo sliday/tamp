@@ -6,16 +6,19 @@
 npx @sliday/tamp
 ```
 
-### Claude Code plugin
-
-Auto-start on every session:
+### Claude Code
 
 ```bash
+# Install the plugin (auto-starts Tamp each session)
 claude plugin marketplace add sliday/claude-plugins
 claude plugin install tamp@sliday
 ```
 
-Adds `/tamp:status` and `/tamp:config` commands.
+The plugin adds `/tamp:status` and `/tamp:config` commands. It auto-starts Tamp but does not route traffic. Point Claude Code at Tamp once by adding to `~/.claude/settings.json`:
+
+```json
+{ "env": { "ANTHROPIC_BASE_URL": "http://localhost:7778" } }
+```
 
 ### 🦞 OpenClaw
 
@@ -292,6 +295,22 @@ tamp
 tamp install-service
 tamp status
 ```
+
+## Monitoring
+
+Check session stats any time via the health endpoint via browser or terminal:
+
+```bash
+curl -s 'http://localhost:7778/health?text' # Human-readable
+# Tamp v0.5.9 | 7 stages active | sidecar: n/a
+# Requests: 63 | Blocks: 2
+# Tokens saved: 1136 | Chars: 3482/61528 (5.7%)
+# Est. savings: $0.0034 (Sonnet $3/Mtok) | $0.0170 (Opus $15/Mtok)
+
+curl -s http://localhost:7778/health # JSON (for scripts/dashboards)
+```
+
+Inside Claude Code, run `/tamp:status`.
 
 ## Token Savings
 
