@@ -106,6 +106,35 @@ describe('compressFile', () => {
     await fs.unlink(result.backup)
   })
 
+  it('does not overwrite an existing backup on re-run (preserves the pristine original)', async () => {
+    const testDir = tmpdir()
+    const f = join(testDir, 'test-rerun-backup.json')
+    const pretty = JSON.stringify({
+      name: 'tamp',
+      version: '0.8.3',
+      keywords: ['claude', 'anthropic', 'proxy', 'compression', 'tokens', 'llm'],
+      scripts: { start: 'node bin/tamp.js', test: 'node --test test/*.test.js' },
+    }, null, 2)
+    await writeFile(f, pretty, 'utf8')
+    // Simulate a prior run's pristine backup.
+    const bak = f + '.bak'
+    await writeFile(bak, 'PRISTINE ORIGINAL CONTENT', 'utf8')
+
+    const result = await compressFile(f, { dryRun: false })
+    assert(result.success)
+
+    const after = await readFile(bak, 'utf8')
+    assert.strictEqual(
+      after,
+      'PRISTINE ORIGINAL CONTENT',
+      'an existing backup must be preserved — re-running compress must not clobber the original'
+    )
+
+    const fs = await import('node:fs/promises')
+    await fs.unlink(f)
+    await fs.unlink(bak)
+  })
+
   it('returns dry run result without writing file', async () => {
     const testDir = tmpdir()
     testFile = join(testDir, 'test-dryrun.md')

@@ -267,6 +267,41 @@ describe('compressRequest with OpenAI format', () => {
   })
 })
 
+describe('compressRequest dedup stage — never expand', () => {
+  const dedupConfig = { minSize: 1, stages: ['dedup'], llmLinguaUrl: null, cacheSafe: false }
+
+  it('does not replace a tiny duplicate with a longer reference', async () => {
+    const body = {
+      messages: [
+        { role: 'user', content: [{ type: 'tool_result', tool_use_id: 't1', content: 'done' }] },
+        { role: 'assistant', content: 'ok' },
+        { role: 'user', content: [{ type: 'tool_result', tool_use_id: 't2', content: 'done' }] },
+      ],
+    }
+    const { body: out } = await compressMessages(body, dedupConfig)
+    assert.equal(
+      out.messages[2].content[0].content,
+      'done',
+      'a tiny duplicate must stay verbatim — the dedup reference is longer than the original'
+    )
+  })
+
+  it('still deduplicates a large duplicate (reference is shorter)', async () => {
+    const big = 'identical line of output\n'.repeat(50) // ~1.25 KB, far longer than the ref
+    const body = {
+      messages: [
+        { role: 'user', content: [{ type: 'tool_result', tool_use_id: 't1', content: big }] },
+        { role: 'assistant', content: 'ok' },
+        { role: 'user', content: [{ type: 'tool_result', tool_use_id: 't2', content: big }] },
+      ],
+    }
+    const { body: out } = await compressMessages(body, dedupConfig)
+    const second = out.messages[2].content[0].content
+    assert.ok(second.includes('identical content'), 'large duplicate should be replaced by a reference')
+    assert.ok(second.length < big.length, 'dedup reference must be shorter than the original')
+  })
+})
+
 describe('compressRequest with graph stage (session-scoped dedup)', () => {
   const largeOutput = JSON.stringify({ file: 'providers.js', content: 'x'.repeat(2000) })
 
