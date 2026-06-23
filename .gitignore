@@ -5,6 +5,9 @@ video/*.mp4
 video/node_modules/
 bench/results/
 .playwright-mcp/
+.claude/settings.local.json
+.claude/agent-trace.jsonl
+CHECKPOINT.json
 *.png
 !site/favicon.ico
 !site/tamper-icon.png
