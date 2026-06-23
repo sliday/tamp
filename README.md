@@ -12,11 +12,13 @@ npx @sliday/tamp
 # Install the plugin (auto-starts Tamp each session)
 claude plugin marketplace add sliday/claude-plugins
 claude plugin install tamp@sliday
-
-claude config set --user env.ANTHROPIC_BASE_URL http://localhost:7778 # route traffic through Tamp (one-time)
 ```
 
-The plugin adds `/tamp:status` and `/tamp:config` commands.
+The plugin adds `/tamp:status` and `/tamp:config` commands. It auto-starts Tamp but does not route traffic. Point Claude Code at Tamp once by adding to `~/.claude/settings.json`:
+
+```json
+{ "env": { "ANTHROPIC_BASE_URL": "http://localhost:7778" } }
+```
 
 ### 🦞 OpenClaw
 
