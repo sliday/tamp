@@ -203,11 +203,13 @@ function applyAnthropicRehydration(body, refs) {
     if (updated === current) continue
 
     if (isToolUseInput) {
+      // tool_use.input must stay a JSON object. If inserting the expansion made
+      // the serialized form invalid JSON, leave the original input untouched
+      // rather than writing a string Anthropic would reject.
       try {
-        const parsed = JSON.parse(updated)
-        setAtPath(body, path, parsed)
-        continue
-      } catch { /* fall through to string */ }
+        setAtPath(body, path, JSON.parse(updated))
+      } catch { /* not valid JSON: keep the original object input */ }
+      continue
     }
     setAtPath(body, path, updated)
   }
@@ -459,10 +461,13 @@ const gemini = {
       const path = t.path
       for (let i = 0; i < path.length - 1; i++) obj = obj[path[i]]
       if (t.wasObject) {
+        // Gemini's functionResponse.response must be a JSON object. If the
+        // compressed form isn't valid JSON (e.g. TOON), writing it as a string
+        // produces a request the API rejects — keep the original object.
         try {
           obj[path[path.length - 1]] = JSON.parse(t.compressed)
-          continue
-        } catch { /* fall through to string */ }
+        } catch { /* not valid JSON: leave the original object untouched */ }
+        continue
       }
       obj[path[path.length - 1]] = t.compressed
     }

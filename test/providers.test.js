@@ -356,7 +356,9 @@ describe('gemini adapter', () => {
     assert.deepEqual(body.contents[0].parts[0].functionResponse.response, { a: 1, b: 2 })
   })
 
-  it('apply sets string when wasObject but parse fails', () => {
+  it('apply keeps the original object when wasObject but compressed is not JSON', () => {
+    // functionResponse.response must stay a JSON object; writing a non-JSON
+    // string here yields a request the Gemini API rejects. Keep the original.
     const body = {
       contents: [{ parts: [{ functionResponse: { name: 'f', response: { a: 1 } } }] }],
     }
@@ -366,7 +368,7 @@ describe('gemini adapter', () => {
       wasObject: true,
     }]
     gemini.apply(body, targets)
-    assert.equal(body.contents[0].parts[0].functionResponse.response, 'not json')
+    assert.deepEqual(body.contents[0].parts[0].functionResponse.response, { a: 1 })
   })
 })
 

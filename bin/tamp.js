@@ -274,6 +274,11 @@ if (subcommand === 'uninstall-service') {
   process.exit(0)
 }
 
+if (subcommand === 'version' || subcommand === '--version' || subcommand === '-v' || process.argv.includes('--version')) {
+  console.log(`Tamp v${VERSION}`)
+  process.exit(0)
+}
+
 if (subcommand === 'status') {
   const port = process.env.TAMP_PORT || 7778
   const healthy = await checkPort(port)

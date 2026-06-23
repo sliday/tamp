@@ -260,13 +260,22 @@ return http.createServer(async (req, res) => {
   // request stream — pipeRequest() still needs to forward the unread remainder
   // to the upstream. Without this, an over-maxBody body is truncated while its
   // original content-length is preserved, hanging the upstream.
-  for await (const chunk of req.iterator({ destroyOnReturn: false })) {
-    size += chunk.length
-    chunks.push(chunk)
-    if (size > config.maxBody) {
-      overflow = true
-      break
+  try {
+    for await (const chunk of req.iterator({ destroyOnReturn: false })) {
+      size += chunk.length
+      chunks.push(chunk)
+      if (size > config.maxBody) {
+        overflow = true
+        break
+      }
     }
+  } catch (err) {
+    // Client aborted mid-upload (ECONNRESET / premature close). The client is
+    // gone, so there's nothing to forward — drop the request without letting
+    // the rejection bubble up and crash the proxy process.
+    log(`[tamp] client aborted during request body: ${err.code || err.message}`)
+    if (!res.writableEnded) res.destroy()
+    return
   }
 
   if (overflow) {
