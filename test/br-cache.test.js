@@ -1,7 +1,7 @@
 import { describe, it, after } from 'node:test'
 import assert from 'node:assert/strict'
 import { randomBytes } from 'node:crypto'
-import { mkdtempSync, rmSync, readdirSync, writeFileSync } from 'node:fs'
+import { mkdtempSync, rmSync, readdirSync, writeFileSync, statSync } from 'node:fs'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { createBrCache } from '../lib/br-cache.js'
@@ -138,6 +138,26 @@ describe('br-cache — single payload larger than the whole budget', () => {
     // that get() can never resolve.
     assert.equal(put, null, 'put must not claim success for content it immediately evicts')
     assert.equal(cache.stats().entries, 0, 'no entry should remain on disk')
+  })
+})
+
+describe('br-cache — cached content is owner-only on disk', () => {
+  const parent = freshDir('perms')
+  after(() => rmSync(parent, { recursive: true, force: true }))
+
+  // Cached bodies are full tool_results (code, file contents, command output)
+  // and may contain secrets. They must not be readable by group/other.
+  it('creates cache files and dirs with no group/other access', { skip: process.platform === 'win32' }, () => {
+    const cacheDir = join(parent, 'br') // non-existent — br-cache must create it
+    const cache = createBrCache({ cacheDir, minSize: 10 })
+    const put = cache.put('sensitive cached tool_result body '.repeat(40))
+    assert.ok(put)
+    const shard = put.hash.slice(0, 2)
+    const filePath = join(cacheDir, shard, `${put.hash}.br`)
+
+    assert.equal(statSync(filePath).mode & 0o077, 0, 'cached file must not be group/other-readable')
+    assert.equal(statSync(join(cacheDir, shard)).mode & 0o077, 0, 'shard dir must not be group/other-accessible')
+    assert.equal(statSync(cacheDir).mode & 0o077, 0, 'cache dir must not be group/other-accessible')
   })
 })
 
