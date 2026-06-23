@@ -61,6 +61,36 @@ describe('output-mode injection — provider injectOutputHint contracts', () => 
     assert.equal(body.messages[0].content, 'first')
   })
 
+  it('openai chat: appends to last text part in array content', () => {
+    const body = {
+      messages: [{
+        role: 'user',
+        content: [
+          { type: 'text', text: 'first part' },
+          { type: 'text', text: 'second part' },
+        ],
+      }],
+    }
+    const ok = openai.injectOutputHint(body, '[RULES]')
+    assert.equal(ok, true)
+    assert.equal(body.messages[0].content[1].text, 'second part\n\n[RULES]')
+    assert.equal(body.messages[0].content[0].text, 'first part', 'earlier text part must NOT be touched')
+  })
+
+  it('openai chat: pushes new text part when array has no text', () => {
+    const body = {
+      messages: [{
+        role: 'user',
+        content: [{ type: 'image_url', image_url: { url: 'data:...' } }],
+      }],
+    }
+    const ok = openai.injectOutputHint(body, '[RULES]')
+    assert.equal(ok, true)
+    assert.equal(body.messages[0].content.length, 2)
+    assert.equal(body.messages[0].content[1].type, 'text')
+    assert.equal(body.messages[0].content[1].text, '[RULES]')
+  })
+
   it('openai-responses: appends to last input_text in last user item', () => {
     const body = {
       input: [
@@ -130,6 +160,18 @@ describe('output-mode injection — getLastUserText contracts', () => {
       { role: 'user', content: [{ type: 'input_text', text: 'two' }] },
     ]}
     assert.equal(openaiResponses.getLastUserText(body), 'two')
+  })
+
+  it('openai chat: returns first text part from array content', () => {
+    const body = { messages: [
+      { role: 'user', content: 'first' },
+      { role: 'tool', tool_call_id: 't', content: 'result' },
+      { role: 'user', content: [
+        { type: 'image_url', image_url: { url: 'data:...' } },
+        { type: 'text', text: 'real prompt' },
+      ] },
+    ]}
+    assert.equal(openai.getLastUserText(body), 'real prompt')
   })
 
   it('gemini: returns last user text part', () => {

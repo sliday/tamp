@@ -296,7 +296,14 @@ const openai = {
     if (!body?.messages?.length) return null
     for (let i = body.messages.length - 1; i >= 0; i--) {
       const msg = body.messages[i]
-      if (msg?.role === 'user' && typeof msg.content === 'string') return msg.content
+      if (msg?.role !== 'user') continue
+      if (typeof msg.content === 'string') return msg.content
+      // OpenAI chat allows array content parts (vision, structured input).
+      if (Array.isArray(msg.content)) {
+        for (const b of msg.content) {
+          if (b?.type === 'text' && typeof b.text === 'string') return b.text
+        }
+      }
     }
     return null
   },
@@ -307,6 +314,17 @@ const openai = {
       if (msg?.role !== 'user') continue
       if (typeof msg.content === 'string') {
         msg.content = msg.content + '\n\n' + text
+        return true
+      }
+      if (Array.isArray(msg.content)) {
+        for (let j = msg.content.length - 1; j >= 0; j--) {
+          const b = msg.content[j]
+          if (b?.type === 'text' && typeof b.text === 'string') {
+            b.text = b.text + '\n\n' + text
+            return true
+          }
+        }
+        msg.content.push({ type: 'text', text })
         return true
       }
       return false
