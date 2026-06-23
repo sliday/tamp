@@ -10,7 +10,9 @@
     "providers.js",
     "session-graph.js",
     "stats.js",
-    "lib/"
+    "lib/",
+    "sidecar/server.py",
+    "sidecar/requirements.txt"
   ],
   "version": "0.8.0",
   "description": "Token compression proxy for coding agents. Works with Claude Code, Aider, Cursor, Cline, Windsurf. 60-70% combined input+output savings with Caveman-integrated presets and per-command rewriters.",
