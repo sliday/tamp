@@ -360,6 +360,10 @@ npm test
 node smoke.js
 ```
 
+## Star History
+
+[![Star History Chart](https://api.star-history.com/svg?repos=sliday/tamp&type=Date)](https://star-history.com/#sliday/tamp&Date)
+
 ## License
 
 MIT © [Stas Kulesh](https://sliday.com)
