@@ -104,7 +104,7 @@ export const STAGE_DESCRIPTIONS = Object.freeze({
   'foundation-models': 'Apple Intelligence neural compression (macOS 15+, Apple Silicon, 100% local)',
   dedup: 'Deduplicate identical tool_results',
   diff: 'Replace similar re-reads with diffs',
-  'read-diff': 'Session-scoped unified diff for re-reads (lossless, opt-in)',
+  'read-diff': 'Session-scoped unified diff for re-reads (lossless, on by default in balanced+)',
   prune: 'Strip lockfile hashes & npm metadata',
   'strip-comments': 'Remove code comments (lossy)',
   textpress: 'LLM semantic compression (Ollama/OpenRouter)',
