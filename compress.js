@@ -180,11 +180,20 @@ function bm25TrimTargets(targets, body, provider) {
 }
 
 // --- Stage: prune ---
-const PRUNE_KEYS = new Set(['integrity', 'shasum', '_id', '_from', '_resolved', '_integrity', '_nodeVersion', '_npmVersion', '_phantomChildren', '_requiredBy'])
+// Unambiguously npm-internal keys — safe to drop regardless of value.
+const PRUNE_KEYS = new Set(['_id', '_from', '_resolved', '_integrity', '_nodeVersion', '_npmVersion', '_phantomChildren', '_requiredBy'])
+// `integrity` / `shasum` are common field names; only drop them when the value
+// is actually an npm hash, so a legitimately-named field (e.g. integrity:"high")
+// in a non-npm tool_result is preserved.
+const NPM_INTEGRITY = /^sha\d{1,3}-[A-Za-z0-9+/]+={0,2}$/
+const NPM_SHASUM = /^[a-f0-9]{40}$/i
 
 function shouldPrune(key, val) {
   if (PRUNE_KEYS.has(key)) return true
-  if (key === 'resolved' && typeof val === 'string' && val.startsWith('https://registry.')) return true
+  if (typeof val !== 'string') return false
+  if (key === 'resolved' && val.startsWith('https://registry.')) return true
+  if (key === 'integrity' && NPM_INTEGRITY.test(val)) return true
+  if (key === 'shasum' && NPM_SHASUM.test(val)) return true
   return false
 }
 
