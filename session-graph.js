@@ -55,11 +55,35 @@ export function createSessionBucket({ brCache = null } = {}) {
   }
 }
 
-export function deriveSessionKey(headers) {
+// A conversation-stable fingerprint: the system prompt plus the first turn.
+// Claude Code (and peers) resend an immutable opening every turn, so this is
+// constant within a conversation but differs across conversations — even when
+// they share one API token. Empty when no body is available (callers that omit
+// it get the legacy token-only key).
+function conversationSeed(body) {
+  if (!body || typeof body !== 'object') return ''
+  const turns = body.messages || body.contents || body.input
+  const first = Array.isArray(turns) && turns.length ? turns[0] : null
+  if (first == null && body.system === undefined) return ''
+  try {
+    return JSON.stringify({ system: body.system ?? null, first }).slice(0, 4096)
+  } catch {
+    return ''
+  }
+}
+
+// Session key scopes the read-diff / graph caches. It MUST be conversation-
+// specific: keying on the token alone let content from one conversation be
+// referenced (read-diff, graph) in another that shares the token, emitting a
+// diff/marker against a base the second conversation's model never saw. A
+// too-unique seed merely disables cross-request dedup (full content is
+// forwarded) — the safe failure direction.
+export function deriveSessionKey(headers, body) {
   if (!headers) return null
   const auth = headers.authorization || headers['x-api-key'] || ''
   if (!auth) return null
-  return createHash('sha256').update(auth).digest('hex').slice(0, 16)
+  const seed = conversationSeed(body)
+  return createHash('sha256').update(`${auth} ${seed}`).digest('hex').slice(0, 16)
 }
 
 export function graphDeduplicateTargets(targets, bucket, { minBytes = MIN_BYTES } = {}) {

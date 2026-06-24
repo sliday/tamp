@@ -336,7 +336,7 @@ return http.createServer(async (req, res) => {
     const parsed = JSON.parse(textBody.toString('utf-8'))
 
     const sessionKey = (config.stages?.includes('graph') || config.stages?.includes('read-diff'))
-      ? deriveSessionKey(req.headers)
+      ? deriveSessionKey(req.headers, parsed)
       : null
     const sessionBucket = config.stages?.includes('graph') && sessionKey
       ? sessionStore.getBucket(sessionKey)
@@ -406,7 +406,7 @@ function probeSidecar(config) {
   req.on('error', () => {
     sidecarAvailable = false
     console.error('[tamp] \u26a0 llmlingua stage enabled but sidecar not running \u2014 text blocks won\u2019t compress')
-    console.error('[tamp]   start with: uv run --with fastapi --with uvicorn --with llmlingua --with mlx uvicorn server:app --host 0.0.0.0 --port 8788 --app-dir sidecar')
+    console.error('[tamp]   start with: uv run --with fastapi --with uvicorn --with llmlingua --with mlx uvicorn server:app --host 127.0.0.1 --port 8788 --app-dir sidecar')
   })
   req.on('timeout', () => { req.destroy() })
 }
