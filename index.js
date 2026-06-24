@@ -336,7 +336,7 @@ return http.createServer(async (req, res) => {
     const parsed = JSON.parse(textBody.toString('utf-8'))
 
     const sessionKey = (config.stages?.includes('graph') || config.stages?.includes('read-diff'))
-      ? deriveSessionKey(req.headers)
+      ? deriveSessionKey(req.headers, parsed)
       : null
     const sessionBucket = config.stages?.includes('graph') && sessionKey
       ? sessionStore.getBucket(sessionKey)

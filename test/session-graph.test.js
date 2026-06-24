@@ -31,6 +31,41 @@ describe('deriveSessionKey', () => {
     assert.equal(deriveSessionKey({}), null)
     assert.equal(deriveSessionKey(null), null)
   })
+
+  describe('conversation scoping (prevents cross-conversation cache leakage)', () => {
+    const headers = { authorization: 'Bearer sk-SAME-TOKEN' }
+    const convA = { messages: [{ role: 'user', content: 'build a todo app' }] }
+    const convB = { messages: [{ role: 'user', content: 'debug my auth flow' }] }
+
+    it('same token but different conversation => different keys', () => {
+      assert.notEqual(deriveSessionKey(headers, convA), deriveSessionKey(headers, convB))
+    })
+
+    it('same conversation stays stable across turns (first turn is immutable)', () => {
+      const turn1 = { messages: [{ role: 'user', content: 'build a todo app' }] }
+      const turn3 = {
+        messages: [
+          { role: 'user', content: 'build a todo app' },
+          { role: 'assistant', content: 'ok' },
+          { role: 'user', content: 'now add tests' },
+        ],
+      }
+      assert.equal(deriveSessionKey(headers, turn1), deriveSessionKey(headers, turn3))
+    })
+
+    it('distinguishes conversations that differ only in system prompt', () => {
+      const a = { system: 'You are agent A', messages: [{ role: 'user', content: 'hi' }] }
+      const b = { system: 'You are agent B', messages: [{ role: 'user', content: 'hi' }] }
+      assert.notEqual(deriveSessionKey(headers, a), deriveSessionKey(headers, b))
+    })
+
+    it('no body => stable token-only key (backward compatible)', () => {
+      const k1 = deriveSessionKey(headers)
+      const k2 = deriveSessionKey(headers)
+      assert.equal(k1, k2)
+      assert.match(k1, /^[a-f0-9]{16}$/)
+    })
+  })
 })
 
 describe('createSessionStore', () => {
