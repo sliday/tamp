@@ -21,14 +21,14 @@ function findLatestEligibleGroup(items, extractTargets) {
 
 function extractAnthropicMessageTargets(msg, mi) {
   const targets = []
-  if (msg.role !== 'user') return targets
+  if (!msg || msg.role !== 'user') return targets
 
   if (typeof msg.content === 'string') {
     targets.push({ path: ['messages', mi, 'content'], text: msg.content, index: mi })
   } else if (Array.isArray(msg.content)) {
     for (let i = 0; i < msg.content.length; i++) {
       const block = msg.content[i]
-      if (block.type !== 'tool_result') continue
+      if (!block || block.type !== 'tool_result') continue
       if (block.is_error) {
         targets.push({ skip: 'error', index: i })
         continue
@@ -39,7 +39,7 @@ function extractAnthropicMessageTargets(msg, mi) {
       } else if (Array.isArray(block.content)) {
         for (let j = 0; j < block.content.length; j++) {
           const sub = block.content[j]
-          if (sub.type === 'text') {
+          if (sub && sub.type === 'text') {
             targets.push({ path: ['messages', mi, 'content', i, 'content', j, 'text'], text: sub.text, index: i })
           }
         }
@@ -251,7 +251,7 @@ const anthropic = {
 const OPENAI_COMPAT_SKIP_BLOCK_TYPES = new Set(['thinking', 'partial'])
 
 function extractOpenAIChatTargets(msg, i) {
-  if (msg.role !== 'tool') return []
+  if (!msg || msg.role !== 'tool') return []
   // Some OpenAI-compat providers (Kimi, etc.) emit non-string tool content
   // with typed blocks like { type: 'thinking' }. Skip those.
   if (typeof msg.content !== 'string') {
@@ -393,11 +393,11 @@ const moonshot = {
 
 function extractGeminiContentTargets(content, ci) {
   const targets = []
-  if (!content.parts?.length) return targets
+  if (!content || !content.parts?.length) return targets
 
   for (let pi = 0; pi < content.parts.length; pi++) {
     const part = content.parts[pi]
-    if (!part.functionResponse?.response) continue
+    if (!part || !part.functionResponse?.response) continue
     const resp = part.functionResponse.response
     const text = typeof resp === 'string' ? resp : JSON.stringify(resp, null, 2)
     targets.push({
