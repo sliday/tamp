@@ -73,6 +73,20 @@ describe('compressText', () => {
     // Either minify or toon is fine — just verify it compressed
     assert.ok(result.compressedLen < result.originalLen)
   })
+
+  it('never corrupts integers beyond 2^53 in JSON (parse/stringify loses precision)', () => {
+    // Built as a raw string: writing these as JS number literals would already
+    // round them off before JSON.stringify could run. Real API outputs (BIGINT
+    // columns, snowflake IDs, ns timestamps) carry such values.
+    const input = '{\n  "user_id": 17012345678901234567,\n  "balance_cents": 9007199254740993,\n  "note": "padding text long enough to exceed minSize and stay compressible here ok"\n}'
+    const result = compressText(input, toonConfig)
+    // Contract: either skip compression, or preserve the value — never silently
+    // change a numeric ID/amount the model will reason about.
+    if (result) {
+      assert.ok(result.text.includes('17012345678901234567'), `big integer corrupted: ${result.text}`)
+      assert.ok(result.text.includes('9007199254740993'), `big integer corrupted: ${result.text}`)
+    }
+  })
 })
 
 describe('compressMessages', () => {

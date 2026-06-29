@@ -201,6 +201,19 @@ describe('rewriters — never strip failure/error context', () => {
     assert.ok(!text.includes('apt-get update 0.3s'), 'benign in-progress heading should still be stripped')
   })
 
+  it('docker: keeps a RUN-step success stdout line that ends in a duration', () => {
+    const input = [
+      '#5 [2/7] RUN apt-get update 0.3s',     // BuildKit step frame ([x/y]) — should be stripped
+      '#8 [5/7] RUN yarn build',
+      '#8 2.456 webpack compiled in 2.5s',    // RUN stdout (timestamp prefix, no [x/y]) — must be kept
+      '#8 DONE 12.3s',
+    ].join('\n')
+    const { text, rewriter } = rewriteCommandOutput(input)
+    assert.equal(rewriter, 'docker')
+    assert.ok(text.includes('webpack compiled in 2.5s'), 'RUN stdout ending in a duration must be preserved')
+    assert.ok(!text.includes('apt-get update 0.3s'), 'BuildKit [x/y] step frame should still be stripped')
+  })
+
   it('jest: does not strip PASS lines when a non-first FAIL line is present', () => {
     const input = [
       'PASS src/a.test.ts',
@@ -215,5 +228,24 @@ describe('rewriters — never strip failure/error context', () => {
     // The run failed (a suite failed to compile), so the all-pass gate must not
     // fire — PASS lines stay, preserving full context.
     assert.equal(text, input, 'a failing run must pass through untouched')
+  })
+
+  it('pytest: keeps traceback/assertion lines that end in an ellipsis', () => {
+    const input = [
+      '============================= test session starts ==============================',
+      'collected 1 item',
+      'tests/foo.py F                                                          [100%]',
+      '=================================== FAILURES ===================================',
+      '    def test_compute():',
+      '>       assert compute(huge_input) == expected_value, got something instead ...',
+      'E       assert 3 == 4, comparing the truncated values ...',
+      '=========================== 1 failed in 0.05s ============================',
+    ].join('\n')
+    const { text, rewriter } = rewriteCommandOutput(input)
+    assert.equal(rewriter, 'pytest')
+    // Real failure detail must survive — a line ending in "..." is not a
+    // per-test dot-progress line (those carry a "[ NN% ]" or a path prefix).
+    assert.ok(text.includes('got something instead'), 'assertion failure line must be preserved')
+    assert.ok(text.includes('comparing the truncated values'), 'E-prefixed traceback line must be preserved')
   })
 })

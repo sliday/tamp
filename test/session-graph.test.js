@@ -41,6 +41,17 @@ describe('deriveSessionKey', () => {
       assert.notEqual(deriveSessionKey(headers, convA), deriveSessionKey(headers, convB))
     })
 
+    it('distinguishes conversations even behind a long shared system prompt', () => {
+      // Claude Code ships a multi-thousand-char system prompt that is identical
+      // across a user's conversations. The conversation-specific first turn must
+      // still scope the key, or read-diff/graph would reference one conversation's
+      // content in another (the leak this seed exists to prevent).
+      const longSystem = 'You are Claude Code. '.repeat(300) // ~6 KB
+      const a = { system: longSystem, messages: [{ role: 'user', content: 'refactor the auth module' }] }
+      const b = { system: longSystem, messages: [{ role: 'user', content: 'debug the payment crash' }] }
+      assert.notEqual(deriveSessionKey(headers, a), deriveSessionKey(headers, b))
+    })
+
     it('same conversation stays stable across turns (first turn is immutable)', () => {
       const turn1 = { messages: [{ role: 'user', content: 'build a todo app' }] }
       const turn3 = {

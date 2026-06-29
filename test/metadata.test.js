@@ -59,6 +59,13 @@ describe('metadata invariants', () => {
     }
   })
 
+  it('no default stage is described as "opt-in" (it runs by default)', () => {
+    for (const stage of DEFAULT_STAGES) {
+      assert.ok(!/opt-in/i.test(STAGE_DESCRIPTIONS[stage] || ''),
+        `'${stage}' is in DEFAULT_STAGES but its description claims "opt-in": ${JSON.stringify(STAGE_DESCRIPTIONS[stage])}`)
+    }
+  })
+
   it('ALL_STAGES is the union of DEFAULT and EXTRA with no duplicates', () => {
     const seen = new Set()
     for (const s of ALL_STAGES) {

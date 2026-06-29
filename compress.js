@@ -3,7 +3,7 @@ import { spawn } from 'node:child_process'
 import { encode } from '@toon-format/toon'
 import { countTokens } from '@anthropic-ai/tokenizer'
 import { createPatch } from 'diff'
-import { tryParseJSON, classifyContent, stripLineNumbers } from './detect.js'
+import { tryParseJSON, classifyContent, stripLineNumbers, jsonHasUnsafeInteger } from './detect.js'
 import { rewriteCommandOutput } from './lib/rewriters/index.js'
 import { anthropic } from './providers.js'
 import { graphDeduplicateTargets } from './session-graph.js'
@@ -181,16 +181,19 @@ function bm25TrimTargets(targets, body, provider) {
 
 // --- Stage: prune ---
 // Unambiguously npm-internal keys — safe to drop regardless of value.
-const PRUNE_KEYS = new Set(['_id', '_from', '_resolved', '_integrity', '_nodeVersion', '_npmVersion', '_phantomChildren', '_requiredBy'])
-// `integrity` / `shasum` are common field names; only drop them when the value
-// is actually an npm hash, so a legitimately-named field (e.g. integrity:"high")
-// in a non-npm tool_result is preserved.
+const PRUNE_KEYS = new Set(['_from', '_resolved', '_integrity', '_nodeVersion', '_npmVersion', '_phantomChildren', '_requiredBy'])
+// `_id` / `integrity` / `shasum` are common field names; only drop them when the
+// value is actually npm metadata, so a legitimately-named field (e.g.
+// integrity:"high", or a MongoDB `_id` document key) in a non-npm tool_result is
+// preserved. npm's `_id` is always `name@version` (optionally @scope/-prefixed).
 const NPM_INTEGRITY = /^sha\d{1,3}-[A-Za-z0-9+/]+={0,2}$/
 const NPM_SHASUM = /^[a-f0-9]{40}$/i
+const NPM_PKG_ID = /^(@[\w.-]+\/)?[\w.-]+@\d[\w.\-+]*$/
 
 function shouldPrune(key, val) {
   if (PRUNE_KEYS.has(key)) return true
   if (typeof val !== 'string') return false
+  if (key === '_id' && NPM_PKG_ID.test(val)) return true
   if (key === 'resolved' && val.startsWith('https://registry.')) return true
   if (key === 'integrity' && NPM_INTEGRITY.test(val)) return true
   if (key === 'shasum' && NPM_SHASUM.test(val)) return true
@@ -373,6 +376,11 @@ export function compressText(text, config) {
   if (cls !== 'json' && cls !== 'json-lined') return null
 
   let raw = cls === 'json-lined' ? stripLineNumbers(text) : text
+
+  // Integers beyond 2^53 lose precision through JSON.parse/stringify, silently
+  // corrupting numeric ids/amounts. We can't compress such JSON without changing
+  // its meaning, so forward it untouched.
+  if (jsonHasUnsafeInteger(raw)) return null
 
   // Prune low-value fields before minifying
   let parsedValue

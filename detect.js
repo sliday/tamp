@@ -27,6 +27,48 @@ export function stripLineNumbers(str) {
   return lines.map(l => l.replace(LINE_NUM_RE, '')).join('\n')
 }
 
+// True if the JSON text contains an integer literal outside the JS safe-integer
+// range (|n| > 2^53-1). Such values lose precision through JSON.parse, so the
+// minify/toon stages would silently alter a numeric id/amount — a semantic
+// corruption. Scans number tokens outside string literals; floats are left
+// alone (they are inherently approximate). Conservative on the safe side: when
+// in doubt it returns true so the caller skips compression.
+export function jsonHasUnsafeInteger(str) {
+  if (typeof str !== 'string') return false
+  let inString = false
+  let escaped = false
+  for (let i = 0; i < str.length; i++) {
+    const ch = str[i]
+    if (inString) {
+      if (escaped) escaped = false
+      else if (ch === '\\') escaped = true
+      else if (ch === '"') inString = false
+      continue
+    }
+    if (ch === '"') { inString = true; continue }
+    if (ch !== '-' && (ch < '0' || ch > '9')) continue
+    // Start of a number token. Consume the integer-part digit run.
+    let j = ch === '-' ? i + 1 : i
+    const digitStart = j
+    while (j < str.length && str[j] >= '0' && str[j] <= '9') j++
+    const intDigits = j - digitStart
+    // Consume any fraction + exponent so their digits aren't re-scanned as a
+    // separate integer. Floats are left alone (inherently approximate).
+    let isFloat = false
+    if (str[j] === '.') { isFloat = true; j++; while (j < str.length && str[j] >= '0' && str[j] <= '9') j++ }
+    if (str[j] === 'e' || str[j] === 'E') {
+      isFloat = true; j++
+      if (str[j] === '+' || str[j] === '-') j++
+      while (j < str.length && str[j] >= '0' && str[j] <= '9') j++
+    }
+    if (!isFloat && intDigits >= 16 && !Number.isSafeInteger(Number(str.slice(i, j)))) {
+      return true
+    }
+    i = j - 1
+  }
+  return false
+}
+
 export function tryParseJSON(str) {
   if (typeof str !== 'string' || str.length === 0) return { ok: false }
   try {

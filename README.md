@@ -253,7 +253,9 @@ Supported on all providers: Anthropic, OpenAI Chat, OpenAI Responses (Codex), Ge
 | `TAMP_UPSTREAM_KIMI` | `https://api.kimi.com` | Upstream for Kimi Code routes |
 | `TAMP_UPSTREAM_MOONSHOT` | `https://api.moonshot.cn` | Upstream for Moonshot OpenAI-compatible routes |
 | `TAMP_MIN_SIZE` | `200` | Min content size (chars) |
+| `TAMP_MAX_BODY` | `10485760` | Max request body (bytes, 10 MB). Larger bodies pass through uncompressed |
 | `TAMP_LOG` | `true` | Enable logging |
+| `TAMP_LOG_FILE` | *(none)* | Append logs to this file path, in addition to stderr |
 | `TAMP_CACHE_SAFE` | `true` | Compress newest only (prompt-cache safe) |
 | `TAMP_LLMLINGUA_URL` | *(none)* | LLMLingua sidecar URL. Set to `http://localhost:8788` to skip the auto-probe (avoids startup race if sidecar is still loading the model) |
 

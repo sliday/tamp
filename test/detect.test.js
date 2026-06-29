@@ -1,6 +1,31 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
-import { tryParseJSON, isTOON, classifyContent, stripLineNumbers } from '../detect.js'
+import { tryParseJSON, isTOON, classifyContent, stripLineNumbers, jsonHasUnsafeInteger } from '../detect.js'
+
+describe('jsonHasUnsafeInteger', () => {
+  it('flags integers beyond 2^53 (precision is lost by JSON.parse)', () => {
+    assert.equal(jsonHasUnsafeInteger('{"a": 9007199254740993}'), true) // 2^53+1
+    assert.equal(jsonHasUnsafeInteger('{"id": 17012345678901234567}'), true)
+    assert.equal(jsonHasUnsafeInteger('{"id": -17012345678901234567}'), true)
+    assert.equal(jsonHasUnsafeInteger('{"t": 1719345678901234567}'), true) // ns timestamp
+    assert.equal(jsonHasUnsafeInteger('[12345678901234567890, 2]'), true)
+  })
+
+  it('does NOT flag safe integers, floats, or digits inside strings', () => {
+    assert.equal(jsonHasUnsafeInteger('{"a": 42}'), false)
+    assert.equal(jsonHasUnsafeInteger('{"a": 9007199254740991}'), false) // 2^53-1, exact
+    assert.equal(jsonHasUnsafeInteger('{"t": 1719345678901}'), false) // ms timestamp (13 digits)
+    assert.equal(jsonHasUnsafeInteger('{"a": 0.12345678901234567}'), false) // float, not an integer
+    assert.equal(jsonHasUnsafeInteger('{"a": 1.234567890123456789e5}'), false)
+    assert.equal(jsonHasUnsafeInteger('{"a": "17012345678901234567"}'), false) // string value
+  })
+
+  it('returns false for non-strings', () => {
+    assert.equal(jsonHasUnsafeInteger(null), false)
+    assert.equal(jsonHasUnsafeInteger(undefined), false)
+    assert.equal(jsonHasUnsafeInteger(42), false)
+  })
+})
 
 describe('tryParseJSON', () => {
   it('parses valid JSON object', () => {
