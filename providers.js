@@ -221,7 +221,7 @@ const anthropic = {
     return method === 'POST' && url.startsWith('/v1/messages')
   },
   extract(body, config = {}) {
-    if (!body?.messages?.length) return []
+    if (!Array.isArray(body?.messages) || !body.messages.length) return []
     if (config.cacheSafe) {
       return findLatestEligibleGroup(body.messages, extractAnthropicMessageTargets)
     }
@@ -285,13 +285,13 @@ const openai = {
     return url
   },
   extract(body, config = {}) {
-    if (!body?.messages?.length) return []
+    if (!Array.isArray(body?.messages) || !body.messages.length) return []
 
     if (config.cacheSafe) {
       const targets = []
       for (let i = body.messages.length - 1; i >= 0; i--) {
         const msg = body.messages[i]
-        if (msg.role !== 'tool') break
+        if (!msg || msg.role !== 'tool') break
         targets.unshift(...extractOpenAIChatTargets(msg, i))
       }
       return targets
@@ -417,7 +417,7 @@ const gemini = {
     return method === 'POST' && url.includes('generateContent')
   },
   extract(body, config = {}) {
-    if (!body?.contents?.length) return []
+    if (!Array.isArray(body?.contents) || !body.contents.length) return []
     if (config.cacheSafe) {
       return findLatestEligibleGroup(body.contents, extractGeminiContentTargets)
     }

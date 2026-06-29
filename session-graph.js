@@ -66,7 +66,14 @@ function conversationSeed(body) {
   const first = Array.isArray(turns) && turns.length ? turns[0] : null
   if (first == null && body.system === undefined) return ''
   try {
-    return JSON.stringify({ system: body.system ?? null, first }).slice(0, 4096)
+    // Hash system and the first turn INDEPENDENTLY. A single slice over the
+    // combined JSON let a long system prompt (Claude Code ships a multi-KB one)
+    // crowd the conversation-specific first turn past the cutoff, collapsing
+    // distinct conversations onto one key — the exact cross-conversation leak
+    // this seed exists to prevent. Per-part hashes keep the seed bounded + stable.
+    const sys = createHash('sha256').update(JSON.stringify(body.system ?? null)).digest('hex')
+    const frst = createHash('sha256').update(JSON.stringify(first ?? null)).digest('hex')
+    return `${sys}:${frst}`
   } catch {
     return ''
   }

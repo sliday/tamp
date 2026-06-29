@@ -46,6 +46,17 @@ describe('prune stage — only strips actual npm lockfile metadata', () => {
     assert.equal(out.keep, 'y'.repeat(120))
   })
 
+  it('preserves a non-npm _id (e.g. MongoDB ObjectId) — only npm name@version ids are metadata', () => {
+    const out = pruneOutput({ _id: '507f1f77bcf86cd799439011', name: 'Alice', note: 'z'.repeat(120) })
+    assert.equal(out._id, '507f1f77bcf86cd799439011', 'a MongoDB-style _id must be preserved (it is the document primary key)')
+    assert.equal(out.name, 'Alice')
+  })
+
+  it('still strips npm package _id values (name@version)', () => {
+    const out = pruneOutput({ _id: '@babel/core@7.20.0', other: 'q'.repeat(120) })
+    assert.equal(out._id, undefined, 'an npm name@version _id should still be pruned')
+  })
+
   it('preserves a non-registry resolved URL (e.g. a git/file source)', () => {
     const out = pruneOutput({ resolved: 'git+https://github.com/me/pkg.git', keep: 'z'.repeat(120) })
     assert.equal(out.resolved, 'git+https://github.com/me/pkg.git', 'non-registry resolved must be preserved')
