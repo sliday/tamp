@@ -231,6 +231,11 @@ export function loadConfig(env = process.env, options = {}) {
     logFile: get('TAMP_LOG_FILE') || null,
     maxBody: parseInt(get('TAMP_MAX_BODY'), 10) || 10_485_760,
     cacheSafe: parseBoolean(get('TAMP_CACHE_SAFE'), true),
+    // Secret redaction is a security pass, not a compression stage: on by
+    // default at every level, masks secrets before any stage (incl. ones that
+    // ship text to third parties) sees the body. TAMP_REDACT=false disables it.
+    redact: parseBoolean(get('TAMP_REDACT'), true),
+    redactMode: get('TAMP_REDACT_MODE') === 'remove' ? 'remove' : 'mask',
     llmLinguaUrl: get('TAMP_LLMLINGUA_URL') || null,
     textpressOllamaUrl: get('TAMP_TEXTPRESS_OLLAMA_URL') || 'http://localhost:11434',
     textpressOllamaModel: get('TAMP_TEXTPRESS_OLLAMA_MODEL') || 'qwen3.5:0.8b',
@@ -286,6 +291,8 @@ export const CONFIG_TEMPLATE = `# Tamp configuration
 # TAMP_LOG_FILE=
 # TAMP_MAX_BODY=10485760
 # TAMP_CACHE_SAFE=true
+# TAMP_REDACT=true
+# TAMP_REDACT_MODE=mask
 # TAMP_TOKEN_COST=3
 # TAMP_FOUNDATION_MODELS_PATH=apfel
 # TAMP_FOUNDATION_MODELS_TIMEOUT=10000

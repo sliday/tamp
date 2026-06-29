@@ -257,6 +257,8 @@ Supported on all providers: Anthropic, OpenAI Chat, OpenAI Responses (Codex), Ge
 | `TAMP_LOG` | `true` | Enable logging |
 | `TAMP_LOG_FILE` | *(none)* | Append logs to this file path, in addition to stderr |
 | `TAMP_CACHE_SAFE` | `true` | Compress newest only (prompt-cache safe) |
+| `TAMP_REDACT` | `true` | Mask secrets in tool output before anything leaves the machine |
+| `TAMP_REDACT_MODE` | `mask` | `mask` (replace with marker) or `remove` (delete value) |
 | `TAMP_LLMLINGUA_URL` | *(none)* | LLMLingua sidecar URL. Set to `http://localhost:8788` to skip the auto-probe (avoids startup race if sidecar is still loading the model) |
 
 **Recommended setups:**
@@ -363,7 +365,7 @@ The real win in v0.8 is **the level knob itself** — a zip-like 1–9 dial that
 
 Tamp runs on `localhost` and forwards to the upstream you configure. Most stages are local-only: `llmlingua` talks to a sidecar on `127.0.0.1`, `foundation-models` stays on-device. The one stage that sends content off-box is `textpress` (opt-in, level 7+), which posts to OpenRouter when `OPENROUTER_API_KEY` is set — leave it off if your tool output is sensitive.
 
-**Secret redaction** is on the roadmap ([#6](https://github.com/sliday/tamp/issues/6)): a `redact` stage that masks API keys, tokens, and `.env` values before anything leaves the machine, running ahead of every other stage. Until it lands, Tamp forwards file contents verbatim — treat your upstream's data policy as the boundary.
+**Secret redaction** is on by default ([#6](https://github.com/sliday/tamp/issues/6)). Before any stage runs — including ones that ship text off-box — Tamp masks high-confidence secrets in tool output: provider-shaped keys (AWS, GitHub, Anthropic/OpenAI, Google, Slack, Stripe), JWTs, PEM private-key blocks, and `UPPER_SNAKE` secret assignments from `.env`/shell (`API_TOKEN=…`, `DATABASE_PASSWORD=…`). Masking keeps structure (`API_TOKEN=‹redacted:secret›`) so the model still reasons about it. Set `TAMP_REDACT=false` to disable, or `TAMP_REDACT_MODE=remove` to delete rather than mask. Detection favors precision over recall: it won't catch every secret, so treat your upstream's data policy as the final boundary.
 
 This repo ships an agent harness (built with [harn.app](https://harn.app)): `AGENTS.md` plus PreToolUse / Stop hooks under `scripts/harness/` that block dangerous shell commands and gate completion on `npm test`. See `.claude/settings.json`.
 
