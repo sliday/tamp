@@ -19,6 +19,13 @@ describe('loadConfig', () => {
     assert.equal(cfg.cacheSafe, true)
     assert.equal(cfg.llmLinguaUrl, null)
     assert.equal(cfg.logFile, null)
+    assert.equal(cfg.redact, true)
+    assert.equal(cfg.redactMode, 'mask')
+  })
+
+  it('disables redaction with TAMP_REDACT=false and switches mode', () => {
+    assert.equal(loadConfig({ TAMP_REDACT: 'false' }).redact, false)
+    assert.equal(loadConfig({ TAMP_REDACT_MODE: 'remove' }).redactMode, 'remove')
   })
 
   it('overrides port from TAMP_PORT', () => {

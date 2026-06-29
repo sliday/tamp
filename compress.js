@@ -5,6 +5,7 @@ import { countTokens } from '@anthropic-ai/tokenizer'
 import { createPatch } from 'diff'
 import { tryParseJSON, classifyContent, stripLineNumbers, jsonHasUnsafeInteger } from './detect.js'
 import { rewriteCommandOutput } from './lib/rewriters/index.js'
+import { redactText } from './lib/redact.js'
 import { anthropic } from './providers.js'
 import { graphDeduplicateTargets } from './session-graph.js'
 import { detectTaskType, generateOutputRules, isDangerousTask } from './lib/rules-generator.js'
@@ -606,6 +607,20 @@ export async function compressRequest(body, config, provider) {
 
   const targets = provider.extract(body, { ...config, cacheSafe: config.cacheSafe !== false })
 
+  // Redaction runs FIRST (security, not compression): mask secrets in every
+  // target's text before any stage — dedup/diff/cache/llmlingua/textpress —
+  // sees it, so secrets never enter a disk cache or get shipped to a third
+  // party. We mutate target.text in place so the whole pipeline operates on
+  // the redacted body; the non-compressible case is closed in the loop below.
+  let redactedCount = 0
+  if (config.redact !== false) {
+    for (const target of targets) {
+      if (target.skip || typeof target.text !== 'string') continue
+      const r = redactText(target.text, config.redactMode)
+      if (r.count > 0) { target.text = r.text; target.redacted = true; redactedCount += r.count }
+    }
+  }
+
   // Read-diff: session-scoped unified diff for re-reads (lossless, opt-in)
   if (config.stages.includes('read-diff') && config.readCache && config.sessionKey && provider.name === 'anthropic') {
     readDiffTargets(targets, body, config.sessionKey, config.readCache)
@@ -670,12 +685,17 @@ export async function compressRequest(body, config, provider) {
     if (result) {
       target.compressed = result.text
       stats.push({ index: target.index, ...result })
+    } else if (target.redacted) {
+      // Not otherwise compressible, but it was redacted — apply() only writes
+      // back when .compressed is set, so push the redacted text through.
+      target.compressed = target.text
+      stats.push({ index: target.index, method: 'redact', originalLen: target.text.length, compressedLen: target.text.length, originalTokens: countTokens(target.text), compressedTokens: countTokens(target.text) })
     } else {
       stats.push({ index: target.index, skipped: 'not-compressible' })
     }
   }
   provider.apply(body, targets)
-  return { body, stats, targetCount: targets.length, outputHint, disclosure: disclosureStats }
+  return { body, stats, targetCount: targets.length, outputHint, disclosure: disclosureStats, redacted: redactedCount }
 }
 
 export async function compressMessages(body, config) {

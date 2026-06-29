@@ -164,6 +164,25 @@ describe('compressMessages', () => {
   })
 })
 
+describe('compressMessages — secret redaction', () => {
+  it('masks secrets in a tool_result even when the body is not compressible', async () => {
+    const secret = 'ghp_' + 'a'.repeat(36)
+    const body = { messages: [{ role: 'user', content: [{ type: 'tool_result', tool_use_id: 'tu_1', content: `API_TOKEN=${secret}` }] }] }
+    const { body: out, redacted } = await compressMessages(body, { ...cacheSafeConfig, redact: true })
+    const content = out.messages[0].content[0].content
+    assert.equal(content.includes(secret), false, 'secret must not reach the wire')
+    assert.equal(content.includes('‹redacted'), true)
+    assert.ok(redacted >= 1)
+  })
+
+  it('leaves content untouched when redaction is disabled', async () => {
+    const secret = 'ghp_' + 'b'.repeat(36)
+    const body = { messages: [{ role: 'user', content: [{ type: 'tool_result', tool_use_id: 'tu_1', content: `API_TOKEN=${secret}` }] }] }
+    const { body: out } = await compressMessages(body, { ...cacheSafeConfig, redact: false })
+    assert.equal(out.messages[0].content[0].content.includes(secret), true)
+  })
+})
+
 describe('compressMessages with llmlingua', () => {
   let mockServer
   let mockPort
