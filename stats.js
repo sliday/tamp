@@ -13,7 +13,12 @@ const c = {
 // (Gemini and OpenAI-compatible gateways) carry the API key in the query
 // string (?key=, ?api_key=), which would otherwise land in stdout, log
 // files, and the systemd journal. Path-relative URLs only — no base needed.
-const SECRET_QUERY_PARAM = /^(key|api_key|apikey|access_token|token)$/i
+// Keyword (substring) match on the param NAME, not an exact list. The old
+// anchored `^(key|api_key|apikey|access_token|token)$` leaked `refresh_token`,
+// `id_token`, `client_secret`, `password`, `session`, `sig`/`signature`, `auth`
+// to stdout / TAMP_LOG_FILE / the systemd journal. Over-redacting a benign
+// param name in a log is harmless; leaking a credential is not.
+const SECRET_QUERY_PARAM = /key|token|secret|password|passwd|sig|auth|session|credential/i
 export function redactUrl(url) {
   if (typeof url !== 'string') return url
   const q = url.indexOf('?')
@@ -51,7 +56,7 @@ export function formatRequestLog(stats, session, providerName, url, bodySize, to
   const totalComp = compressed.reduce((a, s) => a + s.compressedLen, 0)
   const totalOrigTok = compressed.reduce((a, s) => a + (s.originalTokens || 0), 0)
   const totalCompTok = compressed.reduce((a, s) => a + (s.compressedTokens || 0), 0)
-  const pct = (((totalOrig - totalComp) / totalOrig) * 100).toFixed(1)
+  const pct = (totalOrig > 0 ? ((totalOrig - totalComp) / totalOrig) * 100 : 0).toFixed(1)
   const saved = totalOrig - totalComp
   const tokSaved = totalOrigTok - totalCompTok
 
@@ -60,7 +65,7 @@ export function formatRequestLog(stats, session, providerName, url, bodySize, to
   lines.push(`[tamp] ${c.cyan}${label}${c.reset} ${path}${sizeInfo} ${c.green}— ${n} block${n !== 1 ? 's' : ''} compressed, -${pct}%${c.reset}`)
 
   for (const s of compressed) {
-    const sPct = (((s.originalLen - s.compressedLen) / s.originalLen) * 100).toFixed(1)
+    const sPct = (s.originalLen > 0 ? ((s.originalLen - s.compressedLen) / s.originalLen) * 100 : 0).toFixed(1)
     const tokInfo = s.originalTokens ? ` ${c.dim}${s.originalTokens}→${s.compressedTokens} tok${c.reset}` : ''
     lines.push(`[tamp]   ${c.dim}block[${s.index}]${c.reset} ${fmtSize(s.originalLen)}→${fmtSize(s.compressedLen)} ${c.green}-${sPct}%${c.reset}${tokInfo} ${c.dim}[${s.method}]${c.reset}`)
   }
