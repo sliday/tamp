@@ -63,6 +63,18 @@ describe('redactText — precision (no false positives)', () => {
   })
 })
 
+describe('redactText — ReDoS guard', () => {
+  it('stays linear on a large uppercase blob (no catastrophic backtracking)', () => {
+    // A 256KB CONSTANT_CASE run used to be O(n^2) via the unbounded key prefix
+    // and stalled the proxy event loop for seconds. Must complete near-instantly.
+    const blob = 'A'.repeat(256_000)
+    const start = process.hrtime.bigint()
+    redactText(blob)
+    const ms = Number(process.hrtime.bigint() - start) / 1e6
+    assert.ok(ms < 250, `redaction took ${ms.toFixed(0)}ms — expected < 250ms (ReDoS regression)`)
+  })
+})
+
 describe('redactText — remove mode', () => {
   it('deletes the secret entirely', () => {
     const { text, count } = redactText('token=ghp_' + 'a'.repeat(36), 'remove')
