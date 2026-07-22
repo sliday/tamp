@@ -130,18 +130,16 @@ function findAnthropicReferences(body) {
         } else if (typeof block.input === 'string') {
           scanStringForRefs(block.input, ['messages', mi, 'content', bi, 'input'], out)
         }
-      } else if (block.type === 'tool_result') {
-        if (typeof block.content === 'string') {
-          scanStringForRefs(block.content, ['messages', mi, 'content', bi, 'content'], out)
-        } else if (Array.isArray(block.content)) {
-          for (let ci = 0; ci < block.content.length; ci++) {
-            const sub = block.content[ci]
-            if (sub?.type === 'text' && typeof sub.text === 'string') {
-              scanStringForRefs(sub.text, ['messages', mi, 'content', bi, 'content', ci, 'text'], out)
-            }
-          }
-        }
       }
+      // NOTE: tool_result content is deliberately NOT scanned for markers. A
+      // marker is only honored when the MODEL quotes it (assistant text or
+      // tool_use.input) — that is the disclosure contract. tool_result bodies
+      // are untrusted tool output (fetched pages, file reads); scanning them
+      // would (1) let attacker-controlled content forge a <tamp-ref:v1:...>
+      // marker and pull an arbitrary body out of the shared br-cache into the
+      // outbound request (cross-conversation cache-pull + existence oracle),
+      // and (2) auto-rehydrate a disclosure summary's own marker every turn,
+      // defeating the compression. See rehydrateReferences.
     }
   }
   return out
