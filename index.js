@@ -175,6 +175,13 @@ function pipeRequest(req, res, upstreamUrl, prefixChunks) {
   const headers = { ...req.headers }
   delete headers.host
   const upstream = openUpstream(req.method, upstreamUrl, headers, res)
+  // Guard the inbound stream: a client RST mid-upload emits 'error' on `req`,
+  // and with no listener Node rethrows it and crashes the whole proxy. The
+  // buffered path already guards this; the piped passthrough must too.
+  req.on('error', (err) => {
+    log(`[tamp] client upload error: ${err.code || ''} ${err.message}`)
+    upstream.destroy()
+  })
   if (prefixChunks) {
     for (const chunk of prefixChunks) upstream.write(chunk)
   }

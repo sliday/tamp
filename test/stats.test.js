@@ -19,6 +19,15 @@ describe('redactUrl', () => {
     assert.ok(out.includes('access_token=REDACTED'))
   })
 
+  it('masks secret params the old exact-match list leaked', () => {
+    const out = redactUrl('/v1/x?refresh_token=RT&client_secret=CS&id_token=ID&password=P&signature=SG')
+    for (const secret of ['RT', 'CS', 'ID', 'P', 'SG']) {
+      assert.ok(!out.includes(`=${secret}`), `${secret} must be redacted`)
+    }
+    assert.ok(out.includes('refresh_token=REDACTED'))
+    assert.ok(out.includes('client_secret=REDACTED'))
+  })
+
   it('returns urls without a query string unchanged', () => {
     assert.equal(redactUrl('/v1/messages'), '/v1/messages')
   })
