@@ -104,6 +104,16 @@ describe('rewriteCommandOutput — no-op safety', () => {
     assert.equal(result.rewriter, null)
     assert.equal(result.savedBytes, 0)
   })
+
+  it('npm rewriter keeps child-tool lines with a non-leading braille glyph', () => {
+    // A leading-spinner line is still dropped (that's real progress noise); the
+    // bug was dropping lines where a glyph appears mid-line, e.g. child output.
+    const npm = getRewriter('npm')
+    const input = 'npm run build\n[vite] build ⠋ 2 warnings and 1 error found\nadded 3 packages in 1s'
+    assert.equal(npm.match(input), true)
+    const out = npm.rewrite(input)
+    assert.ok(out.includes('2 warnings and 1 error found'), 'must not drop the warn/error line')
+  })
 })
 
 describe('PRIORITY ordering', () => {
