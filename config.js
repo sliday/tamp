@@ -37,14 +37,17 @@ function coerceLevelInput(raw) {
     const v = resolveLevel(n) ? n : null
     return { value: v, valid: v !== null }
   }
-  if (s in LEVEL_ALIASES) return { value: s, valid: true }
+  // Object.hasOwn, NOT `in`: `in` walks the prototype chain, so
+  // TAMP_LEVEL=constructor / toString / valueOf pass as valid and later crash
+  // stagesForLevel with an inherited function instead of falling back cleanly.
+  if (Object.hasOwn(LEVEL_ALIASES, s)) return { value: s, valid: true }
   return { value: null, valid: false }
 }
 
 // Convert a level input (number or alias) to its canonical integer.
 function levelInputToInt(input) {
   if (typeof input === 'number') return input
-  if (typeof input === 'string' && input in LEVEL_ALIASES) return LEVEL_ALIASES[input]
+  if (typeof input === 'string' && Object.hasOwn(LEVEL_ALIASES, input)) return LEVEL_ALIASES[input]
   return null
 }
 
@@ -152,7 +155,10 @@ export function loadConfig(env = process.env, options = {}) {
       stages = stagesForLevel(level)
       levelSource = chosen.source
     } else if (presetExplicit) {
-      const preset = COMPRESSION_PRESETS[presetNameRaw]
+      // Object.hasOwn guard: a bare `COMPRESSION_PRESETS[presetNameRaw]` lets
+      // __proto__/constructor/toString return truthy prototype objects that
+      // pass the `if (preset)` check and then crash on `...preset.stages`.
+      const preset = Object.hasOwn(COMPRESSION_PRESETS, presetNameRaw) ? COMPRESSION_PRESETS[presetNameRaw] : null
       if (preset) {
         stages = [...preset.stages]
         level = typeof preset.level === 'number' ? preset.level : null
@@ -225,7 +231,7 @@ export function loadConfig(env = process.env, options = {}) {
     levelSource,
     outputMode,
     outputModeDefault: defaultOutputMode && VALID_OUTPUT_MODES.has(defaultOutputMode) ? defaultOutputMode : null,
-    agent: get('TAMP_AGENT') || null,
+    agent: get('TAMP_AGENT')?.toLowerCase() || null,
     autoDetectTaskType: parseBoolean(get('TAMP_AUTO_DETECT_TASK_TYPE'), true),
     log: get('TAMP_LOG') !== 'false',
     logFile: get('TAMP_LOG_FILE') || null,
