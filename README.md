@@ -247,6 +247,7 @@ Supported on all providers: Anthropic, OpenAI Chat, OpenAI Responses (Codex), Ge
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `TAMP_PORT` | `7778` | Listen port |
+| `TAMP_HOST` | `127.0.0.1` | Bind address. Loopback by default; set `0.0.0.0` to expose beyond the local machine (e.g. in a container) |
 | `TAMP_UPSTREAM` | `https://api.anthropic.com` | Anthropic (default) upstream |
 | `TAMP_UPSTREAM_OPENAI` | `https://api.openai.com` | Upstream for OpenAI-compatible routes (`/v1/chat/completions`, `/v1/responses`) |
 | `TAMP_UPSTREAM_GEMINI` | `https://generativelanguage.googleapis.com` | Upstream for Gemini (`generateContent`) routes |

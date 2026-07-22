@@ -126,6 +126,11 @@ describe('loadConfig', () => {
     const cfg = loadConfig({})
     assert.throws(() => { cfg.port = 1234 }, TypeError)
   })
+
+  it('binds loopback by default and honors TAMP_HOST', () => {
+    assert.equal(loadConfig({}).host, '127.0.0.1')
+    assert.equal(loadConfig({ TAMP_HOST: '0.0.0.0' }).host, '0.0.0.0')
+  })
 })
 
 describe('loadConfigFile', () => {
