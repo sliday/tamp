@@ -225,3 +225,13 @@ describe('bm25-trim — stage disabled', () => {
     assert.equal(after.length, body.length, 'body must pass through untouched')
   })
 })
+
+describe('trimLinesByRelevance - last-line anchor with trailing newline', () => {
+  it('preserves the real final line (trailing error) when the body ends in a newline', () => {
+    const noise = Array.from({ length: 2000 }, (_, i) => `processing item ${i} widget gadget`).join('\n')
+    const text = noise + '\nERROR_AT_END: unhandled exception in widget parser\n'
+    const r = trimLinesByRelevance(text, 'widget', { targetTokens: 300 })
+    assert.ok(r, 'should produce a trim')
+    assert.ok(r.text.includes('ERROR_AT_END'), 'trailing error line must survive the trim')
+  })
+})

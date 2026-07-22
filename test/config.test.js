@@ -347,4 +347,17 @@ describe('loadConfig — level precedence matrix (Phase C)', () => {
       }
     }
   })
+
+  it('does not crash on prototype-chain keys in TAMP_LEVEL / TAMP_COMPRESSION_PRESET', () => {
+    for (const bad of ['constructor', 'toString', 'valueOf', 'hasOwnProperty', '__proto__']) {
+      const a = loadConfig({ TAMP_LEVEL: bad })
+      assert.ok(Array.isArray(a.stages) && a.stages.length > 0, `TAMP_LEVEL=${bad} must fall back cleanly`)
+      const b = loadConfig({ TAMP_COMPRESSION_PRESET: bad })
+      assert.ok(Array.isArray(b.stages) && b.stages.length > 0, `TAMP_COMPRESSION_PRESET=${bad} must fall back cleanly`)
+    }
+  })
+
+  it('lowercases TAMP_AGENT so per-agent overrides resolve', () => {
+    assert.equal(loadConfig({ TAMP_AGENT: 'Codex' }).agent, 'codex')
+  })
 })
