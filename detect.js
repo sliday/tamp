@@ -82,7 +82,12 @@ export function tryParseJSON(str) {
 export function isTOON(str) {
   if (typeof str !== 'string') return false
   const firstLine = str.trimStart().split('\n')[0]
-  return /^\[TOON\]/.test(firstLine) || /\w+\[\d+\]\{/.test(firstLine) || /\w+\[\d+\]:/.test(firstLine)
+  // Anchored + bounded. The former unanchored `\w+\[\d+\]\{` was quadratic: on a
+  // long word-char run with no bracket the greedy `\w+` backtracks and, being
+  // unanchored, retries at every offset — a single-line blob (minified JSON, a
+  // long token) stalled the event loop. TOON headers begin the line, so `^`
+  // alone kills it; the {1,64}/{1,15} bounds are belt-and-suspenders.
+  return /^\[TOON\]/.test(firstLine) || /^\s*\w{1,64}\[\d{1,15}\]\{/.test(firstLine) || /^\s*\w{1,64}\[\d{1,15}\]:/.test(firstLine)
 }
 
 export function classifyContent(str) {

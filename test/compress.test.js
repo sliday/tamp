@@ -9,6 +9,30 @@ import { createSessionStore } from '../session-graph.js'
 const fixtures = JSON.parse(readFileSync(new URL('./fixtures/sample-messages.json', import.meta.url), 'utf-8'))
 
 const defaultConfig = { minSize: 50, stages: ['minify'], llmLinguaUrl: null }
+
+describe('compressText — ReDoS guards', () => {
+  const timed = (fn) => { const s = process.hrtime.bigint(); fn(); return Number(process.hrtime.bigint() - s) / 1e6 }
+
+  it('normalizeWhitespace stays linear on a long space run (whitespace stage)', () => {
+    const cfg = { minSize: 50, stages: ['whitespace'], llmLinguaUrl: null, log: false }
+    const ms = timed(() => compressText(' '.repeat(256_000) + 'x', cfg))
+    assert.ok(ms < 300, `took ${ms.toFixed(0)}ms — expected < 300ms (ReDoS regression)`)
+  })
+
+  it('stripComments stays linear on many unclosed block openers', () => {
+    const cfg = { minSize: 50, stages: ['strip-comments'], llmLinguaUrl: null, log: false }
+    const ms = timed(() => compressText('/**\n'.repeat(64_000), cfg))
+    assert.ok(ms < 400, `took ${ms.toFixed(0)}ms — expected < 400ms (ReDoS regression)`)
+  })
+
+  it('stripComments still removes line-level block and HTML comments', () => {
+    const cfg = { minSize: 5, stages: ['strip-comments'], llmLinguaUrl: null, log: false }
+    const a = compressText('/* c */\nkeep this content line long enough to pass minSize', cfg)
+    assert.ok(a && !a.text.includes('/* c */'))
+    const b = compressText('<!-- x -->keep this content line long enough to pass minSize', cfg)
+    assert.ok(b && !b.text.includes('<!--'))
+  })
+})
 const toonConfig = { minSize: 50, stages: ['minify', 'toon'], llmLinguaUrl: null }
 const cacheSafeConfig = { minSize: 50, stages: ['minify'], llmLinguaUrl: null, cacheSafe: true }
 const allHistoryConfig = { minSize: 50, stages: ['minify'], llmLinguaUrl: null, cacheSafe: false }
