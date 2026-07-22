@@ -206,6 +206,11 @@ export function loadConfig(env = process.env, options = {}) {
   return Object.freeze({
     version: VERSION,
     port: parseInt(get('TAMP_PORT'), 10) || 7778,
+    // Bind loopback by default. The proxy forwards the caller's API key to the
+    // upstream, so binding all interfaces (the old no-host default) turned any
+    // LAN peer into an authenticated relay. Set TAMP_HOST=0.0.0.0 to opt into
+    // broader binding (e.g. inside a container).
+    host: get('TAMP_HOST') || '127.0.0.1',
     upstream: get('TAMP_UPSTREAM') || 'https://api.anthropic.com',
     upstreams: Object.freeze({
       anthropic: get('TAMP_UPSTREAM') || 'https://api.anthropic.com',
@@ -259,6 +264,7 @@ export const CONFIG_TEMPLATE = `# Tamp configuration
 # https://github.com/sliday/tamp
 
 # TAMP_PORT=7778
+# TAMP_HOST=127.0.0.1   # bind address; set 0.0.0.0 to expose beyond loopback
 # TAMP_UPSTREAM=https://api.anthropic.com
 # TAMP_UPSTREAM_OPENAI=https://api.openai.com
 # TAMP_UPSTREAM_GEMINI=https://generativelanguage.googleapis.com

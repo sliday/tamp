@@ -529,7 +529,7 @@ if (skipPrompt) {
     process.exit(1)
   })
 
-  server.listen(config.port, () => {
+  server.listen(config.port, config.host, () => {
     try { writePidFile(config.port) } catch (err) {
       console.error(`[tamp] Warning: could not write PID file: ${err.message}`)
     }

@@ -422,8 +422,8 @@ const isMain = !process.argv[1]?.includes('node_modules') && process.argv[1] ===
 
 if (isMain) {
   const { config, server } = createProxy()
-  server.listen(config.port, () => {
-    console.error(`[tamp] proxy listening on http://localhost:${config.port}`)
+  server.listen(config.port, config.host, () => {
+    console.error(`[tamp] proxy listening on http://${config.host}:${config.port}`)
     console.error(`[tamp] upstream: ${config.upstream}`)
     console.error(`[tamp] stages: ${config.stages.join(', ')}`)
 
