@@ -24,9 +24,17 @@ function cacheKey(text) {
 export function clearCache() { cache.clear() }
 
 function normalizeWhitespace(text) {
-  return text
-    .replace(/[ \t]+$/gm, '')
-    .replace(/\n{3,}/g, '\n\n')
+  // Right-trim each line by hand. The former `/[ \t]+$/gm` is quadratic: a long
+  // run of spaces/tabs NOT at line end makes the greedy match restart at every
+  // offset, so a padded/aligned tool_result (tables, ASCII art) stalled the
+  // proxy event loop for seconds. This scan touches each char once.
+  let out = ''
+  for (let line of text.split('\n')) {
+    let e = line.length
+    while (e > 0 && (line[e - 1] === ' ' || line[e - 1] === '\t')) e--
+    out += (e === line.length ? line : line.slice(0, e)) + '\n'
+  }
+  return out.slice(0, -1).replace(/\n{3,}/g, '\n\n')
 }
 
 // --- Stage: dedup ---
@@ -238,12 +246,46 @@ function stripLineComments(line) {
   return line
 }
 
+// Remove line-level `/* ... */` block comments (opener at start of line after
+// optional spaces/tabs) and `<!-- ... -->` HTML comments, in ONE linear pass.
+// A regex can't do this without O(n^2): `/^[ \t]*\/\*[\s\S]*?\*\//gm` rescans to
+// EOF at every unclosed opener, so a file full of `/*` line-starts stalled the
+// event loop (256 KB took ~40s). An unterminated comment is left unchanged, to
+// match the old lazy regex (which required a closing delimiter to match).
+function stripBlockAndHtmlComments(text) {
+  let out = ''
+  let i = 0
+  const n = text.length
+  let lineStart = true
+  while (i < n) {
+    if (lineStart) {
+      let j = i
+      while (j < n && (text[j] === ' ' || text[j] === '\t')) j++
+      if (text[j] === '/' && text[j + 1] === '*') {
+        const close = text.indexOf('*/', j + 2)
+        if (close === -1) { out += text.slice(i); break }
+        i = close + 2
+        lineStart = false
+        continue
+      }
+    }
+    if (text[i] === '<' && text.startsWith('<!--', i)) {
+      const close = text.indexOf('-->', i + 4)
+      if (close === -1) { out += text.slice(i); break }
+      i = close + 3
+      lineStart = false
+      continue
+    }
+    const c = text[i]
+    out += c
+    lineStart = c === '\n'
+    i++
+  }
+  return out
+}
+
 function stripComments(text) {
-  // Block comments: only strip if they start at line-level (not inside strings)
-  let result = text
-    .replace(/^[ \t]*\/\*\*[\s\S]*?\*\//gm, '')
-    .replace(/^[ \t]*\/\*[\s\S]*?\*\//gm, '')
-    .replace(/<!--[\s\S]*?-->/g, '')
+  let result = stripBlockAndHtmlComments(text)
   result = result.split('\n').map(stripLineComments).join('\n')
   return result.replace(/\n\s*\n\s*\n/g, '\n\n')
 }
