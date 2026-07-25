@@ -26,6 +26,7 @@
     "test": "node --test test/*.test.js",
     "test:sidecar": "node test/capture-golden.js --verify",
     "bench:semantic": "node bench/semantic-eval.js",
+    "bench:retrieval": "node bench/retrieval-eval.js",
     "test:quality": "node bench/quality-eval.js",
     "compat:probe": "node test/compat/probe-proxy.js",
     "compat:run": "node test/compat/run.mjs"
