@@ -167,14 +167,20 @@ function bm25TrimTargets(targets, body, provider) {
   if (!userText) return 0
   if (isDangerousTask(userText)) return 0
 
+  // File paths let the trimmer pick a block detector by extension so dropped
+  // lines respect code structure. Anthropic-only (see lib/path-extract.js);
+  // elsewhere `path` is null and the trimmer sniffs the body instead.
+  const paths = extractTargetPaths(body, targets)
+
   let trimmed = 0
-  for (const target of targets) {
+  for (let i = 0; i < targets.length; i++) {
+    const target = targets[i]
     if (target.skip || target.dedup || target.diffed || target.readDiffed || target.graphed || target.disclosed || target.compressed) continue
     if (typeof target.text !== 'string') continue
     const byteLen = Buffer.byteLength(target.text, 'utf8')
     if (byteLen <= 64 * 1024) continue
 
-    const result = trimLinesByRelevance(target.text, userText)
+    const result = trimLinesByRelevance(target.text, userText, { path: paths[i] })
     if (!result) continue
     if (result.text.length >= target.text.length) continue
     target.compressed = result.text

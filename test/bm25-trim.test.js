@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
-import { tokenize, bm25Scores, trimLinesByRelevance } from '../lib/bm25.js'
+import { tokenize, bm25Scores, rerankScores, trimLinesByRelevance } from '../lib/bm25.js'
 import { compressRequest } from '../compress.js'
 import { anthropic } from '../providers.js'
 
@@ -49,6 +49,35 @@ describe('bm25 — tokenizer', () => {
     assert.ok(toks.includes('world'))
     assert.ok(toks.includes('foo123'))
   })
+
+  it('also emits identifier parts so split-word queries match', () => {
+    // The collapsed form alone gives zero recall: a user asking about "parse
+    // config" shares no term with `parseConfig` or `parse_config`.
+    const camel = tokenize('function parseConfig(opts) {')
+    assert.ok(camel.includes('parseconfig'), 'collapsed form must survive')
+    assert.ok(camel.includes('parse') && camel.includes('config'), `parts missing: ${camel}`)
+
+    const snake = tokenize('def parse_config(opts):')
+    assert.ok(snake.includes('parse_config'), 'collapsed form must survive')
+    assert.ok(snake.includes('parse') && snake.includes('config'), `parts missing: ${snake}`)
+
+    const dotted = tokenize('user.email')
+    assert.ok(dotted.includes('user_email') && dotted.includes('user') && dotted.includes('email'))
+  })
+
+  it('splits acronym runs without swallowing the following word', () => {
+    const toks = tokenize('class parseHTTPResponse')
+    assert.ok(toks.includes('parse'), `${toks}`)
+    assert.ok(toks.includes('http'), `${toks}`)
+    assert.ok(toks.includes('response'), `${toks}`)
+  })
+
+  it('does not double-count atomic identifiers', () => {
+    // `config` has no internal structure, so emitting it twice would inflate
+    // its term frequency and skew BM25 toward lines that merely repeat it.
+    const toks = tokenize('config config')
+    assert.equal(toks.filter(t => t === 'config').length, 2)
+  })
 })
 
 describe('bm25 — scoring', () => {
@@ -68,6 +97,145 @@ describe('bm25 — scoring', () => {
     const scores = bm25Scores(docs, '')
     assert.equal(scores[0], 0)
     assert.equal(scores[1], 0)
+  })
+
+  it('scores split-identifier definitions above unrelated lines', () => {
+    // Regression for the recall hole: before subtoken expansion both
+    // definition lines scored exactly 0 and were the first to be dropped.
+    const docs = [
+      'function parseConfig(opts) {',
+      'def parse_config(opts):',
+      'const x = 1',
+      'unrelated noise here',
+    ]
+    const scores = bm25Scores(docs, 'parse config')
+    assert.ok(scores[0] > 0, 'camelCase definition scored zero')
+    assert.ok(scores[1] > 0, 'snake_case definition scored zero')
+    assert.ok(scores[0] > scores[2] && scores[1] > scores[3], 'definitions must outrank noise')
+  })
+})
+
+describe('bm25 — rerank', () => {
+  const q = tokenize('parse config')
+
+  it('boosts a line that defines a query term over one that calls it', () => {
+    const lines = ['function parseConfig(opts) {', 'const out = parseConfig(opts)']
+    const base = bm25Scores(lines, 'parse config')
+    const ranked = rerankScores(base, lines, q)
+    assert.ok(ranked[0] > ranked[1], `definition must outrank the call site: ${Array.from(ranked)}`)
+  })
+
+  it('penalises comment lines against equivalent code', () => {
+    const lines = ['parseConfig(opts)', '// parseConfig(opts)']
+    const base = bm25Scores(lines, 'parse config')
+    const ranked = rerankScores(base, lines, q)
+    assert.ok(ranked[0] > ranked[1], `code must outrank the commented copy: ${Array.from(ranked)}`)
+  })
+
+  it('lends score to neighbours so survivors stay contiguous', () => {
+    const lines = ['unrelated alpha', 'function parseConfig(o) {', 'unrelated beta', 'unrelated gamma']
+    const base = bm25Scores(lines, 'parse config')
+    const ranked = rerankScores(base, lines, q)
+    assert.equal(base[0], 0, 'precondition: neighbour has no direct match')
+    assert.ok(ranked[0] > 0, 'neighbour of a hit should inherit some score')
+    assert.ok(ranked[0] > ranked[3], 'coherence must decay with distance')
+  })
+
+  it('leaves zero-scoring lines at zero', () => {
+    const lines = ['nothing here', 'still nothing']
+    const ranked = rerankScores(bm25Scores(lines, 'parse config'), lines, q)
+    assert.equal(ranked[0], 0)
+    assert.equal(ranked[1], 0)
+  })
+})
+
+describe('bm25 — chunk-aware trimming', () => {
+  // A file where the answer sits deep inside one function and everything else
+  // is filler. Line-granular trimming keeps the matching line but discards its
+  // signature and closing brace, producing output that no longer parses.
+  function makeSource() {
+    const lines = ['// module header', "import fs from 'node:fs'", '']
+    for (let f = 0; f < 40; f++) {
+      lines.push(`export function filler${f}(a, b) {`)
+      for (let i = 0; i < 8; i++) lines.push(`  const step${i} = a + b + ${i} // routine padding value`)
+      lines.push(`  return step0`)
+      lines.push('}')
+      lines.push('')
+    }
+    lines.push('export function parseConfig(opts) {')
+    lines.push('  const merged = Object.assign({}, defaults, opts)')
+    lines.push('  return merged')
+    lines.push('}')
+    lines.push('// end of module')
+    return lines.join('\n')
+  }
+
+  it('keeps the enclosing signature and closer for any surviving body line', () => {
+    const text = makeSource()
+    const result = trimLinesByRelevance(text, 'parse config merged defaults', {
+      targetTokens: 220,
+      path: 'src/config.js',
+    })
+    assert.ok(result, 'should produce a trim')
+
+    const out = result.text
+    assert.match(out, /const merged = Object\.assign/, 'the relevant body line should survive')
+    assert.match(out, /export function parseConfig\(opts\) \{/, 'enclosing signature was dropped')
+
+    // Every surviving `{` line has a matching `}` — no orphaned bodies.
+    const opens = (out.match(/\{\s*$/gm) || []).length
+    const closes = (out.match(/^\s*\}/gm) || []).length
+    assert.equal(opens, closes, `unbalanced output:\n${out}`)
+  })
+
+  it('falls back to plain line trimming on non-code bodies', () => {
+    const lines = ['HEADER']
+    for (let i = 0; i < 200; i++) lines.push(`INFO heartbeat ${i} status=200 latency=${i}ms routine`)
+    lines.push('async error handling failed in worker')
+    lines.push('TRAILER')
+    const result = trimLinesByRelevance(lines.join('\n'), 'async error handling', { targetTokens: 120 })
+    assert.ok(result, 'should still trim a log body')
+    assert.match(result.text, /async error handling failed/)
+    assert.match(result.text, /\[\.\.\. \d+ lines omitted, \d+ chars \.\.\.\]/)
+  })
+
+  it('keeps its own closer when a block header is selected on its own merit', () => {
+    // Regression: closure only walked ANCESTORS, so a line that opens a block
+    // was kept with no `}` of its own. Small fixtures hid it — the leak only
+    // shows once budget filling picks many headers directly.
+    const lines = ['// header', '']
+    for (let f = 0; f < 200; f++) {
+      lines.push(`export function helper${f}(value) {`)
+      lines.push(`  const total = value + ${f} // routine padding`)
+      lines.push('  return total')
+      lines.push('}')
+      lines.push('')
+    }
+    lines.push('export function parseConfig(opts) {')
+    lines.push('  const merged = Object.assign({}, DEFAULTS, opts)')
+    lines.push('  return merged')
+    lines.push('}')
+    lines.push('// end')
+
+    const result = trimLinesByRelevance(lines.join('\n'), 'parse config merged defaults', {
+      targetTokens: 900,
+      path: 'src/config.js',
+    })
+    assert.ok(result, 'should produce a trim')
+    const opens = (result.text.match(/\{\s*$/gm) || []).length
+    const closes = (result.text.match(/^\s*\}/gm) || []).length
+    assert.equal(opens, closes, `unbalanced: ${opens} opens vs ${closes} closes`)
+    assert.match(result.text, /export function parseConfig\(opts\) \{/)
+  })
+
+  it('indents drop markers to the depth of the body they replace', () => {
+    const text = makeSource()
+    const result = trimLinesByRelevance(text, 'parse config merged defaults', {
+      targetTokens: 220,
+      path: 'src/config.js',
+    })
+    assert.ok(result)
+    assert.match(result.text, /^ +\[\.\.\. \d+ lines omitted/m, 'expected at least one indented marker')
   })
 })
 
