@@ -140,17 +140,52 @@ describe('code-chunks — buildStructure', () => {
     // Top-level import has no parent.
     assert.equal(parent[0], -1)
 
-    assert.equal(closer[2], 8)
-    assert.equal(closer[4], 6)
+    // closer/headerOf are LISTS — one line can open or close several blocks.
+    assert.deepEqual(closer[2], [8])
+    assert.deepEqual(closer[4], [6])
+  })
+
+  it('keeps every closer when one line opens two blocks', () => {
+    // C2 regression. `function f(src) { if (src) {` opens two blocks on line 0.
+    // Scalar maps kept only the last write, losing the OUTER closer, so the
+    // trimmer emitted a signature with no matching brace.
+    const lines = ['function parseConfig(src) { if (src) {', '    return 1', '  }', '}']
+    const blocks = detectBlocks(lines, { path: 'x.js' })
+    const { closer, headerOf } = buildStructure(lines, blocks)
+
+    assert.equal(blocks.length, 2, 'both blocks should be detected')
+    assert.ok(closer[0], 'line 0 opens blocks, so it must have closers')
+    assert.ok(closer[0].includes(2), 'inner closer missing')
+    assert.ok(closer[0].includes(3), 'OUTER closer lost — this is the C2 defect')
+    assert.deepEqual(headerOf[2], [0])
+    assert.deepEqual(headerOf[3], [0])
+  })
+
+  it('fills parent in one sweep, not by painting spans', () => {
+    // C1 regression. Painting each block's span is O(N x depth); a body of
+    // N/2 `{` then N/2 `}` measured 4741ms at 400KB. The sweep is O(N + blocks).
+    const lines = []
+    for (let i = 0; i < 4000; i++) lines.push('{')
+    for (let i = 0; i < 4000; i++) lines.push('}')
+    const blocks = detectBlocks(lines, { path: 'x.js' })
+    const started = process.hrtime.bigint()
+    const { parent } = buildStructure(lines, blocks)
+    const ms = Number(process.hrtime.bigint() - started) / 1e6
+
+    assert.equal(parent.length, 8000)
+    // Generous ceiling: the linear sweep measures ~2ms here, the quadratic
+    // fill measured hundreds. Anything under 500ms proves it is not quadratic.
+    assert.ok(ms < 500, `buildStructure took ${ms.toFixed(0)}ms on 8000 nested lines`)
   })
 
   it('returns empty maps when there are no blocks', () => {
     const lines = ['a', 'b', 'c']
-    const { parent, closer } = buildStructure(lines, null)
+    const { parent, closer, headerOf } = buildStructure(lines, null)
     assert.equal(parent.length, 3)
     for (let i = 0; i < 3; i++) {
       assert.equal(parent[i], -1)
-      assert.equal(closer[i], -1)
+      assert.equal(closer[i], undefined)
+      assert.equal(headerOf[i], undefined)
     }
   })
 })
