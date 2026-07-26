@@ -1,0 +1,12 @@
+{
+  "issuer": "https://tamp.dev/",
+  "authorization_endpoint": "https://tamp.dev/",
+  "token_endpoint": "https://tamp.dev/",
+  "response_types_supported": [],
+  "grant_types_supported": [],
+  "scopes_supported": [],
+  "token_endpoint_auth_methods_supported": ["none"],
+  "service_documentation": "https://github.com/sliday/tamp#readme",
+  "op_policy_uri": "https://tamp.dev/",
+  "op_tos_uri": "https://tamp.dev/"
+}

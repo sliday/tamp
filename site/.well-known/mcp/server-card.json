@@ -1,0 +1,33 @@
+{
+  "$schema": "https://modelcontextprotocol.io/schema/server-card-v0.json",
+  "serverInfo": {
+    "name": "tamp",
+    "title": "Tamp — token compression proxy",
+    "version": "0.8.16",
+    "description": "Tamp is distributed as a local CLI proxy (npm: @sliday/tamp) and a Claude Code plugin, not as a hosted MCP server. This card exists for agent discovery; install the CLI or plugin to use tamp with your agent.",
+    "homepage": "https://tamp.dev/",
+    "repository": "https://github.com/sliday/tamp",
+    "license": "MIT"
+  },
+  "transport": {
+    "type": "stdio",
+    "command": "tamp",
+    "args": [],
+    "installation": {
+      "npm": "npm install -g @sliday/tamp",
+      "shell": "curl -fsSL https://tamp.dev/setup.sh | bash",
+      "claudeCodePlugin": "https://github.com/sliday/tamp-plugin"
+    }
+  },
+  "capabilities": {
+    "tools": false,
+    "resources": false,
+    "prompts": false,
+    "logging": true
+  },
+  "documentation": {
+    "readme": "https://github.com/sliday/tamp#readme",
+    "whitepaper": "https://tamp.dev/whitepaper-latest",
+    "whitepaperPdf": "https://tamp.dev/whitepaper.pdf"
+  }
+}
