@@ -15,10 +15,6 @@
 // package.json and delete this file. Do that once the list below is empty.
 
 const OPEN_CRITICALS = [
-  ['C4', 'lib/bm25.js', 'chars-per-token estimate gameable; measured 7.8x over the stated token budget'],
-  ['C6', 'lib/bm25.js', 'closureFor O(candidates x depth^2)'],
-  ['C7', 'lib/bm25.js', 'docTokens retains ~10x body size; OOM path'],
-  ['C8', 'lib/bm25.js', 'df loop O(uniqQ x N x tokens/line)'],
   ['C9', 'bench/retrieval-eval.js', 'recall scored against untrimmed text when no trim occurs; the gate cannot fail'],
   ['C10', 'package.json', 'that gate never runs: not in npm test, no CI'],
 ]
