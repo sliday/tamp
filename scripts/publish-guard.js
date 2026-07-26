@@ -15,10 +15,7 @@
 // package.json and delete this file. Do that once the list below is empty.
 
 const OPEN_CRITICALS = [
-  ['C3', 'lib/code-chunks.js', 'detectIndentBlocks rescans blanks per header; 2.2MB -> 10.8s (DoS)'],
-  ['F2', 'lib/code-chunks.js', '/* scanned before strings are stripped; any /* substring swallows the rest of the body'],
   ['C4', 'lib/bm25.js', 'chars-per-token estimate gameable; measured 7.8x over the stated token budget'],
-  ['C5', 'lib/bm25.js', 'countTokens superlinear on low-entropy input; 400KB whitespace -> 88.9s, 1MB -> WASM trap (DoS)'],
   ['C6', 'lib/bm25.js', 'closureFor O(candidates x depth^2)'],
   ['C7', 'lib/bm25.js', 'docTokens retains ~10x body size; OOM path'],
   ['C8', 'lib/bm25.js', 'df loop O(uniqQ x N x tokens/line)'],
