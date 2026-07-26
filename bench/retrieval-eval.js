@@ -273,14 +273,26 @@ function recallAfterTrim(fx, tokenizer, rerank) {
     tokenizer,
     rerank,
   })
-  const kept = result ? result.text : text
+  // C9. When trimLinesByRelevance returns null (body under budget, under
+  // minLines, or the trim grew the text) there IS no trimmed output, so
+  // scoring the gold lines against `text` measured nothing and returned a
+  // perfect 100% recall and 100% definition survival. The definition-survival
+  // gate below therefore could not fail for any fixture that stopped trimming
+  // — one fillerCount edit away from silently green forever.
+  //
+  // A fixture that does not trim is a broken fixture, not a passing one.
+  if (!result) {
+    return { recall: 0, defRecall: 0, tokens: null, originalTokens: null, noTrim: true }
+  }
+  const kept = result.text
   const survived = fx.gold.filter(i => kept.includes(fx.lines[i].trim())).length
   const defsSurvived = fx.definitions.filter(i => kept.includes(fx.lines[i].trim())).length
   return {
     recall: fx.gold.length === 0 ? 1 : survived / fx.gold.length,
     defRecall: fx.definitions.length === 0 ? 1 : defsSurvived / fx.definitions.length,
-    tokens: result ? result.trimmedTokens : null,
-    originalTokens: result ? result.originalTokens : null,
+    tokens: result.trimmedTokens,
+    originalTokens: result.originalTokens,
+    noTrim: false,
   }
 }
 
@@ -324,6 +336,14 @@ console.log(
 // --- Gates ---
 
 const failures = []
+
+// A fixture that never trims proves nothing — surface it loudly rather than
+// letting it count as a perfect score (C9).
+const noTrim = after.filter(r => r.noTrim).map(r => r.id)
+if (noTrim.length > 0) {
+  failures.push(`${noTrim.length} fixture(s) produced no trim, so they measure nothing: ${noTrim.join(', ')}`)
+}
+
 const defRecall = mean(after.map(r => r.defRecall))
 if (defRecall < 1) {
   const lost = after.filter(r => r.defRecall < 1).map(r => r.id)
