@@ -472,10 +472,30 @@ const gemini = {
   },
 }
 
+// Codex CLI 0.146 emits two tool-result item types (`function_call_output`
+// for JSON-schema tools, `custom_tool_call_output` for freeform ones) and
+// carries `output` either as a plain string (older wire format) or as an
+// array of `input_text` content parts. Matching only the string form left
+// every Codex tool result uncompressed.
+function isResponsesToolOutput(type) {
+  return type === 'function_call_output' || type === 'custom_tool_call_output'
+}
+
 function extractOpenAIResponsesTargets(item, i) {
-  if (item?.type !== 'function_call_output') return []
-  if (typeof item.output !== 'string') return []
-  return [{ path: ['input', i, 'output'], text: item.output, index: i }]
+  if (!isResponsesToolOutput(item?.type)) return []
+  if (typeof item.output === 'string') {
+    return [{ path: ['input', i, 'output'], text: item.output, index: i }]
+  }
+  if (Array.isArray(item.output)) {
+    const targets = []
+    for (const [j, part] of item.output.entries()) {
+      if (part?.type === 'input_text' && typeof part.text === 'string') {
+        targets.push({ path: ['input', i, 'output', j, 'text'], text: part.text, index: i })
+      }
+    }
+    return targets
+  }
+  return []
 }
 
 const openaiResponses = {
@@ -497,7 +517,7 @@ const openaiResponses = {
       const targets = []
       for (let i = body.input.length - 1; i >= 0; i--) {
         const item = body.input[i]
-        if (item?.type !== 'function_call_output') break
+        if (!isResponsesToolOutput(item?.type)) break
         targets.unshift(...extractOpenAIResponsesTargets(item, i))
       }
       return targets
@@ -602,9 +622,12 @@ export function resolveOpenAIUpstream({ mode, base, providerName }) {
       base: 'https://chatgpt.com',
       transformPath(path) {
         // Codex calls land on /v1/responses or /v1/chat/completions. The
-        // ChatGPT backend expects /backend-api/codex<rest>.
+        // ChatGPT backend is unversioned and expects
+        // /backend-api/codex/responses — keeping the /v1 segment yields a
+        // 404 {"detail":"Not Found"} from chatgpt.com.
         if (path.startsWith('/backend-api/codex')) return path
-        return '/backend-api/codex' + path
+        const unversioned = path.replace(/^\/v1(?=\/|$)/, '')
+        return '/backend-api/codex' + unversioned
       },
       mode,
       providerName,

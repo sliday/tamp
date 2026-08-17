@@ -98,7 +98,7 @@ env_key = "OPENAI_API_KEY"
 wire_api = "responses"
 ```
 
-Then `export OPENAI_API_KEY=sk-...` and run `codex` or `codex exec "..."` as usual. Tamp routes `/v1/responses` through the `openai-responses` adapter and compresses every `function_call_output` block.
+Then `export OPENAI_API_KEY=sk-...` and run `codex` or `codex exec "..."` as usual. Tamp routes `/v1/responses` through the `openai-responses` adapter and compresses every `function_call_output` and `custom_tool_call_output` block, including outputs carried as `input_text` content arrays.
 
 **ChatGPT Plus / Pro subscription.** If you sign in with `codex login` instead of using an API key, add this line to `~/.codex/config.toml`:
 
@@ -106,7 +106,9 @@ Then `export OPENAI_API_KEY=sk-...` and run `codex` or `codex exec "..."` as usu
 openai_base_url = "http://localhost:7778/v1"
 ```
 
-Tamp detects OAuth bearer tokens and routes them to `chatgpt.com/backend-api/codex` automatically, so your ChatGPT Plus/Pro subscription keeps paying for inference while Tamp compresses every tool result in flight.
+Tamp detects OAuth bearer tokens and routes them to `chatgpt.com/backend-api/codex` automatically, so your ChatGPT Plus/Pro subscription keeps paying for inference while Tamp compresses every tool result in flight. Verified against `codex-cli 0.146.0`.
+
+One transport caveat: Codex 0.146 opens a WebSocket to `<base>/responses` first. Tamp proxies HTTP only, so it answers that upgrade with `501` and Codex falls back to its HTTPS transport. Expect a handful of `failed to connect to websocket` lines in the log; the session then runs normally.
 
 ### Cursor
 

@@ -61,7 +61,16 @@ describe('resolveOpenAIUpstream', () => {
       providerName: 'openai-responses',
     })
     assert.equal(route.base, 'https://chatgpt.com')
-    assert.equal(route.transformPath('/v1/responses'), '/backend-api/codex/v1/responses')
+    // The ChatGPT codex backend is unversioned. Forwarding /backend-api/codex/v1/responses
+    // returns 404 {"detail":"Not Found"} from chatgpt.com, so the /v1 must go.
+    assert.equal(route.transformPath('/v1/responses'), '/backend-api/codex/responses')
+    assert.equal(route.transformPath('/v1/chat/completions'), '/backend-api/codex/chat/completions')
+  })
+
+  it('leaves non-/v1 paths alone when prefixing', () => {
+    const route = resolveOpenAIUpstream({ mode: 'chatgpt-oauth', base: 'x', providerName: 'openai' })
+    assert.equal(route.transformPath('/responses'), '/backend-api/codex/responses')
+    assert.equal(route.transformPath('/v1beta/models'), '/backend-api/codex/v1beta/models')
   })
 
   it('is idempotent — does not double-prefix /backend-api/codex', () => {

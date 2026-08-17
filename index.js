@@ -92,6 +92,10 @@ export function createProxy(overrides = {}, loadOpts = {}) {
     : null
   const sessionStore = createSessionStore({ brCache })
   const readCache = createReadCache()
+  // `tamp -y` starts the sidecar itself and hands the URL down via env, so the
+  // isMain probe below never runs and /health kept reporting sidecar:false
+  // while llmlingua was in fact wired up. Probe here too, quietly.
+  if (config.stages?.includes('llmlingua') && config.llmLinguaUrl) probeSidecar(config, true)
   return { config, session, sessionStore, readCache, brCache, server: _createServer(config, session, sessionStore, readCache, brCache) }
 }
 
@@ -189,6 +193,17 @@ function pipeRequest(req, res, upstreamUrl, prefixChunks) {
 }
 
 return http.createServer(async (req, res) => {
+  // Codex CLI 0.146+ opens a WebSocket to <base>/responses before falling
+  // back to HTTPS. Tamp only proxies HTTP, and forwarding the upgrade
+  // upstream earns a Cloudflare 503 that Codex retries five times (~17s of
+  // dead time per session). Refuse it locally and immediately: 501 is not
+  // retryable, so Codex drops to the HTTP transport on the first try.
+  if (String(req.headers.upgrade || '').toLowerCase() === 'websocket') {
+    const body = JSON.stringify({ error: { message: 'Tamp does not proxy WebSocket transport; use HTTP.', type: 'not_implemented' } })
+    res.writeHead(501, { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body), Connection: 'close' })
+    return res.end(body)
+  }
+
   // Health check endpoint
   if ((req.url === '/health' || req.url === '/health?text') && (req.method === 'GET' || req.method === 'HEAD')) {
     const totals = session.getTotals()
@@ -401,17 +416,18 @@ const SIDECAR_URL = `http://localhost:${SIDECAR_PORT}`
 
 let sidecarAvailable = false
 
-function probeSidecar(config) {
+function probeSidecar(config, quiet = false) {
   const req = http.get(`${SIDECAR_URL}/health`, { timeout: 2000 }, (res) => {
     if (res.statusCode === 200) {
       sidecarAvailable = true
       if (!config.llmLinguaUrl) config.llmLinguaUrl = SIDECAR_URL
-      console.error(`[tamp] llmlingua sidecar: ok (${config.llmLinguaUrl})`)
+      if (!quiet) console.error(`[tamp] llmlingua sidecar: ok (${config.llmLinguaUrl})`)
     }
     res.resume()
   })
   req.on('error', () => {
     sidecarAvailable = false
+    if (quiet) return
     console.error('[tamp] \u26a0 llmlingua stage enabled but sidecar not running \u2014 text blocks won\u2019t compress')
     console.error('[tamp]   start with: uv run --with fastapi --with uvicorn --with llmlingua --with mlx uvicorn server:app --host 127.0.0.1 --port 8788 --app-dir sidecar')
   })

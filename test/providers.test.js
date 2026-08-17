@@ -237,6 +237,70 @@ describe('openai-responses adapter', () => {
     assert.equal(targets[0].text, '{"ok":true}')
   })
 
+  // Codex CLI 0.146 wire format: freeform tools emit `custom_tool_call_output`
+  // and carry `output` as an array of input_text parts. Matching only
+  // string-valued `function_call_output` compressed nothing on the Codex path.
+  it('extracts custom_tool_call_output items', () => {
+    const body = {
+      input: [
+        { type: 'custom_tool_call_output', call_id: 'c1', output: '{"file":"contents"}' },
+      ],
+    }
+    const targets = openaiResponses.extract(body)
+    assert.equal(targets.length, 1)
+    assert.equal(targets[0].text, '{"file":"contents"}')
+    assert.deepEqual(targets[0].path, ['input', 0, 'output'])
+  })
+
+  it('extracts input_text parts when output is a content array', () => {
+    const body = {
+      input: [
+        {
+          type: 'custom_tool_call_output',
+          call_id: 'c1',
+          output: [
+            { type: 'input_text', text: 'Script completed\n' },
+            { type: 'input_image', image_url: 'data:...' },
+            { type: 'input_text', text: '{"users":[]}' },
+          ],
+        },
+      ],
+    }
+    const targets = openaiResponses.extract(body)
+    assert.equal(targets.length, 2)
+    assert.deepEqual(targets[0].path, ['input', 0, 'output', 0, 'text'])
+    assert.deepEqual(targets[1].path, ['input', 0, 'output', 2, 'text'])
+    assert.equal(targets[1].text, '{"users":[]}')
+  })
+
+  it('apply writes compressed text back into content-array outputs', () => {
+    const body = {
+      input: [
+        { type: 'custom_tool_call_output', call_id: 'c1', output: [{ type: 'input_text', text: 'original' }] },
+      ],
+    }
+    const targets = openaiResponses.extract(body)
+    targets[0].compressed = 'compressed'
+    openaiResponses.apply(body, targets)
+    assert.equal(body.input[0].output[0].text, 'compressed')
+  })
+
+  it('cacheSafe walks back across custom_tool_call_output items too', () => {
+    const body = {
+      input: [
+        { type: 'function_call_output', call_id: 'old', output: '{"old":"data"}' },
+        { role: 'assistant', content: [{ type: 'output_text', text: 'done' }] },
+        { type: 'custom_tool_call_output', call_id: 'new1', output: '{"new":"data"}' },
+        { type: 'function_call_output', call_id: 'new2', output: '{"newer":"data"}' },
+      ],
+    }
+    const targets = openaiResponses.extract(body, { cacheSafe: true })
+    assert.deepEqual(targets.map(t => t.path), [
+      ['input', 2, 'output'],
+      ['input', 3, 'output'],
+    ])
+  })
+
   it('ignores user/assistant messages and function_call items', () => {
     const body = {
       input: [
