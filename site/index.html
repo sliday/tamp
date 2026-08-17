@@ -470,9 +470,9 @@
      ============================================================ -->
 <section class="hero-section" id="hero">
     <div class="hero-inner">
-        <a href="#levels" class="release-chip" aria-label="What's new in v0.8.16">
-            <span class="release-chip__tag">v0.8.16</span>
-            <span class="release-chip__text">secret redaction + loopback-only by default + bm25 retrieval fix</span>
+        <a href="#setup" class="release-chip" aria-label="What's new in v0.8.17">
+            <span class="release-chip__tag">v0.8.17</span>
+            <span class="release-chip__text">Codex CLI on a ChatGPT subscription now routes and compresses correctly</span>
             <span class="release-chip__arrow">&rarr;</span>
         </a>
         <span class="hero-eyebrow">Token proxy for coding agents</span>
@@ -778,7 +778,7 @@ claude</pre>
             </div>
 
             <div class="setup-panel db-card db-surface--raised" id="setup-codex" role="tabpanel" data-panel="codex" hidden>
-                <p class="setup-panel__desc">Responses API &mdash; edit <code>~/.codex/config.toml</code>. Works with ChatGPT Plus/Pro OAuth: tamp auto-detects the JWT bearer and routes to <code>chatgpt.com/backend-api/codex</code>.</p>
+                <p class="setup-panel__desc">Responses API &mdash; edit <code>~/.codex/config.toml</code>. Works with ChatGPT Plus/Pro OAuth: tamp auto-detects the JWT bearer and routes to <code>chatgpt.com/backend-api/codex</code>. Verified end to end against <code>codex-cli 0.146.0</code> on v0.8.17. Codex tries a WebSocket first, tamp answers <code>501</code>, and Codex drops to HTTP &mdash; a few <code>failed to connect to websocket</code> lines in the log are expected.</p>
                 <div class="code-copy-wrap">
                     <button class="code-copy-btn" type="button" aria-label="Copy code to clipboard">copy</button>
                     <pre class="setup-panel__code">model_provider = "tamp"
