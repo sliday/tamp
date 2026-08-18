@@ -373,6 +373,22 @@ async function textpressCompress(text, config) {
   return null
 }
 
+// Content an agent must be able to copy back out byte for byte. Neural
+// compressors paraphrase, and a paraphrased path is a broken path.
+const VERBATIM_CRITICAL = [
+  /(?:^|[\s"'(=])\.{0,2}\/[\w.\-]+\/[\w.\-]+/, // /usr/local, ./src/app, ../a/b
+  /[A-Za-z]:\\[\w.\-]+\\/,                      // C:\Users\x\
+  /\bhttps?:\/\//,                              // urls
+  /"\s*:\s*/,                                   // json key/value separators
+  /[{[]\s*"/,                                   // json object/array openers
+  /\b[0-9a-f]{7,}\b/,                           // sha/commit/hex ids
+  /\bv?\d+\.\d+\.\d+\b/,                        // semver
+]
+
+export function hasVerbatimCriticalContent(text) {
+  return VERBATIM_CRITICAL.some(re => re.test(text))
+}
+
 // --- Core compression ---
 export function compressText(text, config) {
   if (text.length < config.minSize) { if (config.log !== false) process.stderr.write(`[tamp]   skip: too small (${text.length} < ${config.minSize})\n`); return null }
@@ -410,7 +426,17 @@ export function compressText(text, config) {
       return { text: processed, method, originalLen: text.length, compressedLen: processed.length, originalTokens: countTokens(text), compressedTokens: countTokens(processed) }
     }
     if (config.stages.includes('llmlingua') && config.llmLinguaUrl) {
-      return { async: true, asyncMethod: 'llmlingua', text: processed, cls }
+      // LLMLingua-2 is a prose compressor. On tool output it drops characters
+      // from the middle of tokens the agent has to reuse verbatim:
+      //   /Users/x/.config/tamp/tamp.err.log -> /Users/x./tamp..
+      //   "version":"0.8.17"                 -> "version""0.. 17"
+      // A path the agent cannot cat is worse than a payload it cannot shrink,
+      // so anything carrying paths, URLs, JSON or hashes skips the sidecar.
+      if (hasVerbatimCriticalContent(processed)) {
+        if (config.log !== false) process.stderr.write('[tamp]   skip: llmlingua (verbatim-critical content: paths/JSON/urls/hashes)\n')
+      } else {
+        return { async: true, asyncMethod: 'llmlingua', text: processed, cls }
+      }
     }
     if (config.stages.includes('foundation-models') && config.foundationModelsPath) {
       return { async: true, asyncMethod: 'foundation-models', text: processed, cls }

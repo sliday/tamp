@@ -220,9 +220,66 @@ if (subcommand === 'settings' || subcommand === 'config') {
   instance = render(h(LevelPicker, { version: VERSION, envLevel, onSelect, onCancel }))
 }
 
+// macOS LaunchAgent. Pointing an agent's base URL at Tamp makes that agent
+// depend on Tamp being up, so "run it by hand in a terminal" is not a real
+// answer once you route Claude Code or Codex through it.
+const LAUNCH_AGENT_LABEL = 'dev.tamp.proxy'
+const LAUNCH_AGENT_PATH = join(homedir(), 'Library', 'LaunchAgents', `${LAUNCH_AGENT_LABEL}.plist`)
+
+if (subcommand === 'install-service' && process.platform === 'darwin') {
+  const nodeBin = process.execPath
+  const tampBin = join(__dirname, 'tamp.js')
+  const logDir = join(homedir(), '.config', 'tamp')
+  mkdirSync(logDir, { recursive: true })
+  mkdirSync(dirname(LAUNCH_AGENT_PATH), { recursive: true })
+  const plist = `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key><string>${LAUNCH_AGENT_LABEL}</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>${nodeBin}</string>
+    <string>${tampBin}</string>
+    <string>-y</string>
+    <string>--force</string>
+  </array>
+  <key>RunAtLoad</key><true/>
+  <key>KeepAlive</key><true/>
+  <key>StandardOutPath</key><string>${join(logDir, 'tamp.out.log')}</string>
+  <key>StandardErrorPath</key><string>${join(logDir, 'tamp.err.log')}</string>
+</dict>
+</plist>
+`
+  writeFileSync(LAUNCH_AGENT_PATH, plist)
+  const uid = process.getuid()
+  try { execFileSync('launchctl', ['bootout', `gui/${uid}/${LAUNCH_AGENT_LABEL}`], { stdio: 'ignore' }) } catch {}
+  try {
+    execFileSync('launchctl', ['bootstrap', `gui/${uid}`, LAUNCH_AGENT_PATH], { stdio: 'inherit' })
+    execFileSync('launchctl', ['enable', `gui/${uid}/${LAUNCH_AGENT_LABEL}`], { stdio: 'ignore' })
+    console.log(`\nLaunchAgent installed: ${LAUNCH_AGENT_PATH}`)
+    console.log('  Status:  tamp status')
+    console.log(`  Logs:    tail -f ${join(logDir, 'tamp.err.log')}`)
+    console.log(`  Stop:    launchctl bootout gui/${uid}/${LAUNCH_AGENT_LABEL}`)
+    console.log('  Remove:  tamp uninstall-service')
+  } catch (e) {
+    console.error('launchctl failed:', e.message)
+    process.exit(1)
+  }
+  process.exit(0)
+}
+
+if (subcommand === 'uninstall-service' && process.platform === 'darwin') {
+  const uid = process.getuid()
+  try { execFileSync('launchctl', ['bootout', `gui/${uid}/${LAUNCH_AGENT_LABEL}`], { stdio: 'ignore' }) } catch {}
+  try { unlinkSync(LAUNCH_AGENT_PATH) } catch {}
+  console.log('LaunchAgent removed.')
+  process.exit(0)
+}
+
 if (subcommand === 'install-service') {
   if (process.platform !== 'linux') {
-    console.error('Service installation requires Linux (systemd).')
+    console.error('Service installation requires Linux (systemd) or macOS (launchd).')
     process.exit(1)
   }
   const nodeBin = process.execPath
@@ -262,7 +319,7 @@ WantedBy=default.target
 
 if (subcommand === 'uninstall-service') {
   if (process.platform !== 'linux') {
-    console.error('Service management requires Linux (systemd).')
+    console.error('Service management requires Linux (systemd) or macOS (launchd).')
     process.exit(1)
   }
   const unitPath = join(homedir(), '.config', 'systemd', 'user', 'tamp.service')
@@ -385,8 +442,8 @@ if (subcommand === 'help' || subcommand === '--help' || subcommand === '-h' || p
   console.log('  init                Create config file (~/.config/tamp/config)')
   console.log('  settings            Edit compression level and stages')
   console.log('  status              Check if proxy is running')
-  console.log('  install-service     Install systemd user service (Linux)')
-  console.log('  uninstall-service   Remove systemd service')
+  console.log('  install-service     Keep Tamp running (launchd on macOS, systemd on Linux)')
+  console.log('  uninstall-service   Remove the service')
   console.log('  help                Show this help')
   console.log('')
   console.log('Options:')
@@ -399,8 +456,25 @@ if (subcommand === 'help' || subcommand === '--help' || subcommand === '-h' || p
 const skipPrompt = process.argv.includes('-y') || process.argv.includes('--no-interactive') || !process.stdin.isTTY
 const forceReplace = process.argv.includes('--force')
 
-const envStages = process.env.TAMP_STAGES
-  ? new Set(process.env.TAMP_STAGES.split(',').map(s => s.trim()).filter(Boolean))
+// TAMP_STAGES may come from the environment or from ~/.config/tamp/config.
+// Reading only process.env meant a stage list written to the config file was
+// silently overwritten by DEFAULT_STAGES on every `tamp -y`, so the documented
+// knob did nothing on the non-interactive path most people use.
+function readStagesSetting() {
+  if (process.env.TAMP_STAGES) return process.env.TAMP_STAGES
+  try {
+    const line = readFileSync(CONFIG_PATH, 'utf8')
+      .split('\n')
+      .map(l => l.trim())
+      .filter(l => l && !l.startsWith('#'))
+      .find(l => l.startsWith('TAMP_STAGES='))
+    return line ? line.slice('TAMP_STAGES='.length).trim() : null
+  } catch { return null }
+}
+
+const stagesSetting = readStagesSetting()
+const envStages = stagesSetting
+  ? new Set(stagesSetting.split(',').map(s => s.trim()).filter(Boolean))
   : null
 
 async function ensurePortFree(port) {

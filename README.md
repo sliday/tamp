@@ -20,6 +20,8 @@ The plugin adds `/tamp:status` and `/tamp:config` commands. It auto-starts Tamp 
 { "env": { "ANTHROPIC_BASE_URL": "http://localhost:7778" } }
 ```
 
+That line makes Claude Code depend on Tamp. Run `tamp install-service` in the same sitting so the proxy is up at every login, and keep `~/.claude/settings.json.backup` until you trust the setup. To undo, delete the `ANTHROPIC_BASE_URL` key.
+
 ### 🦞 OpenClaw
 
 ```bash
@@ -68,6 +70,20 @@ uv run --with fastapi --with uvicorn --with llmlingua \
 curl -s http://localhost:8788/health # Verify: {"status":"ok","model_loaded":true}
 
 tamp stop && tamp -y # restart Tamp, health endpoint will show `sidecar: ok`
+```
+
+**What it will not touch.** LLMLingua-2 paraphrases, and a paraphrased file path is a broken file path. At the default rate of 0.7 it turned real command output into this:
+
+| Before | After |
+|--------|-------|
+| `/Users/x/.config/tamp/tamp.err.log` | `/Users/x./tamp..` |
+| `"version":"0.8.17"` | `"version""0.. 17"` |
+| `launchctl bootout gui/501/dev.tamp.proxy` | `launchctl bootout gui/501/dev..` |
+
+So Tamp skips the sidecar for any block carrying paths, URLs, JSON separators, hex ids, or semver, and sends only prose. Across Tamp's own benchmark fixtures that guard fires on 92% of text blocks, which is the honest measure of how much `llmlingua` contributes to a coding agent: very little. Keep it for doc-heavy and web-fetch traffic, drop it if you want a fully lossless pipeline:
+
+```bash
+TAMP_STAGES=cmd-strip,minify,toon,strip-lines,whitespace,dedup,diff,read-diff,prune tamp -y
 ```
 
 ## Quick Start
@@ -137,6 +153,29 @@ opencode **silently ignores** `OPENAI_API_BASE` / `OPENAI_BASE_URL`. Configure b
 ```
 
 Restart opencode. Tamp's adapter table routes each provider to the correct upstream.
+
+### Kimi Code
+
+Config lives at `~/.kimi-code/config.toml` (not `~/.kimi/`), and the provider table is named after the managed provider:
+
+```toml
+[providers."managed:kimi-code"]
+base_url = "http://localhost:7778/kimi/coding/v1"
+
+# Moonshot API key instead of a subscription:
+[providers.moonshot]
+base_url = "http://localhost:7778/moonshot/v1"
+```
+
+> **Read this before you edit that file.** Kimi Code stores its OAuth token under a key derived from the provider environment, and `base_url` is part of that key. Change the URL and the CLI loses the token it already has:
+>
+> ```
+> No token for "kimi-code-env-92f579c50dab5f50". Run /login to authenticate.
+> ```
+>
+> Every running agent fails at once, including background ones. Run `/login` in Kimi after the edit to re-authenticate under the new key, or leave `base_url` alone and accept no compression on Kimi. Restoring the original URL restores the original token.
+
+An API-key Moonshot setup has no such problem; only the OAuth subscription path is affected.
 
 ### VS Code
 
@@ -317,10 +356,34 @@ npx @sliday/tamp
 # npm global
 npm install -g @sliday/tamp
 tamp
+```
 
-# systemd service (Linux)
-tamp install-service
-tamp status
+### Keep it running
+
+Read this before you point an agent at Tamp permanently. Once `ANTHROPIC_BASE_URL` (or a `config.toml` `base_url`) names `localhost:7778`, that agent talks to nothing when Tamp is down. Every session fails until you start it again.
+
+```bash
+tamp install-service   # launchd on macOS, systemd user unit on Linux
+tamp status            # confirm it came up
+tamp uninstall-service # remove it
+```
+
+macOS installs `~/Library/LaunchAgents/dev.tamp.proxy.plist` with `RunAtLoad` and `KeepAlive`, so Tamp starts at login and restarts if it dies. Logs land in `~/.config/tamp/tamp.err.log`.
+
+If you would rather not add a background service, keep the agent on its normal endpoint and start Tamp by hand when you want the savings.
+
+### Verify a global install actually replaced the old one
+
+`npm install -g` writes to `npm config get prefix`, which is not always the directory your shell resolves from. Check the copy you actually run:
+
+```bash
+grep '"version"' "$(dirname "$(readlink -f "$(command -v tamp)")")/../package.json"
+```
+
+If that disagrees with `npm view @sliday/tamp version`, install into the prefix your PATH uses:
+
+```bash
+npm install -g --prefix "$(dirname "$(dirname "$(readlink -f "$(command -v tamp)")")")" @sliday/tamp
 ```
 
 ## Monitoring

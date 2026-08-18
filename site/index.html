@@ -841,16 +841,16 @@ aider   # or any OpenAI-compatible CLI</pre>
             </div>
 
             <div class="setup-panel db-card db-surface--raised" id="setup-kimi" role="tabpanel" data-panel="kimi" hidden>
-                <p class="setup-panel__desc">Edit <code>~/.kimi/config.toml</code>. Tamp routes both Kimi Code OAuth (private <code>api.kimi.com/coding/v1</code>) and Moonshot API-key traffic (<code>api.moonshot.cn/v1</code>) transparently.</p>
+                <p class="setup-panel__desc">Edit <code>~/.kimi-code/config.toml</code>. Tamp routes both Kimi Code OAuth (private <code>api.kimi.com/coding/v1</code>) and Moonshot API-key traffic (<code>api.moonshot.cn/v1</code>). <strong style="color: #d79921;">Caveat:</strong> Kimi keys its OAuth token to the provider <code>base_url</code>. Changing it gives <code>No token for "kimi-code-env-…". Run /login to authenticate.</code> and every running agent fails until you re-login. API-key Moonshot setups are unaffected.</p>
                 <div class="code-copy-wrap">
                     <button class="code-copy-btn" type="button" aria-label="Copy code to clipboard">copy</button>
-                    <pre class="setup-panel__code"># Kimi Code subscription (OAuth)
-[providers.kimi-for-coding]
-base_url = "http://localhost:7778/coding/v1"
+                    <pre class="setup-panel__code"># Kimi Code subscription (OAuth) — run /login after editing
+[providers."managed:kimi-code"]
+base_url = "http://localhost:7778/kimi/coding/v1"
 
 # Or Moonshot API key (pay-per-token)
 [providers.moonshot]
-base_url = "http://localhost:7778/v1/moonshot"</pre>
+base_url = "http://localhost:7778/moonshot/v1"</pre>
                 </div>
             </div>
 
@@ -859,6 +859,7 @@ base_url = "http://localhost:7778/v1/moonshot"</pre>
         <div class="db-callout setup-callout" style="--callout-bg: rgba(139, 105, 20, 0.08); --callout-border: var(--tamp-accent); margin-top: 2rem; padding: 1rem 1.25rem;">
             <span class="setup-callout__eyebrow">Lifecycle &amp; health</span>
             <p class="db-body" style="margin: 0; font-size: 0.9rem;">
+                <code>tamp install-service</code> keeps Tamp up across reboots (launchd on macOS, systemd on Linux) &mdash; do this before you point an agent's base URL at Tamp, or that agent breaks whenever Tamp is down &middot;
                 <code>tamp stop</code> gracefully shuts down a running proxy &middot;
                 <code>tamp -y --force</code> replaces an existing instance &middot;
                 <code>tamp status</code> checks health &middot;
