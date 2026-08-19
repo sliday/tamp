@@ -79,6 +79,28 @@ describe('detectTaskType', () => {
     assert.strictEqual(detectTaskType('increase test coverage'), 'dangerous')
   })
 
+  // Word-boundary regressions. Unanchored alternations matched inside ordinary
+  // words, and a false 'dangerous' silently disables disclosure and bm25-trim
+  // for the whole session (compress.js:136, compress.js:168).
+  it('does not match dangerous keywords inside ordinary words', () => {
+    assert.strictEqual(detectTaskType('use the latest version of react'), 'complex')
+    assert.strictEqual(detectTaskType('add a contest banner'), 'complex')
+    assert.strictEqual(detectTaskType('make the button specific to mobile'), 'complex')
+    assert.strictEqual(detectTaskType('inspect the response headers'), 'complex')
+    assert.strictEqual(detectTaskType('update the specification doc'), 'complex')
+    assert.strictEqual(detectTaskType('rename the variable to userSpec'), 'complex')
+  })
+
+  it('still matches inflected forms of dangerous keywords', () => {
+    assert.strictEqual(detectTaskType('debugging the parser'), 'dangerous')
+    assert.strictEqual(detectTaskType('optimizing the render loop'), 'dangerous')
+    assert.strictEqual(detectTaskType('optimising the render loop'), 'dangerous')
+    assert.strictEqual(detectTaskType('run diagnostics on the pool'), 'dangerous')
+    assert.strictEqual(detectTaskType('patch known vulnerabilities'), 'dangerous')
+    assert.strictEqual(detectTaskType('add testing for the api'), 'dangerous')
+    assert.strictEqual(detectTaskType('update the spec'), 'dangerous')
+  })
+
   // Complex tasks (default)
   it('detects complex task: ambiguous request', () => {
     assert.strictEqual(detectTaskType('create a new feature'), 'complex')
