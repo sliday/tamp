@@ -152,7 +152,36 @@
 <p class="figure-caption">Figure 3. Compression ratio vs. payload size. Larger, more structured payloads yield better ratios; classifier-skipped content clusters at ratio 1.0.</p>
 </div>
 
-<h2>8. Limitations</h2>
+<h2>8. Recommended Defaults &mdash; An Autoresearch Study</h2>
+
+<p>To pick defaults worth the name <em>recommended</em>, we ran a separate goal-directed iteration study in the style of Karpathy's <a href="https://github.com/trevin-creator/autoresearch-mlx">autoresearch</a>: propose a candidate configuration, verify it against a mechanical metric, keep or discard, repeat &mdash; 14 bounded iterations, logged per run. Judge: <code>deepseek-v4-flash</code> via OpenRouter at temperature 0 with thinking disabled.</p>
+
+<p>The study replaced the equivalence check of Section 3 with a stricter <strong>fact-retention gate</strong>: 9 scenarios and 20 questions, each planting a fact that a specific stage could destroy (a version string for toon/minify, a fact stated only in a code comment for strip-comments, prose with precise numerals for llmlingua, a 46&nbsp;KB grep output with three planted needles for bm25-trim, a 40&nbsp;KB source module for textpress). A configuration passes only if the compressed run loses at most one answer versus the uncompressed control. Savings are counted client-side with the Anthropic tokenizer; provider-side context caching makes API-reported <code>input_tokens</code> unusable for prompt-size comparison.</p>
+
+<table>
+<caption>Table 6: Autoresearch frontier (selected iterations of 14). Savings are token-weighted over the study corpus; QA is answers retained out of 20.</caption>
+<thead><tr><th>Configuration</th><th>min_size</th><th>Savings</th><th>QA</th><th>Gate</th></tr></thead>
+<tbody>
+<tr><td>Shipped default (L5)</td><td>200</td><td>10.03%</td><td>18/20</td><td><strong>fail</strong></td></tr>
+<tr><td>L5, min_size raised</td><td>1024</td><td>9.62%</td><td>20/20</td><td>pass</td></tr>
+<tr><td>Aggressive (L8)</td><td>1024</td><td>68.51%</td><td>20/20</td><td>pass</td></tr>
+<tr><td><strong>Aggressive &minus; llmlingua (recommended)</strong></td><td><strong>1024</strong></td><td><strong>79.95%</strong></td><td><strong>20/20</strong></td><td><strong>pass</strong></td></tr>
+<tr><td>Recommended, no network backends</td><td>1024</td><td>62.92%</td><td>20/20</td><td>pass</td></tr>
+</tbody>
+</table>
+
+<p>Four results drive the recommendation:</p>
+
+<ul>
+  <li><strong>The shipped default fails the gate.</strong> With <code>min_size 200</code>, llmlingua corrupts numerals ("1,240ms" &rarr; "240") and deletes load-bearing comments (a "TTL is in MINUTES" comment vanished; the model answered "seconds"). Both losses are stable across majority-of-3 revotes and reproduce at every level that includes llmlingua.</li>
+  <li><strong><code>min_size 1024</code> is nearly free insurance.</strong> Every observed quality loss occurred in blocks of 200&ndash;900 bytes, where absolute savings are ~30 tokens. Raising the floor to 1024 eliminated every loss at a cost of 0.4 percentage points.</li>
+  <li><strong>llmlingua is dominated.</strong> It runs ahead of textpress in <code>compressBlock()</code>, so blocks it claims never reach the stronger stage (25% vs 76% on the 40&nbsp;KB fixture); the v0.8.18 verbatim guard already excludes it from code-like text, leaving it exactly the prose where it is least safe. Removing it <em>raised</em> total savings from 68.51% to 79.95% and removed its failure modes.</li>
+  <li><strong>bm25-trim carries the heavy payloads locally.</strong> 85% reduction on the 46&nbsp;KB grep output with all three planted needles still answered correctly &mdash; no sidecar, no network, no key.</li>
+</ul>
+
+<p>The winning configuration ships as the <code>recommended</code> preset: the aggressive stage list minus llmlingua, paired with <code>TAMP_MIN_SIZE=1024</code> and <code>TAMP_OUTPUT_MODE=off</code>. It degrades gracefully: with no textpress backend available (no Ollama model, no OpenRouter key) the same stage list measures 62.92% at 20/20. Output-hint modes were also probed: correctness survives, but the injected hint costs 95&ndash;131 input tokens per request &mdash; a net loss on small requests &mdash; so <code>off</code> remains the default. Session-scoped stages (<code>read-diff</code>, <code>graph</code>, <code>disclosure</code>) do not fire in this single-turn harness and are retained on lossless-design grounds. Full method, iteration log, and per-config JSON: <code>reports/recommended-defaults-research.md</code>, <code>bench/recommend-eval.js</code>, <code>bench/results/recommend-*.json</code>.</p>
+
+<h2>9. Limitations</h2>
 
 <p>We call out four concrete limitations that temper the top-line numbers:</p>
 
@@ -160,10 +189,10 @@
   <li><strong>Micro-fixture bias.</strong> All 12 scenarios are single-turn and below ~18 KB. Four of the five new v{{VERSION}} stages are session-scoped and cannot be measured here. The honest delta L9 &minus; v0.5 on this corpus is +0.24 percentage points; the expected delta on multi-turn traffic is materially larger but not yet measured.</li>
   <li><strong>No session replay.</strong> We do not yet have fixtures that replay a long Claude Code session (re-reads, cache hits, progressive disclosure across turns). Building these is the top item in the next iteration.</li>
   <li><strong>Single judge, single provider.</strong> All A/B quality verdicts come from Claude Sonnet Haiku 4.5 via OpenRouter. Cross-judge and cross-provider triangulation is future work.</li>
-  <li><strong>Payload ceiling.</strong> Bodies above ~32 KB are not represented; stages that matter at large payloads (graph, textpress, foundation-models) likely contribute more than the current numbers suggest.</li>
+  <li><strong>Payload ceiling.</strong> Bodies above ~32 KB are not represented in the Section 3&ndash;7 sweep; stages that matter at large payloads likely contribute more than those numbers suggest. The Section 8 study closes this gap for <code>bm25-trim</code> and <code>textpress</code> with 40&ndash;46 KB fixtures.</li>
 </ul>
 
-<h2>9. Reproducibility</h2>
+<h2>10. Reproducibility</h2>
 
 <p>The full benchmark is reproducible with:</p>
 <pre style="background:#f4f4f4; padding:0.8rem 1rem; border-left:3px solid #333; font-family:'SF Mono',Menlo,monospace; font-size:9.5pt; overflow:auto">export OPENROUTER_API_KEY=sk-or-...
@@ -171,11 +200,11 @@ node bench/runner.js --sweep --live
 node bench/render.js</pre>
 <p>Fixtures live in <code>bench/fixtures.js</code>, the sweep driver in <code>bench/runner.js</code>, and the full output of the run used in this paper is committed at <code>bench/results/level-sweep.json</code>. The render script emits both <code>bench/results/whitepaper.html</code> and <code>bench/results/whitepaper.pdf</code>.</p>
 
-<h2>10. Discussion</h2>
+<h2>11. Discussion</h2>
 
 {{DISCUSSION}}
 
-<h2>11. Conclusion</h2>
+<h2>12. Conclusion</h2>
 
 <p>{{CONCLUSION}}</p>
 
