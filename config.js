@@ -278,7 +278,9 @@ export const CONFIG_TEMPLATE = `# Tamp configuration
 # Compression level 1..9 (or: conservative, balanced, aggressive, max)
 # level=5
 
-# Compression preset (conservative | balanced | aggressive)
+# Compression preset (conservative | balanced | aggressive | recommended)
+# "recommended" is the measured best trade-off: aggressive minus llmlingua.
+# Pair it with TAMP_MIN_SIZE=1024 (see whitepaper, Recommended Defaults).
 # TAMP_COMPRESSION_PRESET=balanced
 
 # Explicit stages (overrides preset if set)

@@ -139,6 +139,19 @@ export const COMPRESSION_PRESETS = Object.freeze({
     risk: 'Medium (may lose comments, verbose text)',
     level: 8,
   },
+  // Autoresearch study (v0.8.19, deepseek-v4-flash judge): aggressive minus
+  // llmlingua scored 79.95% input savings at 20/20 fact retention, vs 68.51%
+  // for full aggressive — llmlingua shadowed textpress on large blocks and
+  // corrupted numerals on small ones. Pair with TAMP_MIN_SIZE=1024.
+  // See bench/recommend-eval.js and the whitepaper's Recommended Defaults section.
+  recommended: {
+    name: 'Recommended',
+    description: 'Best measured savings/quality trade-off (aggressive minus llmlingua; use TAMP_MIN_SIZE=1024)',
+    stages: ['cmd-strip', 'minify', 'toon', 'strip-lines', 'whitespace', 'dedup', 'diff', 'read-diff', 'prune', 'strip-comments', 'textpress', 'br-cache', 'disclosure', 'bm25-trim'],
+    expectedSavings: '63-80%',
+    risk: 'Medium (may lose comments, paraphrase verbose text)',
+    level: null,
+  },
 })
 
 // Flat 1..9 compression ladder, parallel to the named presets. Each level
