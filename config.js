@@ -255,6 +255,13 @@ export function loadConfig(env = process.env, options = {}) {
     foundationModelsPath: get('TAMP_FOUNDATION_MODELS_PATH') || 'apfel',
     foundationModelsTimeout: parseInt(get('TAMP_FOUNDATION_MODELS_TIMEOUT'), 10) || 10000,
     foundationModelsSystemPrompt: get('TAMP_FOUNDATION_MODELS_SYSTEM_PROMPT') || 'Compress this text to 50% length while preserving all key information and meaning. Return only the compressed text without explanation.',
+    // px-render (image compression via pxpipe): allowlist defaults to the
+    // models MEASURED legible at reading dense rendered text (pxpipe FINDINGS
+    // 2026-06-16), not the expensive tier per se — opus-class models read
+    // dense identifiers off images poorly and stay opt-in.
+    pxModels: get('TAMP_PX_MODELS') || 'claude-fable-5',
+    pxMinChars: parseInt(get('TAMP_PX_MIN_CHARS'), 10) || 4096,
+    pxMaxImages: parseInt(get('TAMP_PX_MAX_IMAGES'), 10) || 6,
     tokenCost: parseFloat(get('TAMP_TOKEN_COST')) || 3,
   })
 }
@@ -299,6 +306,12 @@ export const CONFIG_TEMPLATE = `# Tamp configuration
 # Agent identifier for per-agent output rule overrides
 # (e.g. codex, cursor, cline, aider, claude-code)
 # TAMP_AGENT=
+
+# px-render: image large dense tool_results (needs pxpipe-proxy installed).
+# Opt in via TAMP_STAGES=...,px-render. Allowlist = vision-legible models.
+# TAMP_PX_MODELS=claude-fable-5
+# TAMP_PX_MIN_CHARS=4096
+# TAMP_PX_MAX_IMAGES=6
 
 # TAMP_MIN_SIZE=200
 # TAMP_LOG=true

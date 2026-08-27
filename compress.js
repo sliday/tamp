@@ -9,9 +9,12 @@ import { redactText } from './lib/redact.js'
 import { anthropic } from './providers.js'
 import { graphDeduplicateTargets } from './session-graph.js'
 import { detectTaskType, generateOutputRules, isDangerousTask } from './lib/rules-generator.js'
-import { extractTargetPaths } from './lib/path-extract.js'
+import { extractTargetPaths, extractTargetToolNames } from './lib/path-extract.js'
+import { evictStaleImages } from './lib/stale-images.js'
+import { pruneStaleInputs } from './lib/stale-inputs.js'
 import { summarize, rehydrateReferences } from './lib/disclosure.js'
 import { trimLinesByRelevance } from './lib/bm25.js'
+import { pxRenderTargets } from './lib/px-render.js'
 
 const cache = new Map()
 const MAX_CACHE = 500
@@ -98,6 +101,25 @@ function quickSimilarity(a, b) {
 // can be confidently attributed (via the preceding tool_use), compare against
 // the last-seen body for the same (session, path) pair. If the patch is small
 // enough, substitute it for the body. Always cache the fresh text afterwards.
+// Tool results that must reach the model verbatim. Unlike a Read or a Bash
+// run, re-invoking these cannot reproduce the content — it would re-prompt the
+// human. Tool attribution is Anthropic-only (see lib/path-extract.js).
+const PROTECTED_TOOLS = new Set(['AskUserQuestion'])
+
+function exemptProtectedTools(targets, body, provider) {
+  if (provider?.name !== 'anthropic' || !targets.length) return 0
+  const names = extractTargetToolNames(body, targets)
+  let exempted = 0
+  for (let i = 0; i < targets.length; i++) {
+    const target = targets[i]
+    if (!target || target.skip) continue
+    if (!PROTECTED_TOOLS.has(names[i])) continue
+    target.skip = 'user-decision'
+    exempted += 1
+  }
+  return exempted
+}
+
 function readDiffTargets(targets, body, sessionKey, readCache) {
   if (!readCache || !sessionKey) return
   const paths = extractTargetPaths(body, targets)
@@ -681,6 +703,13 @@ export async function compressRequest(body, config, provider) {
 
   const targets = provider.extract(body, { ...config, cacheSafe: config.cacheSafe !== false })
 
+  // Exempt recorded user decisions before any stage sees them. Re-running
+  // AskUserQuestion would re-prompt the human, so its result is the one body
+  // in a transcript that cannot be regenerated — the same reasoning that
+  // already exempts errored results at extract time. These bodies are tiny,
+  // so the forgone compression costs nothing.
+  exemptProtectedTools(targets, body, provider)
+
   // Redaction runs FIRST (security, not compression): mask secrets in every
   // target's text before any stage — dedup/diff/cache/llmlingua/textpress —
   // sees it, so secrets never enter a disk cache or get shipped to a third
@@ -725,6 +754,18 @@ export async function compressRequest(body, config, provider) {
     bm25TrimTargets(targets, body, provider)
   }
 
+  // px-render: image large dense tool_results for legible models (opt-in, lossy).
+  // Runs after bm25-trim so query-aware trimming keeps first claim on huge
+  // blocks; px-render picks up dense blocks bm25 declined or can't see.
+  if (config.stages.includes('px-render')) {
+    await pxRenderTargets(targets, body, provider, {
+      pxModels: config.pxModels,
+      pxMinChars: config.pxMinChars,
+      pxMaxImages: config.pxMaxImages,
+      isDangerousTask,
+    })
+  }
+
   const stats = []
   for (const target of targets) {
     if (target.skip) { stats.push({ index: target.index, skipped: target.skip }); continue }
@@ -754,6 +795,12 @@ export async function compressRequest(body, config, provider) {
       stats.push({ index: target.index, method: 'bm25-trim', originalLen: target.text.length, compressedLen: target.compressed.length, originalTokens: countTokens(target.text), compressedTokens: countTokens(target.compressed) })
       continue
     }
+    if (target.pxRendered) {
+      // compressed is a block array (images + factsheet); token counts were
+      // computed at render time from pixel area, not text length.
+      stats.push({ index: target.index, method: 'px-render', originalLen: target.text.length, compressedLen: JSON.stringify(target.compressed).length, originalTokens: target.pxOriginalTokens, compressedTokens: target.pxCompressedTokens, images: target.pxImageCount })
+      continue
+    }
 
     const result = await compressBlock(target.text, config)
     if (result) {
@@ -769,7 +816,23 @@ export async function compressRequest(body, config, provider) {
     }
   }
   provider.apply(body, targets)
-  return { body, stats, targetCount: targets.length, outputHint, disclosure: disclosureStats, redacted: redactedCount }
+
+  // stale-images: drop base64 images from older turns (opt-in, lossy). Runs
+  // after apply so the extractor never sees the notices it leaves behind.
+  let staleImages = null
+  if (config.stages.includes('stale-images') && provider.name === 'anthropic') {
+    const r = evictStaleImages(body, { keepRecent: config.staleImageKeepRecent })
+    if (r.evicted > 0) staleImages = r
+  }
+
+  // stale-inputs: drop payloads from older tool_use blocks (opt-in, lossy).
+  let staleInputs = null
+  if (config.stages.includes('stale-inputs') && provider.name === 'anthropic') {
+    const r = pruneStaleInputs(body, { keepRecent: config.staleInputKeepRecent })
+    if (r.pruned > 0) staleInputs = r
+  }
+
+  return { body, stats, targetCount: targets.length, outputHint, disclosure: disclosureStats, redacted: redactedCount, staleImages, staleInputs }
 }
 
 export async function compressMessages(body, config) {

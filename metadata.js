@@ -25,6 +25,9 @@ export const EXTRA_STAGES = Object.freeze([
   'br-cache',
   'disclosure',
   'bm25-trim',
+  'px-render',
+  'stale-images',
+  'stale-inputs',
 ])
 
 export const ALL_STAGES = Object.freeze([
@@ -39,6 +42,8 @@ export const ALL_STAGES = Object.freeze([
 // `disclosure` IS lossy: it drops body content from the outgoing turn and
 // relies on the model quoting the marker to trigger rehydration next turn.
 // `bm25-trim` drops low-relevance lines from huge tool_results (lossy).
+// `stale-images` drops base64 images from older turns (lossy — recoverable
+// only by re-reading the file, not from any tamp cache).
 export const LOSSY_STAGES = Object.freeze(new Set([
   'llmlingua',
   'foundation-models',
@@ -46,6 +51,9 @@ export const LOSSY_STAGES = Object.freeze(new Set([
   'strip-comments',
   'disclosure',
   'bm25-trim',
+  'px-render',
+  'stale-images',
+  'stale-inputs',
 ]))
 
 export function isLossy(stage) {
@@ -92,6 +100,18 @@ export const STAGE_HINTS = Object.freeze({
     summary: 'query-aware line ranking, preserves first+last, bypasses dangerous tasks',
     setup: 'TAMP_STAGES=...,bm25-trim',
   },
+  'px-render': {
+    summary: 'image-render dense tool_results, ~3x chars/token on vision-legible models (lossy)',
+    setup: 'npm i pxpipe-proxy && TAMP_STAGES=...,px-render',
+  },
+  'stale-images': {
+    summary: 'drop base64 images from older turns, keep the newest 2 (lossy, invalidates prompt cache)',
+    setup: 'TAMP_STAGES=...,stale-images',
+  },
+  'stale-inputs': {
+    summary: 'drop payloads from older tool_use inputs, keep headers and the newest 2 turns (lossy)',
+    setup: 'TAMP_STAGES=...,stale-inputs',
+  },
 })
 
 export const STAGE_DESCRIPTIONS = Object.freeze({
@@ -112,6 +132,9 @@ export const STAGE_DESCRIPTIONS = Object.freeze({
   'br-cache': 'Disk-backed Brotli store for large tool_results (lossless, opt-in)',
   disclosure: '3-tier summary for huge tool_results with on-demand rehydration (lossy, aggressive-only)',
   'bm25-trim': 'Drop low-relevance lines from huge tool_results via BM25 (lossy, aggressive-only)',
+  'px-render': 'Render dense tool_results as PNG image blocks via pxpipe (lossy, model-gated, opt-in)',
+  'stale-images': 'Evict base64 images from older turns, keeping the newest 2 (lossy, opt-in)',
+  'stale-inputs': 'Prune payloads from older tool_use inputs, keeping call headers (lossy, opt-in)',
 })
 
 export const COMPRESSION_PRESETS = Object.freeze({

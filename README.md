@@ -54,7 +54,9 @@ Auto-detects API format, compresses tool output, forwards upstream. Error result
 | `diff` | Replace similar re-reads with diffs |
 | `prune` | Remove low-value metadata |
 
-Opt-in stages: `strip-comments`, `textpress` (LLM semantic compression), `graph` (session-scoped dedup — works on any coding agent: Codex, Claude Code, Aider — anywhere the same file is read twice, up to -99% per repeat block)
+Opt-in stages: `strip-comments`, `textpress` (LLM semantic compression), `graph` (session-scoped dedup — works on any coding agent: Codex, Claude Code, Aider — anywhere the same file is read twice, up to -99% per repeat block), `px-render` (renders dense tool_results as PNG image blocks via [pxpipe](https://github.com/teamchong/pxpipe) — image tokens are priced by pixel area, so 4-64KB grep/code blocks drop ~80% on vision-legible models like Fable 5; see `docs/notes-px-render.md`), `stale-inputs` (prunes payloads from `tool_use.input` in older turns, keeping the call header — measured 18% on realistic requests), `stale-images` (evicts base64 images from older turns, keeping the newest 2 — ~4%)
+
+`stale-inputs` and `stale-images` rewrite older turns, which invalidates the prompt cache. Both stay opt-in for that reason; weigh the token saving against cache-read pricing. See `reports/magic-compact-review.md`.
 
 ### LLMLingua sidecar
 
