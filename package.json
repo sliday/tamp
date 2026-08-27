@@ -19,7 +19,7 @@
   "type": "module",
   "main": "index.js",
   "bin": {
-    "tamp": "./bin/tamp.js"
+    "tamp": "bin/tamp.js"
   },
   "scripts": {
     "start": "node bin/tamp.js",
@@ -43,7 +43,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/sliday/tamp"
+    "url": "git+https://github.com/sliday/tamp.git"
   },
   "homepage": "https://github.com/sliday/tamp",
   "dependencies": {
