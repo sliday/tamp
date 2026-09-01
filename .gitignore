@@ -21,3 +21,14 @@ scripts/container
 scripts/sandbox-test
 autoresearch-results.tsv
 bench/results/.recommend-control.json
+
+# macOS
+.DS_Store
+
+# Generated / regenerable artifacts
+codedb.snapshot
+*.tgz
+.gstack/
+
+# Private agent instructions — must never be committed
+CLAUDE.local.md
