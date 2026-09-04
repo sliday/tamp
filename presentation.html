@@ -1,0 +1,853 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>tamp — 50% fewer tokens. Zero behavior change.</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        /* ===========================================
+           CSS CUSTOM PROPERTIES — TERMINAL GREEN THEME
+           =========================================== */
+        :root {
+            --bg: #0a0f1c;
+            --bg-card: rgba(0, 255, 136, 0.04);
+            --bg-card-border: rgba(0, 255, 136, 0.15);
+            --green: #00ff88;
+            --green-dim: rgba(0, 255, 136, 0.6);
+            --green-glow: rgba(0, 255, 136, 0.25);
+            --cyan: #00ccff;
+            --cyan-dim: rgba(0, 204, 255, 0.6);
+            --text: #e0e8f0;
+            --text-dim: #7a8a9e;
+            --red: #ff4466;
+            --yellow: #ffcc00;
+
+            --font-mono: 'JetBrains Mono', monospace;
+            --font-body: 'Inter', sans-serif;
+
+            --title-size: clamp(2rem, 6vw, 4.5rem);
+            --h2-size: clamp(1.4rem, 3.5vw, 2.5rem);
+            --h3-size: clamp(1rem, 2.2vw, 1.5rem);
+            --body-size: clamp(0.75rem, 1.4vw, 1.1rem);
+            --small-size: clamp(0.65rem, 1vw, 0.85rem);
+            --code-size: clamp(0.6rem, 1.1vw, 0.9rem);
+
+            --slide-padding: clamp(1.5rem, 5vw, 5rem);
+            --content-gap: clamp(0.75rem, 2vw, 2rem);
+            --element-gap: clamp(0.25rem, 1vw, 1rem);
+
+            --ease: cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        /* ===========================================
+           VIEWPORT FITTING — MANDATORY BASE STYLES
+           =========================================== */
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        html, body { height: 100%; overflow-x: hidden; }
+        html { scroll-snap-type: y mandatory; scroll-behavior: smooth; }
+
+        body {
+            background: var(--bg);
+            color: var(--text);
+            font-family: var(--font-body);
+            font-size: var(--body-size);
+            line-height: 1.5;
+        }
+
+        .slide {
+            width: 100vw;
+            height: 100vh;
+            height: 100dvh;
+            overflow: hidden;
+            scroll-snap-align: start;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+            padding: var(--slide-padding);
+        }
+
+        /* Grid background on every slide */
+        .slide::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background-image:
+                linear-gradient(rgba(0,255,136,0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(0,255,136,0.03) 1px, transparent 1px);
+            background-size: 60px 60px;
+            pointer-events: none;
+        }
+
+        .slide-inner {
+            max-width: min(90vw, 1100px);
+            max-height: min(85vh, 800px);
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            gap: var(--content-gap);
+            position: relative;
+            z-index: 1;
+        }
+
+        /* ===========================================
+           TYPOGRAPHY
+           =========================================== */
+        h1 {
+            font-family: var(--font-mono);
+            font-size: var(--title-size);
+            font-weight: 700;
+            color: var(--green);
+            line-height: 1.1;
+            text-shadow: 0 0 40px var(--green-glow);
+        }
+
+        h2 {
+            font-family: var(--font-mono);
+            font-size: var(--h2-size);
+            font-weight: 700;
+            color: var(--green);
+            line-height: 1.2;
+            text-shadow: 0 0 20px var(--green-glow);
+        }
+
+        h3 {
+            font-family: var(--font-mono);
+            font-size: var(--h3-size);
+            font-weight: 600;
+            color: var(--cyan);
+        }
+
+        .subtitle {
+            font-size: clamp(0.9rem, 1.8vw, 1.3rem);
+            color: var(--text-dim);
+            font-weight: 400;
+        }
+
+        .tag {
+            font-family: var(--font-mono);
+            font-size: var(--small-size);
+            color: var(--cyan);
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+        }
+
+        .stat-big {
+            font-family: var(--font-mono);
+            font-size: clamp(2rem, 6vw, 5rem);
+            font-weight: 700;
+            color: var(--green);
+            text-shadow: 0 0 60px var(--green-glow);
+        }
+
+        .stat-label {
+            font-size: var(--body-size);
+            color: var(--text-dim);
+        }
+
+        /* ===========================================
+           COMPONENTS
+           =========================================== */
+        .card {
+            background: var(--bg-card);
+            border: 1px solid var(--bg-card-border);
+            border-radius: 8px;
+            padding: clamp(0.75rem, 2vw, 1.5rem);
+        }
+
+        .code-block {
+            background: rgba(0, 0, 0, 0.4);
+            border: 1px solid rgba(0, 255, 136, 0.1);
+            border-radius: 6px;
+            padding: clamp(0.5rem, 1.5vw, 1rem) clamp(0.75rem, 2vw, 1.25rem);
+            font-family: var(--font-mono);
+            font-size: var(--code-size);
+            line-height: 1.6;
+            overflow: hidden;
+            white-space: pre;
+        }
+
+        .code-block .comment { color: var(--text-dim); }
+        .code-block .keyword { color: var(--cyan); }
+        .code-block .string { color: var(--green); }
+        .code-block .number { color: var(--yellow); }
+
+        .pipeline {
+            display: flex;
+            align-items: center;
+            gap: clamp(0.5rem, 1.5vw, 1.25rem);
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        .pipeline-stage {
+            background: var(--bg-card);
+            border: 1px solid var(--bg-card-border);
+            border-radius: 8px;
+            padding: clamp(0.5rem, 1.5vw, 1rem) clamp(0.75rem, 2vw, 1.5rem);
+            text-align: center;
+            flex: 1;
+            min-width: 120px;
+        }
+
+        .pipeline-stage h3 { margin-bottom: 0.25rem; }
+        .pipeline-stage p { font-size: var(--small-size); color: var(--text-dim); }
+
+        .arrow {
+            font-family: var(--font-mono);
+            color: var(--green-dim);
+            font-size: clamp(1rem, 2vw, 1.5rem);
+        }
+
+        .comparison {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: clamp(0.5rem, 1.5vw, 1rem);
+        }
+
+        .comparison-col h3 { margin-bottom: clamp(0.25rem, 0.5vw, 0.5rem); }
+
+        .log-entry {
+            background: rgba(0, 0, 0, 0.4);
+            border-left: 3px solid var(--green);
+            padding: clamp(0.4rem, 1vw, 0.75rem) clamp(0.5rem, 1.5vw, 1rem);
+            font-family: var(--font-mono);
+            font-size: var(--code-size);
+            line-height: 1.5;
+            margin-bottom: clamp(0.3rem, 0.5vw, 0.5rem);
+        }
+
+        .log-entry .log-label { color: var(--cyan); }
+        .log-entry .log-stat { color: var(--green); font-weight: 700; }
+
+        .flow-diagram {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: clamp(0.5rem, 1.5vw, 1rem);
+            flex-wrap: wrap;
+        }
+
+        .flow-box {
+            border: 1px solid var(--bg-card-border);
+            border-radius: 6px;
+            padding: clamp(0.4rem, 1vw, 0.75rem) clamp(0.75rem, 1.5vw, 1.25rem);
+            font-family: var(--font-mono);
+            font-size: var(--small-size);
+            text-align: center;
+        }
+
+        .flow-box.highlight {
+            border-color: var(--green);
+            background: var(--bg-card);
+            color: var(--green);
+        }
+
+        .checklist {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: var(--element-gap);
+        }
+
+        .checklist li {
+            font-size: var(--body-size);
+            color: var(--text);
+            padding-left: 1.5em;
+            position: relative;
+        }
+
+        .checklist li::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 0.4em;
+            width: 0.6em;
+            height: 0.6em;
+            border-radius: 50%;
+            background: var(--green);
+            box-shadow: 0 0 8px var(--green-glow);
+        }
+
+        /* ===========================================
+           REVEAL ANIMATIONS
+           =========================================== */
+        .reveal {
+            opacity: 0;
+            transform: translateY(24px);
+            transition: opacity 0.7s var(--ease), transform 0.7s var(--ease);
+        }
+
+        .reveal.d1 { transition-delay: 0.1s; }
+        .reveal.d2 { transition-delay: 0.2s; }
+        .reveal.d3 { transition-delay: 0.3s; }
+        .reveal.d4 { transition-delay: 0.4s; }
+        .reveal.d5 { transition-delay: 0.5s; }
+        .reveal.d6 { transition-delay: 0.6s; }
+
+        .slide.visible .reveal {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        /* Terminal typing cursor */
+        .cursor {
+            display: inline-block;
+            width: 2px;
+            height: 1em;
+            background: var(--green);
+            animation: blink 1s step-end infinite;
+            vertical-align: text-bottom;
+            margin-left: 2px;
+        }
+
+        @keyframes blink {
+            50% { opacity: 0; }
+        }
+
+        /* Typing effect */
+        .typing-text {
+            overflow: hidden;
+            white-space: nowrap;
+            border-right: 2px solid var(--green);
+            animation: typing 2s steps(30) 0.5s forwards, blink-caret 0.75s step-end infinite;
+            width: 0;
+            font-family: var(--font-mono);
+            color: var(--text-dim);
+            font-size: var(--body-size);
+        }
+
+        .slide.visible .typing-text {
+            animation: typing 2s steps(30) 0.5s forwards, blink-caret 0.75s step-end infinite;
+        }
+
+        @keyframes typing {
+            to { width: 100%; }
+        }
+
+        @keyframes blink-caret {
+            50% { border-color: transparent; }
+        }
+
+        /* ===========================================
+           PROGRESS BAR
+           =========================================== */
+        .progress {
+            position: fixed;
+            top: 0;
+            left: 0;
+            height: 2px;
+            background: var(--green);
+            box-shadow: 0 0 10px var(--green-glow);
+            z-index: 100;
+            transition: width 0.3s ease;
+        }
+
+        /* ===========================================
+           NAV DOTS
+           =========================================== */
+        .nav-dots {
+            position: fixed;
+            right: clamp(0.5rem, 1.5vw, 1.5rem);
+            top: 50%;
+            transform: translateY(-50%);
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            z-index: 100;
+        }
+
+        .nav-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: rgba(0, 255, 136, 0.2);
+            border: none;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            padding: 0;
+        }
+
+        .nav-dot.active {
+            background: var(--green);
+            box-shadow: 0 0 8px var(--green-glow);
+            transform: scale(1.3);
+        }
+
+        /* Keyboard hint */
+        .kb-hint {
+            position: fixed;
+            bottom: clamp(0.5rem, 1.5vw, 1.5rem);
+            right: clamp(0.5rem, 1.5vw, 1.5rem);
+            font-family: var(--font-mono);
+            font-size: var(--small-size);
+            color: var(--text-dim);
+            opacity: 0.4;
+            z-index: 100;
+        }
+
+        /* ===========================================
+           RESPONSIVE
+           =========================================== */
+        @media (max-height: 700px) {
+            :root {
+                --slide-padding: clamp(0.75rem, 3vw, 2rem);
+                --content-gap: clamp(0.4rem, 1.5vw, 1rem);
+                --title-size: clamp(1.5rem, 5vw, 3rem);
+                --h2-size: clamp(1.1rem, 3vw, 1.75rem);
+            }
+        }
+
+        @media (max-height: 600px) {
+            :root {
+                --slide-padding: clamp(0.5rem, 2.5vw, 1.5rem);
+                --content-gap: clamp(0.3rem, 1vw, 0.75rem);
+                --title-size: clamp(1.2rem, 4vw, 2rem);
+                --body-size: clamp(0.7rem, 1.2vw, 0.95rem);
+            }
+            .nav-dots, .kb-hint { display: none; }
+        }
+
+        @media (max-height: 500px) {
+            :root {
+                --slide-padding: clamp(0.4rem, 2vw, 1rem);
+                --title-size: clamp(1rem, 3.5vw, 1.5rem);
+                --h2-size: clamp(0.9rem, 2.5vw, 1.25rem);
+                --body-size: clamp(0.65rem, 1vw, 0.85rem);
+            }
+        }
+
+        @media (max-width: 600px) {
+            .comparison { grid-template-columns: 1fr; }
+            .pipeline { flex-direction: column; }
+            .arrow { transform: rotate(90deg); }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after {
+                animation-duration: 0.01ms !important;
+                transition-duration: 0.2s !important;
+            }
+            html { scroll-behavior: auto; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="progress" id="progress"></div>
+
+<nav class="nav-dots" id="nav-dots"></nav>
+
+<div class="kb-hint">&#8592; &#8594; to navigate</div>
+
+<!-- ============================================
+     SLIDE 1: TITLE
+     ============================================ -->
+<section class="slide" id="slide-1">
+    <div class="slide-inner" style="align-items: center; text-align: center;">
+        <div class="reveal" style="font-family: var(--font-mono); font-size: var(--small-size); color: var(--text-dim); margin-bottom: 0.5em;">
+            <span style="color: var(--green);">$</span> npx tamp
+        </div>
+        <h1 class="reveal d1">tamp</h1>
+        <p class="reveal d2 subtitle" style="max-width: 600px;">
+            50% fewer tokens. Zero behavior change.
+        </p>
+        <div class="reveal d3" style="margin-top: clamp(1rem, 3vw, 2rem); max-width: 500px; width: 100%;">
+            <div class="typing-text">compressing Claude Code API traffic in real time...</div>
+        </div>
+        <p class="reveal d4 tag" style="margin-top: clamp(1rem, 2vw, 1.5rem);">Token compression proxy for Claude Code</p>
+    </div>
+</section>
+
+<!-- ============================================
+     SLIDE 2: THE PROBLEM
+     ============================================ -->
+<section class="slide" id="slide-2">
+    <div class="slide-inner">
+        <p class="reveal tag">The Problem</p>
+        <h2 class="reveal d1">Tokens pile up. Fast.</h2>
+        <div class="reveal d2" style="display: flex; flex-direction: column; gap: var(--element-gap); margin-top: var(--element-gap);">
+            <div class="card">
+                <p><span style="color: var(--cyan);">Claude Code</span> sends <strong>full conversation history</strong> every turn.</p>
+            </div>
+            <div class="card">
+                <p>Tool results contain <span style="color: var(--yellow);">pretty-printed JSON</span>, raw file contents, verbose command output.</p>
+            </div>
+            <div class="card">
+                <p>A typical session can burn <span style="color: var(--red);">100K+ tokens</span> in minutes &mdash; most of it redundant whitespace and structure.</p>
+            </div>
+        </div>
+        <p class="reveal d3" style="color: var(--text-dim); margin-top: var(--element-gap);">
+            More tokens = more cost, more latency, faster context exhaustion.
+        </p>
+    </div>
+</section>
+
+<!-- ============================================
+     SLIDE 3: THE SOLUTION
+     ============================================ -->
+<section class="slide" id="slide-3">
+    <div class="slide-inner" style="align-items: center; text-align: center;">
+        <p class="reveal tag">The Solution</p>
+        <h2 class="reveal d1">3-Stage Compression Pipeline</h2>
+        <div class="reveal d2 pipeline" style="margin-top: var(--content-gap);">
+            <div class="pipeline-stage">
+                <h3>Stage 1</h3>
+                <p style="color: var(--green); font-weight: 600;">JSON Minify</p>
+                <p>Strip whitespace</p>
+            </div>
+            <span class="arrow">&rarr;</span>
+            <div class="pipeline-stage">
+                <h3>Stage 2</h3>
+                <p style="color: var(--green); font-weight: 600;">TOON Encode</p>
+                <p>Tabular compression</p>
+            </div>
+            <span class="arrow">&rarr;</span>
+            <div class="pipeline-stage">
+                <h3>Stage 3</h3>
+                <p style="color: var(--green); font-weight: 600;">LLMLingua-2</p>
+                <p>ML compression</p>
+            </div>
+        </div>
+        <p class="reveal d3 subtitle" style="margin-top: var(--content-gap);">
+            Each stage targets a different content type. JSON &rarr; Node.js. Prose/Code &rarr; Python sidecar.
+        </p>
+    </div>
+</section>
+
+<!-- ============================================
+     SLIDE 4: STAGE 1 — JSON MINIFY
+     ============================================ -->
+<section class="slide" id="slide-4">
+    <div class="slide-inner">
+        <p class="reveal tag">Stage 1</p>
+        <h2 class="reveal d1">JSON Minify</h2>
+        <p class="reveal d2 subtitle">Strip whitespace from pretty-printed JSON. Instant, lossless.</p>
+        <div class="reveal d3 comparison" style="margin-top: var(--element-gap);">
+            <div class="comparison-col">
+                <h3 style="color: var(--red);">Before</h3>
+                <div class="code-block">{
+  <span class="string">"name"</span>: <span class="string">"tamp"</span>,
+  <span class="string">"version"</span>: <span class="string">"0.1.0"</span>,
+  <span class="string">"type"</span>: <span class="string">"module"</span>,
+  <span class="string">"dependencies"</span>: {
+    <span class="string">"@toon-format/toon"</span>: <span class="string">"^2.1.0"</span>
+  }
+}</div>
+            </div>
+            <div class="comparison-col">
+                <h3 style="color: var(--green);">After</h3>
+                <div class="code-block"><span class="string">{"name":"tamp","version":"0.1.0","type":"module","dependencies":{"@toon-format/toon":"^2.1.0"}}</span></div>
+            </div>
+        </div>
+        <p class="reveal d4" style="text-align: center; margin-top: var(--element-gap);">
+            <span class="stat-label">Typical saving:</span>
+            <span style="color: var(--green); font-family: var(--font-mono); font-weight: 700;"> ~30-50%</span>
+            <span class="stat-label"> on structured data</span>
+        </p>
+    </div>
+</section>
+
+<!-- ============================================
+     SLIDE 5: STAGE 2 — TOON ENCODING
+     ============================================ -->
+<section class="slide" id="slide-5">
+    <div class="slide-inner">
+        <p class="reveal tag">Stage 2</p>
+        <h2 class="reveal d1">TOON Encoding</h2>
+        <p class="reveal d2 subtitle">Array-of-objects &rarr; columnar format. Massive wins on tabular data.</p>
+        <div class="reveal d3 comparison" style="margin-top: var(--element-gap);">
+            <div class="comparison-col">
+                <h3 style="color: var(--red);">JSON (334 chars)</h3>
+                <div class="code-block">[{<span class="string">"name"</span>:<span class="string">"a.js"</span>,<span class="string">"size"</span>:<span class="number">1024</span>},
+ {<span class="string">"name"</span>:<span class="string">"b.js"</span>,<span class="string">"size"</span>:<span class="number">2048</span>},
+ {<span class="string">"name"</span>:<span class="string">"c.js"</span>,<span class="string">"size"</span>:<span class="number">512</span>}]</div>
+            </div>
+            <div class="comparison-col">
+                <h3 style="color: var(--green);">TOON (165 chars)</h3>
+                <div class="code-block">name[3]{a.js|b.js|c.js}
+size[3]{1024|2048|512}</div>
+            </div>
+        </div>
+        <div class="reveal d4" style="text-align: center; margin-top: var(--content-gap);">
+            <span class="stat-big">-50.6%</span>
+            <p class="stat-label">on real package.json tool result</p>
+        </div>
+    </div>
+</section>
+
+<!-- ============================================
+     SLIDE 6: STAGE 3 — LLMLINGUA-2
+     ============================================ -->
+<section class="slide" id="slide-6">
+    <div class="slide-inner">
+        <p class="reveal tag">Stage 3</p>
+        <h2 class="reveal d1">LLMLingua-2</h2>
+        <p class="reveal d2 subtitle">ML-based prompt compression. Removes redundant tokens while preserving meaning.</p>
+        <div class="reveal d3 card" style="margin-top: var(--element-gap);">
+            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem;">
+                <div>
+                    <p style="color: var(--text-dim);">Input: compress.js source code</p>
+                    <p style="font-family: var(--font-mono);">
+                        <span style="color: var(--red);">4,630</span> chars &rarr;
+                        <span style="color: var(--green);">2,214</span> chars
+                    </p>
+                </div>
+                <div style="text-align: right;">
+                    <span class="stat-big" style="font-size: clamp(1.5rem, 4vw, 3rem);">-52.2%</span>
+                </div>
+            </div>
+        </div>
+        <div class="reveal d4 card" style="margin-top: var(--element-gap);">
+            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem;">
+                <div>
+                    <p style="color: var(--text-dim);">Input: <code style="color: var(--cyan);">ls -la</code> command output</p>
+                    <p style="font-family: var(--font-mono);">
+                        <span style="color: var(--red);">1,046</span> chars &rarr;
+                        <span style="color: var(--green);">516</span> chars
+                    </p>
+                </div>
+                <div style="text-align: right;">
+                    <span class="stat-big" style="font-size: clamp(1.5rem, 4vw, 3rem);">-50.7%</span>
+                </div>
+            </div>
+        </div>
+        <p class="reveal d5" style="color: var(--text-dim); text-align: center; margin-top: var(--element-gap);">
+            Python sidecar via Microsoft LLMLingua-2, running on CPU
+        </p>
+    </div>
+</section>
+
+<!-- ============================================
+     SLIDE 7: LIVE RESULTS
+     ============================================ -->
+<section class="slide" id="slide-7">
+    <div class="slide-inner">
+        <p class="reveal tag">Live Results</p>
+        <h2 class="reveal d1">Real proxy session output</h2>
+        <div style="display: flex; flex-direction: column; gap: var(--element-gap); margin-top: var(--element-gap);">
+            <div class="reveal d2 log-entry">
+                <span class="log-label">Read package.json</span> &mdash; json-lined &rarr; toon<br>
+                334 &rarr; 165 chars <span class="log-stat">(-50.6%)</span>
+            </div>
+            <div class="reveal d3 log-entry">
+                <span class="log-label">Read compress.js</span> &mdash; text &rarr; llmlingua<br>
+                4,630 &rarr; 2,214 chars <span class="log-stat">(-52.2%)</span>
+            </div>
+            <div class="reveal d4 log-entry">
+                <span class="log-label">Bash ls -la</span> &mdash; text &rarr; llmlingua<br>
+                1,046 &rarr; 516 chars <span class="log-stat">(-50.7%)</span>
+            </div>
+        </div>
+        <div class="reveal d5 card" style="text-align: center; margin-top: var(--content-gap); border-color: var(--green);">
+            <p style="font-family: var(--font-mono);">
+                Session total: <span style="color: var(--green); font-weight: 700;">3,115 chars saved</span>
+                across 3 requests
+            </p>
+        </div>
+    </div>
+</section>
+
+<!-- ============================================
+     SLIDE 8: ARCHITECTURE
+     ============================================ -->
+<section class="slide" id="slide-8">
+    <div class="slide-inner" style="align-items: center;">
+        <p class="reveal tag">Architecture</p>
+        <h2 class="reveal d1">Transparent HTTP Proxy</h2>
+        <div class="reveal d2 flow-diagram" style="margin-top: var(--content-gap);">
+            <div class="flow-box">Claude Code</div>
+            <span class="arrow">&rarr;</span>
+            <div class="flow-box highlight">tamp:7778</div>
+            <span class="arrow">&rarr;</span>
+            <div class="flow-box">Anthropic API</div>
+        </div>
+        <div class="reveal d3" style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--element-gap); margin-top: var(--content-gap); max-width: 700px; width: 100%;">
+            <div class="card">
+                <h3 style="font-size: var(--small-size);">Intercept</h3>
+                <p style="font-size: var(--small-size); color: var(--text-dim);">POST /v1/messages only. All other routes pass through untouched.</p>
+            </div>
+            <div class="card">
+                <h3 style="font-size: var(--small-size);">Compress</h3>
+                <p style="font-size: var(--small-size); color: var(--text-dim);">Last user message &rarr; tool_result blocks get compressed per content type.</p>
+            </div>
+            <div class="card">
+                <h3 style="font-size: var(--small-size);">Forward</h3>
+                <p style="font-size: var(--small-size); color: var(--text-dim);">Rewrite Content-Length, forward to upstream API. Response streams back untouched.</p>
+            </div>
+            <div class="card">
+                <h3 style="font-size: var(--small-size);">Safety</h3>
+                <p style="font-size: var(--small-size); color: var(--text-dim);">Bodies over 256KB bypass compression. Parse errors fall through gracefully.</p>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ============================================
+     SLIDE 9: USAGE
+     ============================================ -->
+<section class="slide" id="slide-9">
+    <div class="slide-inner" style="align-items: center; text-align: center;">
+        <p class="reveal tag">Usage</p>
+        <h2 class="reveal d1">3 lines to start</h2>
+        <div class="reveal d2" style="margin-top: var(--content-gap); width: 100%; max-width: 700px;">
+            <div class="code-block" style="text-align: left;"><span class="comment"># Terminal 1: Start the proxy</span>
+<span class="keyword">$</span> <span class="string">node index.js</span>
+<span style="color: var(--text-dim);">[tamp] proxy listening on http://localhost:7778</span>
+
+<span class="comment"># Terminal 2: Point Claude Code at it</span>
+<span class="keyword">$</span> <span class="keyword">export</span> ANTHROPIC_BASE_URL=<span class="string">http://localhost:7778</span>
+<span class="keyword">$</span> <span class="string">claude</span></div>
+        </div>
+        <p class="reveal d3 subtitle" style="margin-top: var(--content-gap);">
+            No config files. No code changes. Just an environment variable.
+        </p>
+        <p class="reveal d4" style="color: var(--text-dim); margin-top: var(--element-gap);">
+            Compression happens silently. Claude sees the same tool results, just smaller.
+        </p>
+    </div>
+</section>
+
+<!-- ============================================
+     SLIDE 10: WHAT'S NEXT
+     ============================================ -->
+<section class="slide" id="slide-10">
+    <div class="slide-inner" style="align-items: center;">
+        <p class="reveal tag">Roadmap</p>
+        <h2 class="reveal d1">What's Next</h2>
+        <ul class="reveal d2 checklist" style="margin-top: var(--content-gap); max-width: 600px; width: 100%;">
+            <li>Extended thinking block compression</li>
+            <li>Response caching for repeated tool calls</li>
+            <li>Per-session dashboards with live stats</li>
+            <li>Configurable compression aggressiveness</li>
+            <li>npm package: <span style="font-family: var(--font-mono); color: var(--cyan);">npx tamp</span></li>
+        </ul>
+        <div class="reveal d3" style="margin-top: clamp(1.5rem, 3vw, 3rem); text-align: center;">
+            <h1 style="font-size: clamp(1.5rem, 4vw, 3rem);">tamp</h1>
+            <p class="subtitle">50% fewer tokens. Zero behavior change.</p>
+        </div>
+    </div>
+</section>
+
+<script>
+/* ===========================================
+   SLIDE PRESENTATION CONTROLLER
+   =========================================== */
+class SlidePresentation {
+    constructor() {
+        this.slides = document.querySelectorAll('.slide');
+        this.currentIndex = 0;
+        this.isAnimating = false;
+        this.progressBar = document.getElementById('progress');
+        this.navContainer = document.getElementById('nav-dots');
+
+        this.createNavDots();
+        this.setupObserver();
+        this.setupKeyboard();
+        this.setupWheel();
+        this.setupTouch();
+        this.updateProgress();
+    }
+
+    createNavDots() {
+        this.slides.forEach((_, i) => {
+            const dot = document.createElement('button');
+            dot.className = 'nav-dot' + (i === 0 ? ' active' : '');
+            dot.setAttribute('aria-label', `Slide ${i + 1}`);
+            dot.addEventListener('click', () => this.goTo(i));
+            this.navContainer.appendChild(dot);
+        });
+        this.dots = this.navContainer.querySelectorAll('.nav-dot');
+    }
+
+    setupObserver() {
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.classList.add('visible');
+                    const index = Array.from(this.slides).indexOf(entry.target);
+                    this.currentIndex = index;
+                    this.updateProgress();
+                    this.updateDots();
+                }
+            });
+        }, { threshold: 0.5 });
+
+        this.slides.forEach(slide => observer.observe(slide));
+    }
+
+    setupKeyboard() {
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowRight' || e.key === 'ArrowDown' || e.key === ' ') {
+                e.preventDefault();
+                this.next();
+            } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+                e.preventDefault();
+                this.prev();
+            }
+        });
+    }
+
+    setupWheel() {
+        let lastWheel = 0;
+        document.addEventListener('wheel', (e) => {
+            const now = Date.now();
+            if (now - lastWheel < 800) return;
+            lastWheel = now;
+            if (e.deltaY > 30) this.next();
+            else if (e.deltaY < -30) this.prev();
+        }, { passive: true });
+    }
+
+    setupTouch() {
+        let startY = 0;
+        document.addEventListener('touchstart', (e) => {
+            startY = e.touches[0].clientY;
+        }, { passive: true });
+
+        document.addEventListener('touchend', (e) => {
+            const deltaY = startY - e.changedTouches[0].clientY;
+            if (Math.abs(deltaY) > 50) {
+                if (deltaY > 0) this.next();
+                else this.prev();
+            }
+        }, { passive: true });
+    }
+
+    next() {
+        if (this.currentIndex < this.slides.length - 1) {
+            this.goTo(this.currentIndex + 1);
+        }
+    }
+
+    prev() {
+        if (this.currentIndex > 0) {
+            this.goTo(this.currentIndex - 1);
+        }
+    }
+
+    goTo(index) {
+        this.slides[index].scrollIntoView({ behavior: 'smooth' });
+    }
+
+    updateProgress() {
+        const pct = ((this.currentIndex + 1) / this.slides.length) * 100;
+        this.progressBar.style.width = pct + '%';
+    }
+
+    updateDots() {
+        this.dots.forEach((dot, i) => {
+            dot.classList.toggle('active', i === this.currentIndex);
+        });
+    }
+}
+
+document.addEventListener('DOMContentLoaded', () => new SlidePresentation());
+</script>
+</body>
+</html>
