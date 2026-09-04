@@ -16,6 +16,8 @@ import {
   clearPidFile,
   writePidFile,
   isProcessAlive,
+  findPortOwners,
+  describeStopResult,
 } from './lifecycle.js'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
@@ -415,19 +417,35 @@ if (subcommand === 'stop') {
     throw err
   }
 
+  // Wait on the pid we signalled, not on the port. A second tamp holding the
+  // port would otherwise keep this loop spinning the full 2s and then blame our
+  // already-dead pid for ignoring SIGTERM.
   for (let i = 0; i < 20; i++) {
     await new Promise(r => setTimeout(r, 100))
-    if (!(await checkPort(port)) && !isProcessAlive(rec.pid)) break
+    if (!isProcessAlive(rec.pid)) break
   }
 
-  if (await checkPort(port) || isProcessAlive(rec.pid)) {
+  const neededSigkill = isProcessAlive(rec.pid)
+  if (neededSigkill) {
     try { process.kill(rec.pid, 'SIGKILL') } catch {}
-    console.warn(`Tamp (pid ${rec.pid}) did not respond to SIGTERM within 2s — sent SIGKILL.`)
-  } else {
-    console.log(`Stopped Tamp (pid ${rec.pid}) on :${port}.`)
+    for (let i = 0; i < 10 && isProcessAlive(rec.pid); i++) {
+      await new Promise(r => setTimeout(r, 50))
+    }
   }
   clearPidFile(port)
-  process.exit(0)
+
+  // Our instance is gone, but that does not mean the port is free — report the
+  // survivor instead of exiting 0 on a stop that did not actually stop tamp.
+  const portBusy = await checkPort(port)
+  const result = describeStopResult({
+    pid: rec.pid,
+    port,
+    pidAlive: neededSigkill,
+    portBusy,
+    owners: portBusy ? findPortOwners(port, rec.pid) : [],
+  })
+  console[result.level](result.message)
+  process.exit(result.exitCode)
 }
 
 if (subcommand === 'help' || subcommand === '--help' || subcommand === '-h' || process.argv.includes('--help') || process.argv.includes('-h')) {

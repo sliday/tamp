@@ -44,6 +44,14 @@ exactly when the user most wants `tamp stop` to work. So health alone can't tell
 4. **Accept and document** — note in the CLI help that a stale PID file after an
    unclean exit can, in the rare PID-reuse case, target the wrong process.
 
+## Update: post-kill port verification landed (separate defect)
+
+`tamp stop` now verifies the port was actually released and reports the
+surviving owner instead of exiting 0. That fixed a *different* bug — a second
+tamp outliving the pid we signalled — and deliberately does **not** gate the
+kill on health, so the option-1 trade-off above (refusing to stop a hung tamp)
+is not incurred. PID reuse is still unaddressed: the decision below stands.
+
 ## Scope guard
 
 Requires all of: unclean tamp exit (stale PID file) + OS PID recycling back to
