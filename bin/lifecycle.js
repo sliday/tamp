@@ -1,6 +1,7 @@
 import { readFileSync, writeFileSync, unlinkSync, mkdirSync, realpathSync, existsSync } from 'node:fs'
 import { join, dirname } from 'node:path'
 import http from 'node:http'
+import { execFileSync } from 'node:child_process'
 import { CONFIG_PATH } from '../config.js'
 
 const TAMP_DIR = dirname(CONFIG_PATH)
@@ -101,6 +102,60 @@ export async function diagnoseBindConflict(port) {
   return {
     kind: 'other',
     message: `Port ${port} is in use by another process (not Tamp).\n  Free it with: lsof -ti:${port} | xargs kill\n  Or set TAMP_PORT=${Number(port) + 1}.`,
+  }
+}
+
+// The PID file names the instance we started; it is not proof of who holds the
+// port. A second tamp — auto-started by a session hook, or launched under a
+// different node — can outlive the pid we signalled, so `stop` must verify the
+// port was released instead of trusting the kill. Returns [] when lsof is
+// unavailable, which callers treat as "unknown owner", never as "port is free".
+export function findPortOwners(port, excludePid = null) {
+  try {
+    const out = execFileSync('lsof', ['-ti', `tcp:${port}`, '-sTCP:LISTEN'], {
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+      timeout: 2000,
+    })
+    return out.split('\n')
+      .map(line => Number(line.trim()))
+      .filter(pid => pid && pid !== excludePid)
+  } catch { return [] }
+}
+
+// Pure decision for what `tamp stop` prints and exits with, given what we
+// observed after signalling. Kept out of the CLI block so every outcome is
+// testable without spawning processes or calling process.exit.
+export function describeStopResult({ pid, port, pidAlive, portBusy, owners = [] }) {
+  const survivors = owners.filter(p => p && p !== pid)
+
+  if (portBusy) {
+    const who = survivors.length
+      ? `Another Tamp is still listening (pid ${survivors.join(', ')}).`
+      : 'Another process is still listening.'
+    return {
+      level: 'error',
+      exitCode: 1,
+      survivors,
+      message: `Signalled pid ${pid}, but :${port} is still in use. ${who}\n`
+        + `  Free it with: lsof -ti:${port} | xargs kill`,
+    }
+  }
+
+  if (pidAlive) {
+    return {
+      level: 'warn',
+      exitCode: 0,
+      survivors,
+      message: `Tamp (pid ${pid}) did not respond to SIGTERM within 2s — sent SIGKILL.`,
+    }
+  }
+
+  return {
+    level: 'log',
+    exitCode: 0,
+    survivors,
+    message: `Stopped Tamp (pid ${pid}) on :${port}.`,
   }
 }
 
