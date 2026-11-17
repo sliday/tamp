@@ -301,6 +301,8 @@ Supported on all providers: Anthropic, OpenAI Chat, OpenAI Responses (Codex), Ge
 | `TAMP_LOG` | `true` | Enable logging |
 | `TAMP_LOG_FILE` | *(none)* | Append logs to this file path, in addition to stderr |
 | `TAMP_CACHE_SAFE` | `true` | Compress newest only (prompt-cache safe) |
+| `TAMP_REPLAY` | `true` | Re-send older tool results exactly as Tamp first sent them (savings persist, cache prefix stays stable, secrets stay masked) |
+| `TAMP_REPLAY_MAX_BYTES` | `67108864` | Memory bound for the replay memo (bytes, 64 MiB). Least recently used entries go first |
 | `TAMP_REDACT` | `true` | Mask secrets in tool output before anything leaves the machine |
 | `TAMP_REDACT_MODE` | `mask` | `mask` (replace with marker) or `remove` (delete value) |
 | `TAMP_LLMLINGUA_URL` | *(none)* | LLMLingua sidecar URL. Set to `http://localhost:8788` to skip the auto-probe (avoids startup race if sidecar is still loading the model) |

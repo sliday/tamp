@@ -1,6 +1,7 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
-import { pxModelAllowed, extractFactsheetTokens, factsheetText, pxRenderTargets } from '../lib/px-render.js'
+import { countTokens } from '@anthropic-ai/tokenizer'
+import { pxModelAllowed, extractFactsheetTokens, factsheetText, pxRenderTargets, FS_PATTERNS } from '../lib/px-render.js'
 import { compressRequest, clearCache } from '../compress.js'
 import { loadConfig } from '../config.js'
 import { anthropic } from '../providers.js'
@@ -77,6 +78,42 @@ describe('factsheet', () => {
   it('returns empty sheet for token-free text', () => {
     assert.equal(factsheetText('nothing notable here at all'), '')
   })
+
+  it('takes pxpipe 0.16 shapes: flags, LABEL=value, field=value, tickets, emails, camelCase', () => {
+    const text = 'run --dry-run -rn ACTIVE_MANIFEST=/etc/app.conf dur=4439 see PROJ-1482 not HTTP-GET, mail bob@example.com getUserById pay $1,250.00 ratio 0.75'
+    const tokens = extractFactsheetTokens(text)
+    for (const t of ['--dry-run', '-rn', 'ACTIVE_MANIFEST=/etc/app.conf', 'dur=4439', 'PROJ-1482', 'bob@example.com', 'getUserById', '$1,250.00', '0.75']) {
+      assert.ok(tokens.includes(t), `${t} kept`)
+    }
+    assert.ok(!tokens.includes('HTTP-GET'), 'ticket shape needs a digit')
+    // Short opaque ids still outrank lowercase field=value and URLs.
+    assert.ok(tokens.indexOf('PROJ-1482') < tokens.indexOf('dur=4439'))
+  })
+
+  it('caps the sheet at 96 tokens', () => {
+    const text = Array.from({ length: 300 }, (_, i) => `ERR_CODE_${i}`).join(' ')
+    assert.equal(extractFactsheetTokens(text).length, 96)
+  })
+
+  it('every pattern stays linear on 200k-char adversarial strings', () => {
+    const seeds = ['a', 'A-', 'a.', 'a/', '/a.', 'aB', 'A_', '1,', '1.', '$1', 'a=', '--a', 'AB-', 'a.a@a', '.']
+    for (const re of FS_PATTERNS) {
+      for (const seed of seeds) {
+        for (const tail of ['', 'x', '!']) {
+          const s = seed.repeat(Math.ceil(200_000 / seed.length)) + tail
+          const t0 = performance.now()
+          for (const _ of s.matchAll(re)) { /* drain */ }
+          const ms = performance.now() - t0
+          assert.ok(ms < 500, `${re} on ${JSON.stringify(seed)}…${JSON.stringify(tail)} took ${ms.toFixed(0)}ms`)
+        }
+      }
+    }
+    // Trailing-punctuation strip on a long dotted URL was quadratic before the lookbehind.
+    const dotted = Array.from({ length: 400 }, () => `http://${'.'.repeat(500)}a`).join(' ')
+    const t0 = performance.now()
+    extractFactsheetTokens(dotted)
+    assert.ok(performance.now() - t0 < 500, 'dotted URLs extract in linear time')
+  })
 })
 
 describe('px-render stage', () => {
@@ -134,6 +171,40 @@ describe('px-render stage', () => {
       isDangerousTask: () => true,
     })
     assert.equal(n, 0)
+  })
+
+  // Decode PNG IHDR width/height (bytes 16-23) from an image block.
+  function pngSize(block) {
+    const buf = Buffer.from(block.source.data, 'base64')
+    return { w: buf.readUInt32BE(16), h: buf.readUInt32BE(20) }
+  }
+
+  async function renderFor(model) {
+    const text = denseContent()
+    const targets = [{ path: ['messages', 2, 'content', 0, 'content'], text, index: 0 }]
+    const n = await pxRenderTargets(targets, buildRequest(text, model), anthropic, { pxModels: 'claude-fable-5', pxMinChars: 4096, pxMaxImages: 6 })
+    assert.equal(n, 1, `${model} rendered`)
+    return targets[0]
+  }
+
+  it('prices images per 28-px patch from the real page sizes', async () => {
+    const t = await renderFor('claude-fable-5')
+    const images = t.compressed.filter(b => b.type === 'image')
+    const sheet = t.compressed.find(b => b.type === 'text')
+    const patches = images.map(pngSize).reduce((s, { w, h }) => s + Math.ceil(w / 28) * Math.ceil(h / 28), 0)
+    assert.equal(t.pxCompressedTokens, patches + countTokens(sheet.text))
+    assert.equal(t.pxImageCount, images.length)
+  })
+
+  it('passes the model so Fable 5.x point releases get the spaced profile', async () => {
+    const dense = await renderFor('claude-fable-5')
+    const spaced = await renderFor('claude-fable-5-2')
+    const height = t => t.compressed.filter(b => b.type === 'image').map(pngSize).reduce((s, { h }) => s + h, 0)
+    assert.ok(height(spaced) > height(dense), '+2px rows make taller pages')
+    assert.ok(spaced.pxCompressedTokens > dense.pxCompressedTokens, 'taller pages cost more')
+    // A date-stamped Fable 5 id is still the original release, and [1m] is transport only.
+    assert.deepEqual((await renderFor('claude-fable-5-20260115')).compressed, dense.compressed)
+    assert.deepEqual((await renderFor('claude-fable-5-2[1m]')).compressed, spaced.compressed)
   })
 
   it('skips blocks below pxMinChars', async () => {

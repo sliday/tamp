@@ -43,3 +43,41 @@ compactor is a *staleness* rule aimed at the opposite end of the conversation. P
 one naively (for example "Read output → always omit") deletes the file the agent just
 asked for. Age-scope such rules and keep them opt-in, since rewriting old turns costs a
 prompt-cache invalidation.
+
+## A compressed turn must replay byte-identical once it becomes history
+
+cacheSafe compresses and redacts a tool_result only while it is newest. The client
+re-sends it raw in the next request, so without the replay memo
+(`lib/replay-memo.js`) the savings last one request, the prompt-cache prefix
+breaks at that turn, and a secret masked in request N leaves unmasked in N+1.
+
+The memo keys on provider + conversation (hash of the first turn and the first
+user turn; the first turn alone is a shared system prompt on OpenAI chat) + position +
+tool id + sha256 of the raw text, and stores what tamp emitted. Rules that keep
+it honest, each one a defect found in review:
+
+- Older turns only ever get a memo hit, never a fresh compression. On a miss
+  (restart, eviction, `TAMP_REPLAY=false`) they still get redaction, which is
+  deterministic, so a masked secret cannot go out in clear one request later.
+- A tool id is not identity. Kimi-style ids (`functions.read:0`) repeat across
+  conversations and turns, so the key carries conversation and position too.
+- A marker is replayed only while its referent is still in the request. Clients
+  clear old tool results (`[Old tool result content cleared]`), which leaves a
+  dedup, diff or read-diff marker pointing at nothing. `graph` markers point at
+  session state the memo cannot check, so they are not stored at all.
+- Stored px-render images replay only to models on `TAMP_PX_MODELS`. A request
+  from another model gets text and must not overwrite the stored images.
+- Older turns honor `exemptProtectedTools` like the newest group does.
+- A replayed target still goes through redaction, because read-diff caches
+  skipped targets' text and a raw prior would leak in a later patch.
+
+Known limit: when one conversation outgrows `TAMP_REPLAY_MAX_BYTES`, each new
+entry evicts that conversation's oldest one, which then flips to uncompressed and
+moves the cache break forward each request. Watch `replay.evictions` in
+`/health`.
+
+## Claude image tokens are counted in 28 px patches
+
+`ceil(w/28) * ceil(h/28)` per image is the current upstream formula
+(pxpipe 0.16 `anthropic-vision.ts`); `pixels / 750` above is the older
+approximation and reads about 3% high. `lib/px-render.js` uses the patch count.

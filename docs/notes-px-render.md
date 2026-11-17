@@ -1,8 +1,8 @@
 # px-render: image compression for dense tool_results
 
 Borrowed from [teamchong/pxpipe](https://github.com/teamchong/pxpipe) (MIT).
-Anthropic prices image input by pixel area (~pixels/750 tokens), not text
-volume. Dense text (paths, hashes, grep output) tokenizes at ~1-3 chars/token
+Anthropic prices image input by pixel area (one token per 28×28-px patch,
+⌈w/28⌉×⌈h/28⌉ per image), not text volume. Dense text (paths, hashes, grep output) tokenizes at ~1-3 chars/token
 as text but packs ~18 chars/token rendered as a 5×8-glyph PNG. Rendering such
 blocks as images cuts their input cost 80%+.
 
@@ -26,7 +26,7 @@ OpenRouter; big-grep stays with bm25-trim (85%, runs first by design).
 - **Factsheet**: precision-critical tokens (SHAs, paths, versions, numbers,
   CONST_IDS) are extracted deterministically and ride beside the images as
   plain text, so exact identifiers never depend on glyph reading. Short opaque
-  ids outrank long URLs in the 64-token budget (length is anti-correlated
+  ids outrank long URLs in the 96-token budget (length is anti-correlated
   with OCR-risk × consequence).
 - **Two-stage profitability gate**: a cheap density pre-gate (skip clean prose
   at ≥4.0 chars/text-token — worst legibility, least upside), then an exact
@@ -39,6 +39,33 @@ OpenRouter; big-grep stays with bm25-trim (85%, runs first by design).
   (`...content[j].text`) must stay strings and are never claimed.
 - **droppedChars > 0 aborts the render** — atlas gaps render as blank cells,
   which is silent loss.
+
+## pxpipe-proxy 0.16 sync
+
+- **Per-model render profile.** The stage passes the request model (with
+  `[1m]`-style tags stripped) to `renderTextToImages({ model })`. Upstream
+  routes every Claude id to its Claude profile (`claude-model-profiles.ts`):
+  the original `claude-fable-5` keeps bare 5×8 rows, while Fable 5.1/5.2 and
+  every other Claude id get +2px row spacing. Upstream measured dense hex on
+  5.1 at 6/15 → 14/15 and 5.2 at 7/15 → 13/15 with spacing. The default
+  allowlist `claude-fable-5` already admits `claude-fable-5-2` by prefix, so
+  before this change those requests rendered at the geometry they misread.
+  Non-Claude ids are not passed: they would resolve to a GPT or Gemini layout.
+- **Patch pricing.** Image cost is now Σ⌈w/28⌉×⌈h/28⌉ over the real rendered
+  pages, via the exported `openAIVisionTokens(model, w, h)` (family-agnostic
+  despite the name; it resolves Claude ids to the `patch28` regime). The old
+  `pixels/750` overstated a full 1568×728 page by ~4.5% and understated thin
+  tail pages. Spaced pages are taller, and the gate charges them in full.
+- **Factsheet.** Synced with upstream `factsheet.ts`: adds `LABEL=value`,
+  lowercase `field=value`, emails, IBANs, currency amounts, dir paths, CLI
+  flags, decimals, camelCase and ticket codes (`PROJ-1482`, must hold a
+  digit); the cap rises from 64 to 96 tokens. Upstream's occurrence counts
+  (`×N`) and per-page extraction were not ported. Three patterns differ from
+  upstream to stay linear on a whole 200k-char string: email and file-path
+  matches start only at the head of a run (lookbehind), the ticket digit check
+  runs after the match instead of in a 120-char lookahead, and the trailing
+  punctuation strip uses a lookbehind (a dotted URL took ~590 ms per 200 KB
+  before). A test drains every pattern over 200k-char adversarial strings.
 
 ## Limitations / future work
 
