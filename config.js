@@ -242,6 +242,10 @@ export function loadConfig(env = process.env, options = {}) {
     logFile: get('TAMP_LOG_FILE') || null,
     maxBody: parseInt(get('TAMP_MAX_BODY'), 10) || 10_485_760,
     cacheSafe: parseBoolean(get('TAMP_CACHE_SAFE'), true),
+    // Replay memo: re-send each tool_result exactly as tamp first emitted it,
+    // so savings, prompt-cache prefixes and redaction survive later requests.
+    replay: parseBoolean(get('TAMP_REPLAY'), true),
+    replayMaxBytes: parseInt(get('TAMP_REPLAY_MAX_BYTES'), 10) || 67108864,
     // Secret redaction is a security pass, not a compression stage: on by
     // default at every level, masks secrets before any stage (incl. ones that
     // ship text to third parties) sees the body. TAMP_REDACT=false disables it.
@@ -312,6 +316,11 @@ export const CONFIG_TEMPLATE = `# Tamp configuration
 # TAMP_PX_MODELS=claude-fable-5
 # TAMP_PX_MIN_CHARS=4096
 # TAMP_PX_MAX_IMAGES=6
+
+# Replay memo: older tool_results go out exactly as first sent (stable cache
+# prefix, secrets stay masked). In-memory, bounded by TAMP_REPLAY_MAX_BYTES.
+# TAMP_REPLAY=true
+# TAMP_REPLAY_MAX_BYTES=67108864
 
 # TAMP_MIN_SIZE=200
 # TAMP_LOG=true

@@ -8,6 +8,13 @@ function applyTargets(body, targets) {
   }
 }
 
+// Stable identity for a target so the replay memo can find it again in a
+// later request. Sub-blocks of array content get `#j`. No id, no replay.
+function targetId(id, j) {
+  if (typeof id !== 'string' || !id) return undefined
+  return j === undefined ? id : `${id}#${j}`
+}
+
 function findLatestEligibleGroup(items, extractTargets) {
   let fallback = null
   for (let i = items.length - 1; i >= 0; i--) {
@@ -35,12 +42,12 @@ function extractAnthropicMessageTargets(msg, mi) {
       }
 
       if (typeof block.content === 'string') {
-        targets.push({ path: ['messages', mi, 'content', i, 'content'], text: block.content, index: i })
+        targets.push({ path: ['messages', mi, 'content', i, 'content'], text: block.content, index: i, id: targetId(block.tool_use_id) })
       } else if (Array.isArray(block.content)) {
         for (let j = 0; j < block.content.length; j++) {
           const sub = block.content[j]
           if (sub && sub.type === 'text') {
-            targets.push({ path: ['messages', mi, 'content', i, 'content', j, 'text'], text: sub.text, index: i })
+            targets.push({ path: ['messages', mi, 'content', i, 'content', j, 'text'], text: sub.text, index: i, id: targetId(block.tool_use_id, j) })
           }
         }
       }
@@ -260,14 +267,14 @@ function extractOpenAIChatTargets(msg, i) {
         if (!block || typeof block !== 'object') continue
         if (OPENAI_COMPAT_SKIP_BLOCK_TYPES.has(block.type)) continue
         if (block.type === 'text' && typeof block.text === 'string') {
-          targets.push({ path: ['messages', i, 'content', j, 'text'], text: block.text, index: i })
+          targets.push({ path: ['messages', i, 'content', j, 'text'], text: block.text, index: i, id: targetId(msg.tool_call_id, j) })
         }
       }
       return targets
     }
     return []
   }
-  return [{ path: ['messages', i, 'content'], text: msg.content, index: i }]
+  return [{ path: ['messages', i, 'content'], text: msg.content, index: i, id: targetId(msg.tool_call_id) }]
 }
 
 const openai = {
@@ -403,6 +410,7 @@ function extractGeminiContentTargets(content, ci) {
       text,
       index: pi,
       wasObject: typeof resp !== 'string',
+      id: targetId(part.functionResponse.id),
     })
   }
 
@@ -484,13 +492,13 @@ function isResponsesToolOutput(type) {
 function extractOpenAIResponsesTargets(item, i) {
   if (!isResponsesToolOutput(item?.type)) return []
   if (typeof item.output === 'string') {
-    return [{ path: ['input', i, 'output'], text: item.output, index: i }]
+    return [{ path: ['input', i, 'output'], text: item.output, index: i, id: targetId(item.call_id) }]
   }
   if (Array.isArray(item.output)) {
     const targets = []
     for (const [j, part] of item.output.entries()) {
       if (part?.type === 'input_text' && typeof part.text === 'string') {
-        targets.push({ path: ['input', i, 'output', j, 'text'], text: part.text, index: i })
+        targets.push({ path: ['input', i, 'output', j, 'text'], text: part.text, index: i, id: targetId(item.call_id, j) })
       }
     }
     return targets

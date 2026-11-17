@@ -14,7 +14,7 @@ import { evictStaleImages } from './lib/stale-images.js'
 import { pruneStaleInputs } from './lib/stale-inputs.js'
 import { summarize, rehydrateReferences } from './lib/disclosure.js'
 import { trimLinesByRelevance } from './lib/bm25.js'
-import { pxRenderTargets } from './lib/px-render.js'
+import { pxRenderTargets, pxModelAllowed } from './lib/px-render.js'
 
 const cache = new Map()
 const MAX_CACHE = 500
@@ -53,6 +53,7 @@ function deduplicateTargets(targets) {
       if (ref.length < target.text.length) {
         target.compressed = ref
         target.dedup = true
+        target.refTarget = prev
       }
     } else {
       seen.set(key, target)
@@ -79,6 +80,7 @@ function diffTargets(targets) {
         if (diffBody.length < target.text.length * 0.5) {
           target.compressed = `[diff from tool_result in message ${prev.path[1]}, block ${prev.index}]:\n${diffBody}`
           target.diffed = true
+          target.refTarget = prev
           break
         }
       }
@@ -120,7 +122,118 @@ function exemptProtectedTools(targets, body, provider) {
   return exempted
 }
 
-function readDiffTargets(targets, body, sessionKey, readCache) {
+// --- Replay memo (see lib/replay-memo.js) ---
+// Key = provider + conversation + position + tool id + hash of the RAW text.
+// Position and conversation keep deterministic tool ids (`functions.read:0`)
+// and identical bodies from sharing an entry; the hash catches a client that
+// compacted or edited the body since.
+function sha(text) {
+  return createHash('sha256').update(text).digest('base64')
+}
+
+function conversationScope(body) {
+  const turns = body?.messages || body?.input || body?.contents
+  if (!Array.isArray(turns) || !turns.length) return ''
+  // The first turn can be a system prompt every conversation shares (OpenAI
+  // chat, Kimi), so the first user turn is part of the identity too.
+  const seed = [turns[0], turns.find(t => t?.role === 'user') ?? null]
+  // cache_control markers move between requests; they are not identity.
+  try { return sha(JSON.stringify(seed, (k, v) => (k === 'cache_control' ? undefined : v))) } catch { return '' }
+}
+
+function replayKey(provider, scope, target) {
+  return `${provider.name}\0${scope}\0${target.path.join('/')}\0${target.id || ''}\0${target.rawHash}`
+}
+
+// px-render values are block arrays; never share one object between the memo
+// and a body that later stages (stale-images) may mutate.
+function cloneReplayValue(value) {
+  return Array.isArray(value) ? structuredClone(value) : value
+}
+
+function replayWrongModel(entry, body, config) {
+  return Array.isArray(entry.value) && !pxModelAllowed(body?.model, config.pxModels)
+}
+
+// A memo entry is usable only if what it points at is still in this request:
+// image blocks need a model that reads them, and a dedup/diff/read-diff marker
+// needs its referent (a client can clear or drop the block it refers to).
+function replayUsable(entry, body, config, hashByPath, hashes) {
+  if (replayWrongModel(entry, body, config)) return false
+  const ref = entry.meta.ref
+  if (!ref) return true
+  return ref.path ? hashByPath.get(ref.path) === ref.hash : hashes.has(ref.hash)
+}
+
+function applyReplay(body, provider, target, entry, replay) {
+  // Through provider.apply so Gemini's wasObject JSON handling still runs.
+  // A null entry means "went out unchanged": nothing to write, not a hit.
+  if (entry.value === null) return
+  provider.apply(body, [{ ...target, skip: undefined, compressed: cloneReplayValue(entry.value) }])
+  replay.hits += 1
+  replay.tokensHeld += (entry.meta.originalTokens || 0) - (entry.meta.compressedTokens || 0)
+}
+
+// Makes history byte-stable and keeps it redacted. Newest-group targets with a
+// memo hit are replayed and skipped. Older turns (cacheSafe) are never
+// compressed fresh: they get their memo entry, or failing that (restart,
+// eviction, replay off) deterministic redaction only, so a masked secret
+// cannot go out in clear one request later.
+function stabilizeHistory(body, targets, config, provider, memo, replay) {
+  // Collect older turns before touching the body: a replayed px-render array
+  // would otherwise surface as new sub-text targets.
+  let older = []
+  if (config.cacheSafe !== false) {
+    const latest = new Set(targets.filter(t => t.path).map(t => t.path.join('/')))
+    older = provider.extract(body, { ...config, cacheSafe: false })
+    exemptProtectedTools(older, body, provider)
+    older = older.filter(t => !t.skip && typeof t.text === 'string' && !latest.has(t.path.join('/')))
+  }
+  if (!memo && (config.redact === false || !older.length)) return
+
+  const scope = memo ? conversationScope(body) : ''
+  const hashByPath = new Map()
+  if (memo) {
+    for (const t of [...older, ...targets]) {
+      if (t.skip || typeof t.text !== 'string') continue
+      t.rawHash = sha(t.text)
+      hashByPath.set(t.path.join('/'), t.rawHash)
+    }
+  }
+  const hashes = new Set(hashByPath.values())
+
+  if (memo) {
+    for (const target of targets) {
+      if (!target.rawHash) continue
+      target.replayKey = replayKey(provider, scope, target)
+      const entry = memo.get(target.replayKey)
+      if (!entry || !replayUsable(entry, body, config, hashByPath, hashes)) {
+        // Another model's request must not overwrite images stored for this one.
+        if (entry && replayWrongModel(entry, body, config)) target.replayKey = null
+        replay.misses += 1
+        continue
+      }
+      applyReplay(body, provider, target, entry, replay)
+      target.skip = 'replayed'
+    }
+  }
+
+  for (const target of older) {
+    const key = memo && replayKey(provider, scope, target)
+    const entry = memo?.get(key)
+    if (entry && replayUsable(entry, body, config, hashByPath, hashes)) { applyReplay(body, provider, target, entry, replay); continue }
+    if (memo) replay.misses += 1
+    let value = null
+    if (config.redact !== false) {
+      const r = redactText(target.text, config.redactMode)
+      if (r.count > 0) { value = r.text; provider.apply(body, [{ ...target, compressed: value }]) }
+    }
+    // Remembering the outcome (deterministic) spares the regex pass next time.
+    if (memo && !(entry && replayWrongModel(entry, body, config))) memo.put(key, value, {})
+  }
+}
+
+function readDiffTargets(targets, body, sessionKey, readCache, memo) {
   if (!readCache || !sessionKey) return
   const paths = extractTargetPaths(body, targets)
   for (let i = 0; i < targets.length; i++) {
@@ -130,7 +243,10 @@ function readDiffTargets(targets, body, sessionKey, readCache) {
     if (target.skip || target.dedup || target.diffed || target.compressed) {
       // Even for already-compressed targets, refresh the cache with the
       // original text so the next request can diff against the latest copy.
-      if (typeof target.text === 'string') readCache.put(sessionKey, path, target.text)
+      if (typeof target.text === 'string') {
+        readCache.put(sessionKey, path, target.text)
+        memo?.setAnchor?.(`${sessionKey}:${path}`, target.rawHash)
+      }
       continue
     }
     if (typeof target.text !== 'string') continue
@@ -141,9 +257,11 @@ function readDiffTargets(targets, body, sessionKey, readCache) {
       if (patch.length < target.text.length * 0.5) {
         target.compressed = `[read-diff from prior read of ${path}]:\n${patch}`
         target.readDiffed = true
+        target.refHash = memo?.getAnchor?.(`${sessionKey}:${path}`)
       }
     }
     readCache.put(sessionKey, path, target.text)
+    memo?.setAnchor?.(`${sessionKey}:${path}`, target.rawHash)
   }
 }
 
@@ -710,6 +828,11 @@ export async function compressRequest(body, config, provider) {
   // so the forgone compression costs nothing.
   exemptProtectedTools(targets, body, provider)
 
+  // Before redaction, so memo keys hash the raw text the client sent.
+  const memo = config.replayMemo || null
+  const replay = memo ? { hits: 0, misses: 0, tokensHeld: 0 } : null
+  stabilizeHistory(body, targets, config, provider, memo, replay)
+
   // Redaction runs FIRST (security, not compression): mask secrets in every
   // target's text before any stage — dedup/diff/cache/llmlingua/textpress —
   // sees it, so secrets never enter a disk cache or get shipped to a third
@@ -718,7 +841,9 @@ export async function compressRequest(body, config, provider) {
   let redactedCount = 0
   if (config.redact !== false) {
     for (const target of targets) {
-      if (target.skip || typeof target.text !== 'string') continue
+      // Replayed targets are already masked on the wire, but read-diff still
+      // caches their text; a raw prior there would leak via a later patch.
+      if ((target.skip && target.skip !== 'replayed') || typeof target.text !== 'string') continue
       const r = redactText(target.text, config.redactMode)
       if (r.count > 0) { target.text = r.text; target.redacted = true; redactedCount += r.count }
     }
@@ -726,7 +851,7 @@ export async function compressRequest(body, config, provider) {
 
   // Read-diff: session-scoped unified diff for re-reads (lossless, opt-in)
   if (config.stages.includes('read-diff') && config.readCache && config.sessionKey && provider.name === 'anthropic') {
-    readDiffTargets(targets, body, config.sessionKey, config.readCache)
+    readDiffTargets(targets, body, config.sessionKey, config.readCache, config.replayMemo)
   }
 
   // Dedup: replace identical blocks with reference markers
@@ -817,6 +942,23 @@ export async function compressRequest(body, config, provider) {
   }
   provider.apply(body, targets)
 
+  // Remember what went out. stats[i] belongs to targets[i]: the loop above
+  // pushes exactly one entry per target.
+  if (memo) {
+    for (let i = 0; i < targets.length; i++) {
+      const target = targets[i]
+      if (!target.replayKey || target.skip) continue
+      // A marker is replayable only while its referent can be re-checked.
+      // graph refs point into session state the memo cannot see: not stored.
+      let ref
+      if (target.graphed) continue
+      if (target.dedup || target.diffed) ref = { path: target.refTarget.path.join('/'), hash: target.refTarget.rawHash }
+      else if (target.readDiffed) { if (!target.refHash) continue; ref = { hash: target.refHash } }
+      const value = target.compressed ? cloneReplayValue(target.compressed) : null
+      memo.put(target.replayKey, value, { originalTokens: stats[i].originalTokens, compressedTokens: stats[i].compressedTokens, ref })
+    }
+  }
+
   // stale-images: drop base64 images from older turns (opt-in, lossy). Runs
   // after apply so the extractor never sees the notices it leaves behind.
   let staleImages = null
@@ -832,7 +974,7 @@ export async function compressRequest(body, config, provider) {
     if (r.pruned > 0) staleInputs = r
   }
 
-  return { body, stats, targetCount: targets.length, outputHint, disclosure: disclosureStats, redacted: redactedCount, staleImages, staleInputs }
+  return { body, stats, targetCount: targets.length, outputHint, disclosure: disclosureStats, redacted: redactedCount, staleImages, staleInputs, replay }
 }
 
 export async function compressMessages(body, config) {

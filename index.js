@@ -10,6 +10,8 @@ import { createSession, formatRequestLog, redactUrl } from './stats.js'
 import { createSessionStore, deriveSessionKey } from './session-graph.js'
 import { createReadCache } from './lib/read-cache.js'
 import { createBrCache } from './lib/br-cache.js'
+import { createReplayMemo } from './lib/replay-memo.js'
+import { createUsageTap, createUsageTotals } from './lib/usage-tap.js'
 import { generateOutputRules, PER_AGENT_OVERRIDES } from './lib/rules-generator.js'
 
 // Regex source strings used by the task classifier — surfaced via
@@ -92,11 +94,12 @@ export function createProxy(overrides = {}, loadOpts = {}) {
     : null
   const sessionStore = createSessionStore({ brCache })
   const readCache = createReadCache()
+  const replayMemo = config.replay ? createReplayMemo({ maxBytes: config.replayMaxBytes }) : null
   // `tamp -y` starts the sidecar itself and hands the URL down via env, so the
   // isMain probe below never runs and /health kept reporting sidecar:false
   // while llmlingua was in fact wired up. Probe here too, quietly.
   if (config.stages?.includes('llmlingua') && config.llmLinguaUrl) probeSidecar(config, true)
-  return { config, session, sessionStore, readCache, brCache, server: _createServer(config, session, sessionStore, readCache, brCache) }
+  return { config, session, sessionStore, readCache, brCache, replayMemo, server: _createServer(config, session, sessionStore, readCache, brCache, replayMemo) }
 }
 
 // Stream-decompress a zstd body, aborting as soon as the running output size
@@ -134,9 +137,11 @@ export function sendUpstreamError(res) {
   return true
 }
 
-function _createServer(config, session, sessionStore, readCache, brCache) {
+function _createServer(config, session, sessionStore, readCache, brCache, replayMemo) {
 const log = createRequestLogger(config)
 const disclosureTotals = { rehydrated: 0, missed: 0, disclosed: 0 }
+const replayTotals = { hits: 0, misses: 0, tokensHeld: 0 }
+const usageTotals = createUsageTotals()
 
 function openUpstream(method, upstreamUrl, headers, res) {
   const mod = upstreamUrl.protocol === 'https:' ? https : http
@@ -149,6 +154,26 @@ function openUpstream(method, upstreamUrl, headers, res) {
   }, (upstreamRes) => {
     res.writeHead(upstreamRes.statusCode, upstreamRes.headers)
     upstreamRes.pipe(res)
+    // Passive read of provider usage (incl. prompt-cache counters) off the
+    // response as it streams past; never alters what the client receives.
+    const tap = createUsageTap({
+      contentType: upstreamRes.headers['content-type'],
+      contentEncoding: upstreamRes.headers['content-encoding'],
+      onUsage: (u) => {
+        usageTotals.record(u)
+        log(`[tamp]   usage: in=${u.inputTokens} cache_read=${u.cacheReadTokens} cache_write=${u.cacheCreationTokens} out=${u.outputTokens}`)
+      },
+    })
+    const onData = (chunk) => tap.write(chunk)
+    upstreamRes.on('data', onData)
+    // 'close' also fires on an aborted upstream, so the tap always gets ended.
+    upstreamRes.on('close', () => tap.end())
+    // A 'data' listener keeps the source flowing after pipe() unpipes a dead
+    // client; detach and pause so an abandoned stream is not drained.
+    res.on('close', () => {
+      upstreamRes.off('data', onData)
+      if (!upstreamRes.readableEnded) upstreamRes.pause()
+    })
     upstreamRes.on('error', (err) => {
       log(`[tamp] response stream error: ${err.code || ''} ${err.message}`)
       res.destroy()
@@ -236,6 +261,8 @@ return http.createServer(async (req, res) => {
         blocksCompressed: totals.compressionCount,
       },
       disclosure: disclosureTotals,
+      replay: replayMemo ? { ...replayTotals, ...replayMemo.stats() } : null,
+      usage: usageTotals.snapshot(),
     })
     res.writeHead(200, { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body) })
     return res.end(req.method === 'HEAD' ? undefined : body)
@@ -363,7 +390,7 @@ return http.createServer(async (req, res) => {
     const sessionBucket = config.stages?.includes('graph') && sessionKey
       ? sessionStore.getBucket(sessionKey)
       : null
-    const { body, stats, disclosure } = await compressRequest(parsed, { ...config, sessionBucket, sessionKey, readCache, brCache }, provider)
+    const { body, stats, disclosure, replay } = await compressRequest(parsed, { ...config, sessionBucket, sessionKey, readCache, brCache, replayMemo }, provider)
     finalBody = Buffer.from(JSON.stringify(body), 'utf-8')
     // Send uncompressed — simpler and content-length is accurate
     if (decompressed) delete headers['content-encoding']
@@ -375,6 +402,12 @@ return http.createServer(async (req, res) => {
       disclosureTotals.disclosed += disclosure.disclosed || 0
     }
     log(formatRequestLog(stats, session, provider.name, req.url, textBody.length, config.tokenCost, sessionBucket))
+    if (replay) {
+      replayTotals.hits += replay.hits
+      replayTotals.misses += replay.misses
+      replayTotals.tokensHeld += replay.tokensHeld
+      if (replay.hits > 0) log(`[tamp]   replay: ${replay.hits} block${replay.hits !== 1 ? 's' : ''} re-sent as before, ${replay.tokensHeld} tok held`)
+    }
     config.onCompress?.(stats, session.getTotals(), { provider: provider.name, url: req.url, bodySize: textBody.length })
   } catch (err) {
     log(`[tamp] passthrough (parse error): ${err.message}`)
