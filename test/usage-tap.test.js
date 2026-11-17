@@ -68,6 +68,10 @@ function runSync(chunks, opts) {
   return calls
 }
 
+// A result is expected: runAsync returns as soon as it arrives, so this is only
+// a ceiling for a loaded machine (zlib decodes off-thread; 300 ms was too tight).
+const DECODE_WAIT_MS = 10_000
+
 // Encoded runs decode on a zlib side path, so onUsage arrives asynchronously.
 function runAsync(chunks, opts, waitMs = 300) {
   return new Promise((resolve) => {
@@ -189,11 +193,11 @@ describe('usage-tap — content encoding', () => {
     const contentEncoding = name.split(' ')[0]
     it(`decodes ${name} SSE fed in small chunks`, async () => {
       const buf = encode(Buffer.from(ANTHROPIC_SSE))
-      assert.deepEqual(await runAsync(chunked(buf, 7), { contentType: SSE, contentEncoding }), [ANTHROPIC_EXPECTED])
+      assert.deepEqual(await runAsync(chunked(buf, 7), { contentType: SSE, contentEncoding }, DECODE_WAIT_MS), [ANTHROPIC_EXPECTED])
     })
     it(`decodes ${name} JSON fed in small chunks`, async () => {
       const buf = encode(Buffer.from(JSON.stringify({ object: 'chat.completion', usage: { prompt_tokens: 1000, completion_tokens: 20, prompt_tokens_details: { cached_tokens: 768 } } })))
-      assert.deepEqual(await runAsync(chunked(buf, 5), { contentType: JSON_CT, contentEncoding }), [CHAT_EXPECTED])
+      assert.deepEqual(await runAsync(chunked(buf, 5), { contentType: JSON_CT, contentEncoding }, DECODE_WAIT_MS), [CHAT_EXPECTED])
     })
   }
 
