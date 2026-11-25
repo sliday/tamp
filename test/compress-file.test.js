@@ -3,9 +3,10 @@
  * File compression utilities
  */
 
-import { describe, it, mock } from 'node:test'
+import { describe, it } from 'node:test'
 import assert from 'node:assert'
-import { readFile, writeFile, copyFile } from 'node:fs/promises'
+import http from 'node:http'
+import { readFile, writeFile } from 'node:fs/promises'
 import { existsSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -16,6 +17,7 @@ import {
   compressFiles,
   formatResult,
 } from '../lib/compress-file.js'
+import { clearCache } from '../compress.js'
 
 describe('detectFileStrategy', () => {
   it('detects claude-rules strategy for CLAUDE.md files', () => {
@@ -46,14 +48,14 @@ describe('detectFileStrategy', () => {
 
 describe('compressContent', () => {
   it('returns success result for compressible content', async () => {
-    const content = '# Test File\n\nThis is a long piece of text that should be compressible. '.repeat(10)
+    const content = '# Test File\n\n\n\n' + 'This is a long piece of text with trailing spaces.          \n\n\n'.repeat(15)
     const result = await compressContent(content, 'text', { log: false })
 
     assert(result.success)
     assert(result.compressed)
     assert.strictEqual(result.originalLen, content.length)
     assert(result.compressedLen < content.length)
-    assert(result.method)
+    assert.strictEqual(result.method, 'normalize')
     assert(result.savings)
   })
 
@@ -65,6 +67,51 @@ describe('compressContent', () => {
     assert(result.skipped)
     assert.strictEqual(result.originalLen, content.length)
     assert(!result.compressed)
+  })
+
+  it('returns skipped (not method: unknown) when async textpress cannot reach a backend', async () => {
+    clearCache()
+    const savedKey = process.env.OPENROUTER_API_KEY
+    delete process.env.OPENROUTER_API_KEY
+    try {
+      const content = 'This is already tight prose with no excess whitespace at all. '.repeat(10).trim()
+      const result = await compressContent(content, 'text', {
+        log: false,
+        compressionConfig: { textpressOllamaUrl: 'http://127.0.0.1:1' },
+      })
+      assert.strictEqual(result.success, false)
+      assert.strictEqual(result.skipped, 'not-compressible')
+      assert.strictEqual(result.originalLen, content.length)
+      assert.strictEqual(result.compressed, undefined)
+    } finally {
+      if (savedKey !== undefined) process.env.OPENROUTER_API_KEY = savedKey
+    }
+  })
+
+  it('awaits async textpress stage via compressBlock when Ollama backend is available', async () => {
+    clearCache()
+    const server = http.createServer((req, res) => {
+      let body = ''
+      req.on('data', c => body += c)
+      req.on('end', () => {
+        res.writeHead(200, { 'Content-Type': 'application/json' })
+        res.end(JSON.stringify({ message: { content: 'Concise compressed summary.' } }))
+      })
+    })
+    await new Promise(r => server.listen(0, '127.0.0.1', r))
+    const { port } = server.address()
+    try {
+      const content = 'The quick brown fox jumps over the lazy dog repeatedly in plain prose. '.repeat(8).trim()
+      const result = await compressContent(content, 'text', {
+        log: false,
+        compressionConfig: { textpressOllamaUrl: `http://127.0.0.1:${port}` },
+      })
+      assert.strictEqual(result.success, true)
+      assert.strictEqual(result.method, 'textpress')
+      assert.strictEqual(result.compressed, 'Concise compressed summary.')
+    } finally {
+      server.close()
+    }
   })
 
   it('uses strategy-specific stages', async () => {
@@ -106,7 +153,7 @@ describe('compressFile', () => {
     // Create test file
     const testDir = tmpdir()
     testFile = join(testDir, 'test-compress.md')
-    const content = '# Test\n\n' + 'This is test content. '.repeat(50)
+    const content = '# Test\n\n\n\n' + 'This is test content.          \n\n\n'.repeat(30)
     await writeFile(testFile, content, 'utf8')
 
     // Compress file
@@ -159,7 +206,7 @@ describe('compressFile', () => {
   it('returns dry run result without writing file', async () => {
     const testDir = tmpdir()
     testFile = join(testDir, 'test-dryrun.md')
-    const content = '# Test\n\n' + 'This is test content. '.repeat(50)
+    const content = '# Test\n\n\n\n' + 'This is test content.          \n\n\n'.repeat(30)
     await writeFile(testFile, content, 'utf8')
 
     const result = await compressFile(testFile, { dryRun: true })
@@ -188,7 +235,7 @@ describe('compressFile', () => {
   it('respects noBackup option', async () => {
     const testDir = tmpdir()
     testFile = join(testDir, 'test-nobackup.md')
-    const content = '# Test\n\n' + 'This is test content. '.repeat(50)
+    const content = '# Test\n\n\n\n' + 'This is test content.          \n\n\n'.repeat(30)
     await writeFile(testFile, content, 'utf8')
 
     const result = await compressFile(testFile, { dryRun: false, noBackup: true })

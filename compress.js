@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto'
 import { spawn } from 'node:child_process'
 import { encode } from '@toon-format/toon'
-import { countTokens } from '@anthropic-ai/tokenizer'
+import { safeCountTokens as countTokens } from './lib/tokens.js'
 import { createPatch } from 'diff'
 import { tryParseJSON, classifyContent, stripLineNumbers, jsonHasUnsafeInteger } from './detect.js'
 import { rewriteCommandOutput } from './lib/rewriters/index.js'
@@ -66,10 +66,16 @@ function diffTargets(targets) {
   const seen = []
   for (const target of targets) {
     if (target.skip || target.dedup || target.compressed) continue
-    if (target.text.length < 200) { seen.push(target); continue }
+    if (target.text.length < 200) { seen.push({ target, lineSet: null }); continue }
 
-    for (const prev of seen) {
-      const sim = quickSimilarity(prev.text, target.text)
+    const targetLen = target.text.length
+    const targetSet = new Set(target.text.split('\n'))
+
+    for (const prevEntry of seen) {
+      const prev = prevEntry.target
+      if (Math.abs(prev.text.length - targetLen) > Math.max(prev.text.length, targetLen) * 0.5) continue
+      if (!prevEntry.lineSet) prevEntry.lineSet = new Set(prev.text.split('\n'))
+      const sim = quickSimilarity(prevEntry.lineSet, targetSet)
       if (sim > 0.5 && sim < 1.0) {
         const patch = createPatch('file', prev.text, target.text, '', '', { context: 1 })
         // Strip the patch header (first 4 lines: ---, +++, index, etc.)
@@ -77,7 +83,7 @@ function diffTargets(targets) {
         const bodyStart = lines.findIndex(l => l.startsWith('@@'))
         if (bodyStart === -1) continue
         const diffBody = lines.slice(bodyStart).join('\n')
-        if (diffBody.length < target.text.length * 0.5) {
+        if (diffBody.length < targetLen * 0.5) {
           target.compressed = `[diff from tool_result in message ${prev.path[1]}, block ${prev.index}]:\n${diffBody}`
           target.diffed = true
           target.refTarget = prev
@@ -85,16 +91,17 @@ function diffTargets(targets) {
         }
       }
     }
-    seen.push(target)
+    seen.push({ target, lineSet: targetSet })
   }
 }
 
-function quickSimilarity(a, b) {
-  if (Math.abs(a.length - b.length) > Math.max(a.length, b.length) * 0.5) return 0
-  const setA = new Set(a.split('\n'))
-  const setB = new Set(b.split('\n'))
-  const intersection = [...setA].filter(x => setB.has(x)).length
-  const union = new Set([...setA, ...setB]).size
+function quickSimilarity(setA, setB) {
+  const [small, large] = setA.size <= setB.size ? [setA, setB] : [setB, setA]
+  let intersection = 0
+  for (const x of small) {
+    if (large.has(x)) intersection += 1
+  }
+  const union = setA.size + setB.size - intersection
   return union > 0 ? intersection / union : 0
 }
 
@@ -105,11 +112,11 @@ function quickSimilarity(a, b) {
 // enough, substitute it for the body. Always cache the fresh text afterwards.
 // Tool results that must reach the model verbatim. Unlike a Read or a Bash
 // run, re-invoking these cannot reproduce the content — it would re-prompt the
-// human. Tool attribution is Anthropic-only (see lib/path-extract.js).
+// human. Tool attribution is provider-aware (see lib/path-extract.js).
 const PROTECTED_TOOLS = new Set(['AskUserQuestion'])
 
 function exemptProtectedTools(targets, body, provider) {
-  if (provider?.name !== 'anthropic' || !targets.length) return 0
+  if (!provider || !targets.length) return 0
   const names = extractTargetToolNames(body, targets)
   let exempted = 0
   for (let i = 0; i < targets.length; i++) {
@@ -135,8 +142,8 @@ function conversationScope(body) {
   const turns = body?.messages || body?.input || body?.contents
   if (!Array.isArray(turns) || !turns.length) return ''
   // The first turn can be a system prompt every conversation shares (OpenAI
-  // chat, Kimi), so the first user turn is part of the identity too.
-  const seed = [turns[0], turns.find(t => t?.role === 'user') ?? null]
+  // chat, Kimi), so the first user turn and top-level system are part of the identity too.
+  const seed = [body?.system ?? null, turns[0], turns.find(t => t?.role === 'user') ?? null]
   // cache_control markers move between requests; they are not identity.
   try { return sha(JSON.stringify(seed, (k, v) => (k === 'cache_control' ? undefined : v))) } catch { return '' }
 }
@@ -376,18 +383,35 @@ function pruneJSON(text) {
 }
 
 // --- Stage: strip-comments (opt-in, not in defaults) ---
+const HASH_DIRECTIVE_RE = /^#(?:!|include\b|define\b|pragma\b|if(?:n?def)?\b|elif\b|else\b|endif\b|region\b|endregion\b|\[)/
+const HEX_COLOR_RE = /^#[0-9a-fA-F]{3,8}(?![0-9a-fA-F_])/
+
 function stripLineComments(line) {
-  let inSingle = false, inDouble = false, inTemplate = false
+  let inSingle = false, inDouble = false, inTemplate = false, escaped = false
   for (let i = 0; i < line.length; i++) {
     const ch = line[i]
-    const prev = i > 0 ? line[i - 1] : ''
-    if (prev === '\\') continue
-    if (ch === "'" && !inDouble && !inTemplate) { inSingle = !inSingle; continue }
-    if (ch === '"' && !inSingle && !inTemplate) { inDouble = !inDouble; continue }
-    if (ch === '`' && !inSingle && !inDouble) { inTemplate = !inTemplate; continue }
-    if (inSingle || inDouble || inTemplate) continue
+    if (inSingle || inDouble || inTemplate) {
+      if (escaped) { escaped = false; continue }
+      if (ch === '\\') { escaped = true; continue }
+      if (ch === "'" && inSingle) { inSingle = false; continue }
+      if (ch === '"' && inDouble) { inDouble = false; continue }
+      if (ch === '`' && inTemplate) { inTemplate = false; continue }
+      continue
+    }
+    if (ch === "'") { inSingle = true; continue }
+    if (ch === '"') { inDouble = true; continue }
+    if (ch === '`') { inTemplate = true; continue }
     if (ch === '/' && line[i + 1] === '/') return line.slice(0, i).trimEnd()
-    if (ch === '#' && !line.startsWith('#!')) return line.slice(0, i).trimEnd()
+    if (ch === '#') {
+      const before = line.slice(0, i)
+      const atLineStart = before.trim().length === 0
+      const afterWs = i > 0 && (line[i - 1] === ' ' || line[i - 1] === '\t')
+      if (!atLineStart && !afterWs) continue
+      const rest = line.slice(i)
+      if (atLineStart && HASH_DIRECTIVE_RE.test(rest)) continue
+      if (HEX_COLOR_RE.test(rest)) continue
+      return before.trimEnd()
+    }
   }
   return line
 }
@@ -436,6 +460,22 @@ function stripComments(text) {
   return result.replace(/\n\s*\n\s*\n/g, '\n\n')
 }
 
+// SSRF guard: only allow http/https loopback URLs (handles IPv6 [::1] and rejects 127.evil.com).
+export function isLoopbackUrl(rawUrl) {
+  try {
+    const parsed = new URL(rawUrl)
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return false
+    const hostname = parsed.hostname.toLowerCase()
+    if (hostname === 'localhost' || hostname === '[::1]' || hostname === '::1') return true
+    if (/^127(?:\.\d{1,3}){3}$/.test(hostname)) {
+      return hostname.split('.').every(octet => Number(octet) <= 255)
+    }
+    return false
+  } catch {
+    return false
+  }
+}
+
 // --- Stage: textpress (opt-in, uses Ollama or OpenRouter free model) ---
 const TEXTPRESS_PROMPT = 'You are an expert at making text more concise without changing its meaning. Don\'t reword, don\'t improve. Find ways to combine and shorten. Keep ALL names, versions, paths, function signatures, numbers. Return ONLY the shortened text. No explanations.'
 
@@ -446,15 +486,12 @@ async function textpressCompress(text, config) {
   const ollamaUrl = config.textpressOllamaUrl || 'http://localhost:11434'
   const ollamaModel = config.textpressOllamaModel || 'qwen3.5:0.8b'
 
-  // SSRF protection: only allow localhost URLs
+  // SSRF protection: only allow loopback URLs
   let validatedUrl
   try {
-    const parsed = new URL(ollamaUrl)
-    const hostname = parsed.hostname.toLowerCase()
-    if (hostname !== 'localhost' && hostname !== '127.0.0.1' && hostname !== '::1' && !hostname.startsWith('127.')) {
-      return null
-    }
-    validatedUrl = parsed
+    if (!isLoopbackUrl(ollamaUrl)) return null
+    validatedUrl = new URL(ollamaUrl.replace(/\/+$/, '') + '/api/chat')
+    if (!isLoopbackUrl(validatedUrl.href)) return null
   } catch {
     return null
   }
@@ -463,7 +500,7 @@ async function textpressCompress(text, config) {
     const controller = new AbortController()
     const timeout = setTimeout(() => controller.abort(), 15000)
     try {
-      const res = await fetch(`${validatedUrl}/api/chat`, {
+      const res = await fetch(validatedUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -565,24 +602,31 @@ export function compressText(text, config) {
         : 'normalize'
       return { text: processed, method, originalLen: text.length, compressedLen: processed.length, originalTokens: countTokens(text), compressedTokens: countTokens(processed) }
     }
-    if (config.stages.includes('llmlingua') && config.llmLinguaUrl) {
-      // LLMLingua-2 is a prose compressor. On tool output it drops characters
-      // from the middle of tokens the agent has to reuse verbatim:
+    const hasNeuralStage = (config.stages.includes('llmlingua') && config.llmLinguaUrl)
+      || (config.stages.includes('foundation-models') && config.foundationModelsPath)
+      || config.stages.includes('textpress')
+
+    if (hasNeuralStage) {
+      // Neural/LLM compressors paraphrase. On tool output they drop or alter
+      // characters inside tokens the agent has to reuse verbatim:
       //   /Users/x/.config/tamp/tamp.err.log -> /Users/x./tamp..
       //   "version":"0.8.17"                 -> "version""0.. 17"
       // A path the agent cannot cat is worse than a payload it cannot shrink,
-      // so anything carrying paths, URLs, JSON or hashes skips the sidecar.
+      // so anything carrying paths, URLs, JSON or hashes skips ALL neural stages
+      // (llmlingua, foundation-models, and textpress).
       if (hasVerbatimCriticalContent(processed)) {
-        if (config.log !== false) process.stderr.write('[tamp]   skip: llmlingua (verbatim-critical content: paths/JSON/urls/hashes)\n')
+        if (config.log !== false) process.stderr.write('[tamp]   skip: neural stages (verbatim-critical content: paths/JSON/urls/hashes)\n')
       } else {
-        return { async: true, asyncMethod: 'llmlingua', text: processed, cls }
+        if (config.stages.includes('llmlingua') && config.llmLinguaUrl) {
+          return { async: true, asyncMethod: 'llmlingua', text: processed, cls }
+        }
+        if (config.stages.includes('foundation-models') && config.foundationModelsPath) {
+          return { async: true, asyncMethod: 'foundation-models', text: processed, cls }
+        }
+        if (config.stages.includes('textpress')) {
+          return { async: true, asyncMethod: 'textpress', text: processed, cls }
+        }
       }
-    }
-    if (config.stages.includes('foundation-models') && config.foundationModelsPath) {
-      return { async: true, asyncMethod: 'foundation-models', text: processed, cls }
-    }
-    if (config.stages.includes('textpress')) {
-      return { async: true, asyncMethod: 'textpress', text: processed, cls }
     }
     if (config.log !== false) process.stderr.write(`[tamp]   skip: text not compressible (${config.stages.includes('llmlingua') && !config.llmLinguaUrl ? 'no llmlingua sidecar' : 'whitespace savings < 10%'})\n`)
     return null
@@ -632,14 +676,12 @@ export function compressText(text, config) {
 
 async function compressWithLLMLingua(text, config) {
   try {
-    // SSRF protection: only allow localhost URLs
+    // SSRF protection: only allow loopback URLs
     let url
     try {
-      url = new URL(config.llmLinguaUrl + '/compress')
-      const hostname = url.hostname.toLowerCase()
-      if (hostname !== 'localhost' && hostname !== '127.0.0.1' && hostname !== '::1' && !hostname.startsWith('127.')) {
-        return null
-      }
+      if (!isLoopbackUrl(config.llmLinguaUrl)) return null
+      url = new URL(config.llmLinguaUrl.replace(/\/+$/, '') + '/compress')
+      if (!isLoopbackUrl(url.href)) return null
     } catch {
       return null
     }
@@ -664,6 +706,7 @@ async function compressWithLLMLingua(text, config) {
 
 async function compressWithFoundationModels(text, config) {
   if (!config.foundationModelsPath) return null
+  if (Buffer.byteLength(text, 'utf8') > 65536) return null
 
   // Validate foundationModelsPath to prevent command injection
   const cmdPath = config.foundationModelsPath
@@ -755,8 +798,19 @@ async function compressWithFoundationModels(text, config) {
   }
 }
 
-async function compressBlock(text, config) {
-  const key = cacheKey(text)
+function configFingerprint(config) {
+  const stages = Array.isArray(config?.stages) ? config.stages.join(',') : ''
+  const minSize = config?.minSize ?? ''
+  const ll = config?.llmLinguaUrl ? `${config.llmLinguaUrl}@${config.llmLinguaRate || 0.7}` : ''
+  const tp = config?.stages?.includes('textpress')
+    ? `${config.textpressOllamaUrl || ''}|${config.textpressOllamaModel || ''}|${config.textpressModel || ''}`
+    : ''
+  const fm = config?.foundationModelsPath || ''
+  return `${stages}\0${minSize}\0${ll}\0${tp}\0${fm}`
+}
+
+export async function compressBlock(text, config) {
+  const key = `${configFingerprint(config)}\0${cacheKey(text)}`
   if (cache.has(key)) return cache.get(key)
 
   const sync = compressText(text, config)
@@ -850,7 +904,7 @@ export async function compressRequest(body, config, provider) {
   }
 
   // Read-diff: session-scoped unified diff for re-reads (lossless, opt-in)
-  if (config.stages.includes('read-diff') && config.readCache && config.sessionKey && provider.name === 'anthropic') {
+  if (config.stages.includes('read-diff') && config.readCache && config.sessionKey) {
     readDiffTargets(targets, body, config.sessionKey, config.readCache, config.replayMemo)
   }
 
@@ -917,7 +971,7 @@ export async function compressRequest(body, config, provider) {
       continue
     }
     if (target.bm25Trimmed) {
-      stats.push({ index: target.index, method: 'bm25-trim', originalLen: target.text.length, compressedLen: target.compressed.length, originalTokens: countTokens(target.text), compressedTokens: countTokens(target.compressed) })
+      stats.push({ index: target.index, method: 'bm25-trim', originalLen: target.text.length, compressedLen: target.compressed.length, originalTokens: target.bm25OriginalTokens ?? countTokens(target.text), compressedTokens: target.bm25TrimmedTokens ?? countTokens(target.compressed) })
       continue
     }
     if (target.pxRendered) {
@@ -963,14 +1017,14 @@ export async function compressRequest(body, config, provider) {
   // after apply so the extractor never sees the notices it leaves behind.
   let staleImages = null
   if (config.stages.includes('stale-images') && provider.name === 'anthropic') {
-    const r = evictStaleImages(body, { keepRecent: config.staleImageKeepRecent })
+    const r = evictStaleImages(body, { keepRecent: config.staleImageKeepRecent, batchSize: config.staleBatchSize })
     if (r.evicted > 0) staleImages = r
   }
 
   // stale-inputs: drop payloads from older tool_use blocks (opt-in, lossy).
   let staleInputs = null
   if (config.stages.includes('stale-inputs') && provider.name === 'anthropic') {
-    const r = pruneStaleInputs(body, { keepRecent: config.staleInputKeepRecent })
+    const r = pruneStaleInputs(body, { keepRecent: config.staleInputKeepRecent, batchSize: config.staleBatchSize })
     if (r.pruned > 0) staleInputs = r
   }
 

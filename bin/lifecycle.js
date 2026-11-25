@@ -1,4 +1,5 @@
 import { readFileSync, writeFileSync, unlinkSync, mkdirSync, realpathSync, existsSync } from 'node:fs'
+import { execFileSync } from 'node:child_process'
 import { join, dirname } from 'node:path'
 import http from 'node:http'
 import { CONFIG_PATH } from '../config.js'
@@ -44,6 +45,31 @@ export function clearPidFile(port) {
 export function isProcessAlive(pid) {
   if (!pid) return false
   try { process.kill(pid, 0); return true } catch { return false }
+}
+
+function isTampCommand(cmd) {
+  if (!cmd) return false
+  const lower = cmd.toLowerCase()
+  return /\btamp\b/.test(lower) || lower.includes('tamp.js') || /(?:^|[/\\])tamp(?:[/\\]|$)/.test(lower)
+}
+
+export function isTampProcess(pid, { readCmd } = {}) {
+  if (!pid) return false
+  if (!readCmd && process.platform === 'win32') return null
+  try {
+    const raw = readCmd
+      ? readCmd(pid)
+      : execFileSync('ps', ['-p', String(pid), '-o', 'command='], {
+          encoding: 'utf8',
+          stdio: ['ignore', 'pipe', 'ignore'],
+        })
+    if (raw == null) return null
+    const cmd = String(raw).trim()
+    if (!cmd) return false
+    return isTampCommand(cmd)
+  } catch {
+    return null
+  }
 }
 
 export function checkPort(port, timeoutMs = 1000) {
@@ -104,11 +130,16 @@ export async function diagnoseBindConflict(port) {
   }
 }
 
-export async function reconcileStalePidFile(port) {
+export async function reconcileStalePidFile(port, { checkIsTamp = isTampProcess } = {}) {
   const rec = readPidFile(port)
-  if (rec && !isProcessAlive(rec.pid)) {
+  if (!rec) return { wasStale: false }
+  if (!isProcessAlive(rec.pid)) {
     clearPidFile(port)
     return { wasStale: true, pid: rec.pid }
+  }
+  if (checkIsTamp(rec.pid) === false) {
+    clearPidFile(port)
+    return { wasStale: true, pid: rec.pid, reason: 'pid-reused' }
   }
   return { wasStale: false }
 }

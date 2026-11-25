@@ -26,6 +26,21 @@ function findLatestEligibleGroup(items, extractTargets) {
   return fallback || []
 }
 
+function findLatestContiguousGroup(items, isToolItem, extractTargets) {
+  const targets = []
+  let found = false
+  for (let i = items.length - 1; i >= 0; i--) {
+    const item = items[i]
+    if (!isToolItem(item)) {
+      if (found) break
+      continue
+    }
+    found = true
+    targets.unshift(...extractTargets(item, i))
+  }
+  return targets
+}
+
 function extractAnthropicMessageTargets(msg, mi) {
   const targets = []
   if (!msg || msg.role !== 'user') return targets
@@ -293,13 +308,11 @@ const openai = {
     if (!Array.isArray(body?.messages) || !body.messages.length) return []
 
     if (config.cacheSafe) {
-      const targets = []
-      for (let i = body.messages.length - 1; i >= 0; i--) {
-        const msg = body.messages[i]
-        if (!msg || msg.role !== 'tool') break
-        targets.unshift(...extractOpenAIChatTargets(msg, i))
-      }
-      return targets
+      return findLatestContiguousGroup(
+        body.messages,
+        msg => msg?.role === 'tool',
+        extractOpenAIChatTargets,
+      )
     }
 
     return body.messages.flatMap(extractOpenAIChatTargets)
@@ -522,13 +535,11 @@ const openaiResponses = {
     if (!Array.isArray(body?.input) || !body.input.length) return []
 
     if (config.cacheSafe) {
-      const targets = []
-      for (let i = body.input.length - 1; i >= 0; i--) {
-        const item = body.input[i]
-        if (!isResponsesToolOutput(item?.type)) break
-        targets.unshift(...extractOpenAIResponsesTargets(item, i))
-      }
-      return targets
+      return findLatestContiguousGroup(
+        body.input,
+        item => isResponsesToolOutput(item?.type),
+        extractOpenAIResponsesTargets,
+      )
     }
 
     return body.input.flatMap(extractOpenAIResponsesTargets)
@@ -627,7 +638,7 @@ export function detectOpenAIAuthMode(headersOrRequest) {
 export function resolveOpenAIUpstream({ mode, base, providerName }) {
   if (mode === 'chatgpt-oauth') {
     return {
-      base: 'https://chatgpt.com',
+      base: base || 'https://chatgpt.com',
       transformPath(path) {
         // Codex calls land on /v1/responses or /v1/chat/completions. The
         // ChatGPT backend is unversioned and expects

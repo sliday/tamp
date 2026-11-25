@@ -3,7 +3,7 @@
   "serverInfo": {
     "name": "tamp",
     "title": "Tamp — token compression proxy",
-    "version": "0.9.0",
+    "version": "0.9.1",
     "description": "Tamp is distributed as a local CLI proxy (npm: @sliday/tamp) and a Claude Code plugin, not as a hosted MCP server. This card exists for agent discovery; install the CLI or plugin to use tamp with your agent.",
     "homepage": "https://tamp.dev/",
     "repository": "https://github.com/sliday/tamp",

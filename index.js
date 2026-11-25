@@ -12,31 +12,7 @@ import { createReadCache } from './lib/read-cache.js'
 import { createBrCache } from './lib/br-cache.js'
 import { createReplayMemo } from './lib/replay-memo.js'
 import { createUsageTap, createUsageTotals } from './lib/usage-tap.js'
-import { generateOutputRules, PER_AGENT_OVERRIDES } from './lib/rules-generator.js'
-
-// Regex source strings used by the task classifier — surfaced via
-// /caveman-help so operators can see exactly how their inputs are scored.
-const CLASSIFIER_PATTERNS = Object.freeze({
-  safe: [
-    '^(add|remove|update|set|unset)\\s+(env\\s+var|environment variable|config|configuration|\\w+=)',
-    '^fix\\s+typo',
-    '^update\\s+(README|readme|documentation|docs)',
-    '^(install|uninstall).*package',
-    '^add\\s+\\w+\\s+(as\\s+)?dependency',
-    '^update\\s+version',
-    '^(format|lint|fmt)|run linter',
-  ],
-  dangerous: [
-    'security|vulnerability|exploit|attack',
-    'debug|investigate|diagnose|troubleshoot',
-    'memory leak|performance|optimization|optimize',
-    '^refactor|^architecture|^design',
-    '^fix\\s+bug',
-    '^explain|^why|^how\\s+(does|work)',
-    'test|spec|coverage',
-  ],
-  complex: 'default when neither safe nor dangerous patterns match',
-})
+import { generateOutputRules, PER_AGENT_OVERRIDES, CLASSIFIER_PATTERNS } from './lib/rules-generator.js'
 
 function buildUpstreamUrl(reqPath, base) {
   const parsed = new URL(base)
@@ -95,11 +71,12 @@ export function createProxy(overrides = {}, loadOpts = {}) {
   const sessionStore = createSessionStore({ brCache })
   const readCache = createReadCache()
   const replayMemo = config.replay ? createReplayMemo({ maxBytes: config.replayMaxBytes }) : null
+  const sidecarState = { available: false }
   // `tamp -y` starts the sidecar itself and hands the URL down via env, so the
   // isMain probe below never runs and /health kept reporting sidecar:false
   // while llmlingua was in fact wired up. Probe here too, quietly.
-  if (config.stages?.includes('llmlingua') && config.llmLinguaUrl) probeSidecar(config, true)
-  return { config, session, sessionStore, readCache, brCache, replayMemo, server: _createServer(config, session, sessionStore, readCache, brCache, replayMemo) }
+  if (config.stages?.includes('llmlingua') && config.llmLinguaUrl) probeSidecar(config, sidecarState, true)
+  return { config, session, sessionStore, readCache, brCache, replayMemo, sidecarState, server: _createServer(config, session, sessionStore, readCache, brCache, replayMemo, sidecarState) }
 }
 
 // Stream-decompress a zstd body, aborting as soon as the running output size
@@ -137,21 +114,36 @@ export function sendUpstreamError(res) {
   return true
 }
 
-function _createServer(config, session, sessionStore, readCache, brCache, replayMemo) {
+function _createServer(config, session, sessionStore, readCache, brCache, replayMemo, sidecarState = { available: false }) {
 const log = createRequestLogger(config)
 const disclosureTotals = { rehydrated: 0, missed: 0, disclosed: 0 }
 const replayTotals = { hits: 0, misses: 0, tokensHeld: 0 }
+let redactedTotal = 0
+const staleImagesTotals = { evicted: 0, chars: 0 }
+const staleInputsTotals = { pruned: 0 }
 const usageTotals = createUsageTotals()
+const httpAgent = new http.Agent({ keepAlive: true })
+const httpsAgent = new https.Agent({ keepAlive: true })
 
 function openUpstream(method, upstreamUrl, headers, res) {
-  const mod = upstreamUrl.protocol === 'https:' ? https : http
-  const upstream = mod.request({
+  const isHttps = upstreamUrl.protocol === 'https:'
+  const mod = isHttps ? https : http
+  const reqOpts = {
     hostname: upstreamUrl.hostname,
     port: upstreamUrl.port,
     path: upstreamUrl.pathname + upstreamUrl.search,
     method,
     headers,
-  }, (upstreamRes) => {
+    agent: isHttps ? httpsAgent : httpAgent,
+  }
+  if (config.upstreamTimeout > 0) reqOpts.timeout = config.upstreamTimeout
+
+  let clientAborted = false
+  let activeUpstreamRes = null
+  let onUpstreamData = null
+
+  const upstream = mod.request(reqOpts, (upstreamRes) => {
+    activeUpstreamRes = upstreamRes
     res.writeHead(upstreamRes.statusCode, upstreamRes.headers)
     upstreamRes.pipe(res)
     // Passive read of provider usage (incl. prompt-cache counters) off the
@@ -164,28 +156,46 @@ function openUpstream(method, upstreamUrl, headers, res) {
         log(`[tamp]   usage: in=${u.inputTokens} cache_read=${u.cacheReadTokens} cache_write=${u.cacheCreationTokens} out=${u.outputTokens}`)
       },
     })
-    const onData = (chunk) => tap.write(chunk)
-    upstreamRes.on('data', onData)
+    onUpstreamData = (chunk) => tap.write(chunk)
+    upstreamRes.on('data', onUpstreamData)
     // 'close' also fires on an aborted upstream, so the tap always gets ended.
     upstreamRes.on('close', () => tap.end())
-    // A 'data' listener keeps the source flowing after pipe() unpipes a dead
-    // client; detach and pause so an abandoned stream is not drained.
-    res.on('close', () => {
-      upstreamRes.off('data', onData)
-      if (!upstreamRes.readableEnded) upstreamRes.pause()
-    })
     upstreamRes.on('error', (err) => {
+      if (clientAborted) return
       log(`[tamp] response stream error: ${err.code || ''} ${err.message}`)
       res.destroy()
     })
   })
 
+  if (config.upstreamTimeout > 0) {
+    upstream.on('timeout', () => {
+      log(`[tamp] upstream timeout after ${config.upstreamTimeout}ms`)
+      upstream.destroy(new Error('upstream timeout'))
+    })
+  }
+
+  // A 'data' listener keeps the source flowing after pipe() unpipes a dead
+  // client; detach, pause, and abort the upstream request if the client left
+  // before the response finished so generation stops and sockets don't leak.
+  res.on('close', () => {
+    if (activeUpstreamRes && onUpstreamData) {
+      activeUpstreamRes.off('data', onUpstreamData)
+      if (!activeUpstreamRes.readableEnded) activeUpstreamRes.pause()
+    }
+    if (!res.writableEnded) {
+      clientAborted = true
+      upstream.destroy()
+    }
+  })
+
   upstream.on('error', (err) => {
+    if (clientAborted) return
     log(`[tamp] upstream error: ${err.code || ''} ${err.message}`)
     sendUpstreamError(res)
   })
 
   res.on('error', (err) => {
+    clientAborted = true
     log(`[tamp] client disconnect: ${err.code || ''} ${err.message}`)
     upstream.destroy()
   })
@@ -217,7 +227,7 @@ function pipeRequest(req, res, upstreamUrl, prefixChunks) {
   req.pipe(upstream)
 }
 
-return http.createServer(async (req, res) => {
+const server = http.createServer(async (req, res) => {
   // Codex CLI 0.146+ opens a WebSocket to <base>/responses before falling
   // back to HTTPS. Tamp only proxies HTTP, and forwarding the upgrade
   // upstream earns a Cloudflare 503 that Codex retries five times (~17s of
@@ -232,9 +242,10 @@ return http.createServer(async (req, res) => {
   // Health check endpoint
   if ((req.url === '/health' || req.url === '/health?text') && (req.method === 'GET' || req.method === 'HEAD')) {
     const totals = session.getTotals()
+    const usage = usageTotals.snapshot()
     if (req.url === '/health?text') {
       const ratio = totals.totalOriginal > 0 ? (totals.totalSaved * 100 / totals.totalOriginal).toFixed(1) + '%' : 'n/a'
-      const sidecarStatus = config.stages.includes('llmlingua') ? (sidecarAvailable ? 'ok' : 'not running') : 'n/a'
+      const sidecarStatus = config.stages.includes('llmlingua') ? (sidecarState.available ? 'ok' : 'not running') : 'n/a'
       const lines = [`Tamp v${config.version} | ${config.stages.length} stages active | sidecar: ${sidecarStatus}`]
       if (totals.requestCount === 0) {
         lines.push('No requests yet this session')
@@ -247,12 +258,20 @@ return http.createServer(async (req, res) => {
           lines.push(`Est. savings: $${son} (Sonnet $3/Mtok) | $${opus} (Opus $15/Mtok)`)
         }
       }
+      if (usage.cacheHitRate !== null) {
+        lines.push(`Prompt cache hit rate: ${(usage.cacheHitRate * 100).toFixed(1)}% (${usage.cacheReadTokens} read / ${usage.inputTokens} uncached / ${usage.cacheCreationTokens} write)`)
+      }
+      const extras = []
+      if (redactedTotal > 0) extras.push(`redacted: ${redactedTotal}`)
+      if (staleImagesTotals.evicted > 0) extras.push(`stale images: ${staleImagesTotals.evicted} (${staleImagesTotals.chars} chars)`)
+      if (staleInputsTotals.pruned > 0) extras.push(`stale inputs: ${staleInputsTotals.pruned}`)
+      if (extras.length > 0) lines.push(extras.join(' | '))
       const body = lines.join('\n') + '\n'
       res.writeHead(200, { 'Content-Type': 'text/plain', 'Content-Length': Buffer.byteLength(body) })
       return res.end(req.method === 'HEAD' ? undefined : body)
     }
     const body = JSON.stringify({
-      status: 'ok', version: config.version, stages: config.stages, sidecar: sidecarAvailable,
+      status: 'ok', version: config.version, stages: config.stages, sidecar: sidecarState.available,
       session: {
         requests: totals.requestCount,
         tokensSaved: totals.totalTokensSaved,
@@ -262,7 +281,10 @@ return http.createServer(async (req, res) => {
       },
       disclosure: disclosureTotals,
       replay: replayMemo ? { ...replayTotals, ...replayMemo.stats() } : null,
-      usage: usageTotals.snapshot(),
+      redacted: redactedTotal,
+      staleImages: staleImagesTotals,
+      staleInputs: staleInputsTotals,
+      usage,
     })
     res.writeHead(200, { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body) })
     return res.end(req.method === 'HEAD' ? undefined : body)
@@ -381,37 +403,60 @@ return http.createServer(async (req, res) => {
     return
   }
 
+  let parsed
+  let parseOk = false
   try {
-    const parsed = JSON.parse(textBody.toString('utf-8'))
-
-    const sessionKey = (config.stages?.includes('graph') || config.stages?.includes('read-diff'))
-      ? deriveSessionKey(req.headers, parsed)
-      : null
-    const sessionBucket = config.stages?.includes('graph') && sessionKey
-      ? sessionStore.getBucket(sessionKey)
-      : null
-    const { body, stats, disclosure, replay } = await compressRequest(parsed, { ...config, sessionBucket, sessionKey, readCache, brCache, replayMemo }, provider)
-    finalBody = Buffer.from(JSON.stringify(body), 'utf-8')
-    // Send uncompressed — simpler and content-length is accurate
-    if (decompressed) delete headers['content-encoding']
-
-    session.record(stats)
-    if (disclosure) {
-      disclosureTotals.rehydrated += disclosure.rehydrated || 0
-      disclosureTotals.missed += disclosure.missed || 0
-      disclosureTotals.disclosed += disclosure.disclosed || 0
-    }
-    log(formatRequestLog(stats, session, provider.name, req.url, textBody.length, config.tokenCost, sessionBucket))
-    if (replay) {
-      replayTotals.hits += replay.hits
-      replayTotals.misses += replay.misses
-      replayTotals.tokensHeld += replay.tokensHeld
-      if (replay.hits > 0) log(`[tamp]   replay: ${replay.hits} block${replay.hits !== 1 ? 's' : ''} re-sent as before, ${replay.tokensHeld} tok held`)
-    }
-    config.onCompress?.(stats, session.getTotals(), { provider: provider.name, url: req.url, bodySize: textBody.length })
+    parsed = JSON.parse(textBody.toString('utf-8'))
+    parseOk = true
   } catch (err) {
     log(`[tamp] passthrough (parse error): ${err.message}`)
     finalBody = rawBody
+  }
+
+  if (parseOk) {
+    try {
+      const sessionKey = (config.stages?.includes('graph') || config.stages?.includes('read-diff'))
+        ? deriveSessionKey(req.headers, parsed)
+        : null
+      const sessionBucket = config.stages?.includes('graph') && sessionKey
+        ? sessionStore.getBucket(sessionKey)
+        : null
+      const { body, stats, disclosure, replay, redacted, staleImages, staleInputs } = await compressRequest(parsed, { ...config, sessionBucket, sessionKey, readCache, brCache, replayMemo }, provider)
+      finalBody = Buffer.from(JSON.stringify(body), 'utf-8')
+      // Send uncompressed — simpler and content-length is accurate
+      if (decompressed) delete headers['content-encoding']
+
+      session.record(stats)
+      if (disclosure) {
+        disclosureTotals.rehydrated += disclosure.rehydrated || 0
+        disclosureTotals.missed += disclosure.missed || 0
+        disclosureTotals.disclosed += disclosure.disclosed || 0
+      }
+      if (redacted) redactedTotal += redacted
+      if (staleImages) {
+        staleImagesTotals.evicted += staleImages.evicted || 0
+        staleImagesTotals.chars += staleImages.chars || 0
+      }
+      if (staleInputs) {
+        staleInputsTotals.pruned += staleInputs.pruned || 0
+      }
+      log(formatRequestLog(stats, session, provider.name, req.url, textBody.length, config.tokenCost, sessionBucket, {
+        redacted,
+        staleImages,
+        staleInputs,
+        usageSnapshot: usageTotals.snapshot(),
+      }))
+      if (replay) {
+        replayTotals.hits += replay.hits
+        replayTotals.misses += replay.misses
+        replayTotals.tokensHeld += replay.tokensHeld
+        if (replay.hits > 0) log(`[tamp]   replay: ${replay.hits} block${replay.hits !== 1 ? 's' : ''} re-sent as before, ${replay.tokensHeld} tok held`)
+      }
+      config.onCompress?.(stats, session.getTotals(), { provider: provider.name, url: req.url, bodySize: textBody.length })
+    } catch (err) {
+      log(`[tamp] passthrough (compress error): ${err.message}`)
+      finalBody = rawBody
+    }
   }
 
   headers['content-length'] = Buffer.byteLength(finalBody)
@@ -419,6 +464,13 @@ return http.createServer(async (req, res) => {
 
   forwardRequest(req.method, upstreamUrl, headers, finalBody, res)
 })
+
+server.on('close', () => {
+  httpAgent.destroy()
+  httpsAgent.destroy()
+})
+
+return server
 }
 
 function createRequestLogger(config) {
@@ -447,19 +499,27 @@ function createRequestLogger(config) {
 const SIDECAR_PORT = 8788
 const SIDECAR_URL = `http://localhost:${SIDECAR_PORT}`
 
-let sidecarAvailable = false
-
-function probeSidecar(config, quiet = false) {
-  const req = http.get(`${SIDECAR_URL}/health`, { timeout: 2000 }, (res) => {
-    if (res.statusCode === 200) {
-      sidecarAvailable = true
-      if (!config.llmLinguaUrl) config.llmLinguaUrl = SIDECAR_URL
-      if (!quiet) console.error(`[tamp] llmlingua sidecar: ok (${config.llmLinguaUrl})`)
-    }
-    res.resume()
-  })
+function probeSidecar(config, sidecarState, quiet = false) {
+  const targetBase = (config.llmLinguaUrl || SIDECAR_URL).replace(/\/+$/, '')
+  const mod = targetBase.startsWith('https:') ? https : http
+  let req
+  try {
+    req = mod.get(`${targetBase}/health`, { timeout: 2000 }, (res) => {
+      if (res.statusCode === 200) {
+        sidecarState.available = true
+        if (!config.llmLinguaUrl) config.llmLinguaUrl = SIDECAR_URL
+        if (!quiet) console.error(`[tamp] llmlingua sidecar: ok (${config.llmLinguaUrl})`)
+      } else {
+        sidecarState.available = false
+      }
+      res.resume()
+    })
+  } catch {
+    sidecarState.available = false
+    return
+  }
   req.on('error', () => {
-    sidecarAvailable = false
+    sidecarState.available = false
     if (quiet) return
     console.error('[tamp] \u26a0 llmlingua stage enabled but sidecar not running \u2014 text blocks won\u2019t compress')
     console.error('[tamp]   start with: uv run --with fastapi --with uvicorn --with llmlingua --with mlx uvicorn server:app --host 127.0.0.1 --port 8788 --app-dir sidecar')
@@ -470,14 +530,14 @@ function probeSidecar(config, quiet = false) {
 const isMain = !process.argv[1]?.includes('node_modules') && process.argv[1] === new URL(import.meta.url).pathname
 
 if (isMain) {
-  const { config, server } = createProxy()
+  const { config, server, sidecarState } = createProxy()
   server.listen(config.port, config.host, () => {
     console.error(`[tamp] proxy listening on http://${config.host}:${config.port}`)
     console.error(`[tamp] upstream: ${config.upstream}`)
     console.error(`[tamp] stages: ${config.stages.join(', ')}`)
 
     if (config.stages.includes('llmlingua')) {
-      probeSidecar(config)
+      probeSidecar(config, sidecarState)
     }
   })
 }

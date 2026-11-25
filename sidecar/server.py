@@ -1,17 +1,12 @@
-from fastapi import FastAPI
+from contextlib import asynccontextmanager
+from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 
-app = FastAPI()
 compressor = None
 
 
-class CompressRequest(BaseModel):
-    text: str
-    rate: float = 0.5
-
-
-@app.on_event("startup")
-async def load_model():
+@asynccontextmanager
+async def lifespan(app: FastAPI):
     global compressor
     from llmlingua import PromptCompressor
 
@@ -20,6 +15,15 @@ async def load_model():
         use_llmlingua2=True,
         device_map="cpu",
     )
+    yield
+
+
+app = FastAPI(lifespan=lifespan)
+
+
+class CompressRequest(BaseModel):
+    text: str
+    rate: float = 0.5
 
 
 @app.get("/health")
@@ -28,7 +32,9 @@ async def health():
 
 
 @app.post("/compress")
-async def compress(payload: CompressRequest):
+def compress(payload: CompressRequest):
+    if compressor is None:
+        raise HTTPException(status_code=503, detail="Model is still loading")
     result = compressor.compress_prompt(
         payload.text,
         rate=payload.rate,

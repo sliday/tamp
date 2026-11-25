@@ -1,6 +1,7 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
 import {
+  conversationSeed,
   createSessionStore,
   deriveSessionKey,
   graphDeduplicateTargets,
@@ -75,6 +76,63 @@ describe('deriveSessionKey', () => {
       const k2 = deriveSessionKey(headers)
       assert.equal(k1, k2)
       assert.match(k1, /^[a-f0-9]{16}$/)
+    })
+
+    it('is invariant to moving cache_control breakpoints on system and first turn', () => {
+      const turn1 = {
+        system: [{ type: 'text', text: 'You are Claude.', cache_control: { type: 'ephemeral' } }],
+        messages: [
+          {
+            role: 'user',
+            content: [{ type: 'text', text: 'build a todo app', cache_control: { type: 'ephemeral' } }],
+          },
+        ],
+      }
+      const turn2 = {
+        system: [{ type: 'text', text: 'You are Claude.' }],
+        messages: [
+          {
+            role: 'user',
+            content: [{ type: 'text', text: 'build a todo app' }],
+          },
+          { role: 'assistant', content: 'working on it' },
+          {
+            role: 'user',
+            content: [{ type: 'text', text: 'add tests', cache_control: { type: 'ephemeral' } }],
+          },
+        ],
+      }
+      assert.equal(conversationSeed(turn1), conversationSeed(turn2))
+      assert.equal(deriveSessionKey(headers, turn1), deriveSessionKey(headers, turn2))
+    })
+
+    it('isolates OpenAI Chat / Kimi conversations sharing messages[0] system prompt', () => {
+      const sharedSys = { role: 'system', content: 'You are a helpful coding assistant.' }
+      const conv1Turn1 = {
+        messages: [sharedSys, { role: 'user', content: 'fix the parser bug' }],
+      }
+      const conv1Turn2 = {
+        messages: [
+          sharedSys,
+          { role: 'user', content: 'fix the parser bug' },
+          { role: 'assistant', content: 'looking' },
+          { role: 'user', content: 'also check edge cases' },
+        ],
+      }
+      const conv2Turn1 = {
+        messages: [sharedSys, { role: 'user', content: 'write deployment docs' }],
+      }
+      assert.notEqual(conversationSeed(conv1Turn1), conversationSeed(conv2Turn1))
+      assert.notEqual(deriveSessionKey(headers, conv1Turn1), deriveSessionKey(headers, conv2Turn1))
+      assert.equal(conversationSeed(conv1Turn1), conversationSeed(conv1Turn2))
+      assert.equal(deriveSessionKey(headers, conv1Turn1), deriveSessionKey(headers, conv1Turn2))
+    })
+
+    it('conversationSeed returns empty string for null or empty body', () => {
+      assert.equal(conversationSeed(null), '')
+      assert.equal(conversationSeed(undefined), '')
+      assert.equal(conversationSeed({}), '')
+      assert.equal(conversationSeed({ messages: [] }), '')
     })
   })
 })

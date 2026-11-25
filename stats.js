@@ -34,14 +34,38 @@ export function redactUrl(url) {
   return `${path}?${redacted}`
 }
 
-export function formatRequestLog(stats, session, providerName, url, bodySize, tokenCost, sessionBucket) {
+function formatExtraLines(extra) {
+  if (!extra) return []
+  const out = []
+  if (extra.redacted > 0) {
+    out.push(`[tamp]   ${c.yellow}redacted${c.reset} ${extra.redacted} secret${extra.redacted !== 1 ? 's' : ''}`)
+  }
+  if (extra.staleImages?.evicted > 0) {
+    const n = extra.staleImages.evicted
+    const chars = extra.staleImages.chars ? ` (${fmtSize(extra.staleImages.chars)} chars)` : ''
+    out.push(`[tamp]   ${c.cyan}stale-images${c.reset} ${n} evicted${chars}`)
+  }
+  if (extra.staleInputs?.pruned > 0) {
+    const n = extra.staleInputs.pruned
+    out.push(`[tamp]   ${c.cyan}stale-inputs${c.reset} ${n} pruned`)
+  }
+  if (extra.usageSnapshot?.cacheHitRate != null) {
+    const hitPct = (extra.usageSnapshot.cacheHitRate * 100).toFixed(1)
+    out.push(`[tamp]   ${c.dim}prompt-cache ${hitPct}% hit rate${c.reset}`)
+  }
+  return out
+}
+
+export function formatRequestLog(stats, session, providerName, url, bodySize, tokenCost, sessionBucket, extra) {
   const compressed = stats.filter(s => s.method)
   const label = providerName || 'anthropic'
   const path = redactUrl(url) || '/v1/messages'
   const sizeInfo = bodySize ? ` ${c.dim}${fmtSize(bodySize)}${c.reset}` : ''
+  const extraLines = formatExtraLines(extra)
 
   if (!compressed.length && !stats.length) {
-    return `[tamp] ${c.cyan}${label}${c.reset} ${path}${sizeInfo} ${c.dim}— passthrough${c.reset}`
+    const head = `[tamp] ${c.cyan}${label}${c.reset} ${path}${sizeInfo} ${c.dim}— passthrough${c.reset}`
+    return extraLines.length ? [head, ...extraLines].join('\n') : head
   }
 
   if (!compressed.length) {
@@ -49,7 +73,8 @@ export function formatRequestLog(stats, session, providerName, url, bodySize, to
     const n = stats.length
     const reasons = [...new Set(stats.filter(s => s.skipped).map(s => s.skipped))].join(', ')
     const reason = skipCount ? `${skipCount} skipped (${reasons})` : 'nothing to compress'
-    return `[tamp] ${c.cyan}${label}${c.reset} ${path}${sizeInfo} ${c.dim}— ${n} block${n !== 1 ? 's' : ''}, ${reason}${c.reset}`
+    const head = `[tamp] ${c.cyan}${label}${c.reset} ${path}${sizeInfo} ${c.dim}— ${n} block${n !== 1 ? 's' : ''}, ${reason}${c.reset}`
+    return extraLines.length ? [head, ...extraLines].join('\n') : head
   }
 
   const totalOrig = compressed.reduce((a, s) => a + s.originalLen, 0)
@@ -93,6 +118,8 @@ export function formatRequestLog(stats, session, providerName, url, bodySize, to
       lines.push(`[tamp]   ${c.cyan}br-cache${c.reset} ${fmtSize(br.brotliBytes)} stored, ${br.offloaded} offloaded, ${br.hits} hits ${c.dim}(${ratio}% hit ratio)${c.reset}`)
     }
   }
+
+  if (extraLines.length) lines.push(...extraLines)
 
   return lines.join('\n')
 }

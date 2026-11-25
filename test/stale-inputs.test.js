@@ -96,4 +96,45 @@ describe('stale-inputs — prune payloads from old tool calls', () => {
     assert.ok(!DEFAULT_STAGES.includes('stale-inputs'), 'rewrites old turns, so opt-in')
     assert.ok(isLossy('stale-inputs'))
   })
+
+  it('uses per-tool recovery notices (file tools vs Agent/Workflow/SendMessage)', async () => {
+    for (const [name, field] of [['Write', 'content'], ['NotebookEdit', 'new_source']]) {
+      const s = session(5, () => ({ name, input: { file_path: '/f.js', [field]: long(2000) } }))
+      const { body: out } = await compressRequest(s, config, anthropic)
+      assert.match(inputAt(out, 0)[field], /Re-read the file if you need the current contents\./)
+    }
+
+    const editSess = session(5, () => ({ name: 'Edit', input: { file_path: '/f.js', old_string: long(1500), new_string: long(1500) } }))
+    const { body: editOut } = await compressRequest(editSess, config, anthropic)
+    assert.match(inputAt(editOut, 0).old_string, /Re-read the file if you need the current contents\./)
+
+    for (const [name, field] of [['Agent', 'prompt'], ['Workflow', 'script'], ['SendMessage', 'message']]) {
+      const s = session(5, () => ({ name, input: { [field]: long(2000) } }))
+      const { body: out } = await compressRequest(s, config, anthropic)
+      const val = inputAt(out, 0)[field]
+      assert.match(val, /Summary retained in tool header; payload omitted from older turn\./)
+      assert.doesNotMatch(val, /Re-read the file/i)
+    }
+  })
+})
+
+describe('stale-inputs — epoch batching (batchSize)', () => {
+  it('quantizes pruning to multiples of batchSize to preserve prompt cache prefix', async () => {
+    const batched = { ...config, staleInputKeepRecent: 2, staleBatchSize: 3 }
+    const makeWrites = n => session(n, i => ({ name: 'Write', input: { file_path: `/f${i}.js`, content: long(2000) } }))
+
+    assert.equal((await compressRequest(makeWrites(3), batched, anthropic)).staleInputs, null)
+    assert.equal((await compressRequest(makeWrites(4), batched, anthropic)).staleInputs, null)
+
+    const r5 = await compressRequest(makeWrites(5), batched, anthropic)
+    assert.equal(r5.staleInputs?.pruned, 3)
+
+    const r6 = await compressRequest(makeWrites(6), batched, anthropic)
+    assert.equal(r6.staleInputs?.pruned, 3)
+    assert.deepEqual(r6.body.messages.slice(0, 7), r5.body.messages.slice(0, 7))
+    assert.equal(inputAt(r6.body, 3).content.length, 2000, 'turn 3 stays intact until next epoch')
+
+    const r8 = await compressRequest(makeWrites(8), batched, anthropic)
+    assert.equal(r8.staleInputs?.pruned, 6)
+  })
 })

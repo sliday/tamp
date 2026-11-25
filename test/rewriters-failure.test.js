@@ -144,6 +144,73 @@ const FAILURE_CASES = [
     ],
   },
   {
+    name: 'vitest',
+    lines: [
+      ' RUN  v2.1.4 /work/app',
+      ' ✓ src/ok.test.ts (3) 10ms',
+      ' ❯ src/sum.test.ts (1 test | 1 failed) 15ms',
+      '   × adds 1 + 2',
+      ' FAIL  src/sum.test.ts > adds 1 + 2',
+      'AssertionError: expected 3 to be 4',
+      ' Test Files  1 failed | 1 passed (2)',
+      '      Tests  1 failed | 3 passed (4)',
+    ],
+    mustKeep: [
+      'FAIL  src/sum.test.ts > adds 1 + 2',
+      'AssertionError: expected 3 to be 4',
+      'Test Files  1 failed | 1 passed (2)',
+    ],
+  },
+  {
+    name: 'go-test',
+    lines: [
+      '=== RUN   TestAdd',
+      '--- PASS: TestAdd (0.00s)',
+      '=== RUN   TestDiv',
+      '    math_test.go:18: expected 2, got 3',
+      '--- FAIL: TestDiv (0.00s)',
+      'FAIL',
+      'FAIL\tgithub.com/user/repo/pkg/math\t0.015s',
+    ],
+    mustKeep: [
+      'math_test.go:18: expected 2, got 3',
+      '--- FAIL: TestDiv (0.00s)',
+      'FAIL\tgithub.com/user/repo/pkg/math\t0.015s',
+    ],
+  },
+  {
+    name: 'node-test',
+    lines: [
+      'TAP version 13',
+      'ok 1 - adds numbers',
+      'not ok 2 - divides numbers',
+      '  ---',
+      '  error: AssertionError [ERR_ASSERTION]: 3 !== 4',
+      '  ...',
+      '# tests 2',
+      '# pass 1',
+      '# fail 1',
+      '# duration_ms 19.4',
+    ],
+    mustKeep: [
+      'not ok 2 - divides numbers',
+      'AssertionError [ERR_ASSERTION]: 3 !== 4',
+      '# fail 1',
+    ],
+  },
+  {
+    name: 'pnpm-bun',
+    lines: [
+      'Progress: resolved 12, reused 0, downloaded 0, added 0',
+      'ERR_PNPM_FETCH_404  GET https://registry.npmjs.org/leftpadx: Not Found - 404',
+      'This error happened while installing a direct dependency of /work/app',
+    ],
+    mustKeep: [
+      'ERR_PNPM_FETCH_404  GET https://registry.npmjs.org/leftpadx: Not Found - 404',
+      'This error happened while installing a direct dependency',
+    ],
+  },
+  {
     name: 'wget-curl',
     lines: [
       '  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current',

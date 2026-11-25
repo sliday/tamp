@@ -123,6 +123,41 @@ describe('formatRequestLog', () => {
     const output = formatRequestLog(stats, session, 'openai', '/v1/chat/completions', 1000, 15)
     assert.ok(output.includes('$15/Mtok'))
   })
+
+  it('logs optional extra telemetry lines for redacted, staleImages, staleInputs, and cacheHitRate', () => {
+    const stats = [{ index: 0, method: 'minify', originalLen: 1000, compressedLen: 600 }]
+    const output = formatRequestLog(stats, null, 'anthropic', '/v1/messages', 1000, 3, null, {
+      redacted: 2,
+      staleImages: { evicted: 3, chars: 2048 },
+      staleInputs: { pruned: 4 },
+      usageSnapshot: { cacheHitRate: 0.875 },
+    })
+    assert.ok(output.includes('redacted'))
+    assert.ok(output.includes('2 secrets'))
+    assert.ok(output.includes('stale-images'))
+    assert.ok(output.includes('3 evicted'))
+    assert.ok(output.includes('2.0k chars'))
+    assert.ok(output.includes('stale-inputs'))
+    assert.ok(output.includes('4 pruned'))
+    assert.ok(output.includes('prompt-cache 87.5% hit rate'))
+  })
+
+  it('uses singular secret label and omits inactive extra lines', () => {
+    const base = formatRequestLog([], null, 'anthropic', '/v1/messages')
+    const withEmptyExtra = formatRequestLog([], null, 'anthropic', '/v1/messages', undefined, undefined, null, {
+      redacted: 0,
+      staleImages: null,
+      staleInputs: null,
+      usageSnapshot: { cacheHitRate: null },
+    })
+    assert.equal(withEmptyExtra, base)
+
+    const withOneSecret = formatRequestLog([], null, 'anthropic', '/v1/messages', 500, 3, null, {
+      redacted: 1,
+    })
+    assert.ok(withOneSecret.includes('1 secret'))
+    assert.ok(!withOneSecret.includes('1 secrets'))
+  })
 })
 
 describe('createSession', () => {

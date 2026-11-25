@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { createProxy } from '../index.js'
-import { existsSync, mkdirSync, writeFileSync, readFileSync, unlinkSync } from 'node:fs'
+import { existsSync, mkdirSync, writeFileSync, readFileSync, unlinkSync, realpathSync } from 'node:fs'
 import { spawn, execFileSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
@@ -9,6 +9,7 @@ import { DEFAULT_STAGES, EXTRA_STAGES, STAGE_DESCRIPTIONS, STAGE_HINTS, VERSION,
 import { CONFIG_PATH, CONFIG_TEMPLATE, loadConfig } from '../config.js'
 import {
   checkPort,
+  fetchHealth,
   diagnoseBindConflict,
   installShutdown,
   reconcileStalePidFile,
@@ -16,6 +17,7 @@ import {
   clearPidFile,
   writePidFile,
   isProcessAlive,
+  isTampProcess,
 } from './lifecycle.js'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
@@ -119,8 +121,67 @@ function writeConfigField(field, value) {
   writeFileSync(CONFIG_PATH, lines.join('\n'))
 }
 
-// --- Subcommands ---
-const subcommand = process.argv[2]
+export function formatStatusLines(health, port, version = VERSION, healthy = health !== null) {
+  const lines = [
+    `Tamp v${version}`,
+    `  Health: ${healthy ? 'running' : 'not running'} (port ${port})`,
+  ]
+  if (health && typeof health === 'object') {
+    if (Array.isArray(health.stages)) {
+      lines.push(`  Stages: ${health.stages.length} active (${health.stages.join(', ')})`)
+    }
+    if (health.session && typeof health.session === 'object') {
+      const reqs = health.session.requests ?? 0
+      const saved = health.session.tokensSaved ?? 0
+      lines.push(`  Session: ${reqs} request${reqs !== 1 ? 's' : ''}, ${saved} tokens saved`)
+    }
+    if (typeof health.sidecar === 'boolean') {
+      const hasLlmLingua = Array.isArray(health.stages) && health.stages.includes('llmlingua')
+      const sidecarLabel = health.sidecar ? 'ok' : (hasLlmLingua ? 'not running' : 'n/a')
+      lines.push(`  Sidecar: ${sidecarLabel}`)
+    }
+    if (health.usage?.cacheHitRate != null) {
+      lines.push(`  Cache hit rate: ${(health.usage.cacheHitRate * 100).toFixed(1)}%`)
+    }
+  }
+  return lines
+}
+
+export async function resolveNonInteractiveConfig({
+  env = process.env,
+  argvLevel = null,
+  startSidecarFn = startSidecar,
+  onSidecarReady,
+  onSidecarUnavailable,
+} = {}) {
+  const loadOpts = argvLevel !== null ? { levelOverride: argvLevel } : {}
+  const probe = loadConfig(env, loadOpts)
+  let selectedStages = [...probe.stages]
+  const overrides = {}
+
+  if (selectedStages.includes('llmlingua')) {
+    const sidecarUrl = await startSidecarFn()
+    if (sidecarUrl) {
+      overrides.llmLinguaUrl = sidecarUrl
+      onSidecarReady?.(sidecarUrl)
+    } else {
+      onSidecarUnavailable?.()
+      selectedStages = selectedStages.filter(s => s !== 'llmlingua')
+      overrides.stages = selectedStages
+    }
+  }
+
+  return { probe, selectedStages, overrides, loadOpts }
+}
+
+function isEntrypoint() {
+  if (!process.argv[1]) return false
+  try {
+    return realpathSync(process.argv[1]) === realpathSync(fileURLToPath(import.meta.url))
+  } catch {
+    return process.argv[1] === fileURLToPath(import.meta.url)
+  }
+}
 
 // --- Global --level flag parsing ---
 // Supports '--level N', '--level=N'. Accepts integers 1..9 or alias strings
@@ -154,6 +215,9 @@ function parseLevelArgv(argv) {
   process.exit(2)
 }
 
+async function main() {
+// --- Subcommands ---
+const subcommand = process.argv[2]
 const argvLevel = parseLevelArgv(process.argv.slice(2))
 
 if (subcommand === 'init') {
@@ -218,6 +282,7 @@ if (subcommand === 'settings' || subcommand === 'config') {
   }
 
   instance = render(h(LevelPicker, { version: VERSION, envLevel, onSelect, onCancel }))
+  return
 }
 
 // macOS LaunchAgent. Pointing an agent's base URL at Tamp makes that agent
@@ -337,10 +402,12 @@ if (subcommand === 'version' || subcommand === '--version' || subcommand === '-v
 }
 
 if (subcommand === 'status') {
-  const port = process.env.TAMP_PORT || 7778
-  const healthy = await checkPort(port)
-  console.log(`Tamp v${VERSION}`)
-  console.log(`  Health: ${healthy ? 'running' : 'not running'} (port ${port})`)
+  const port = loadConfig().port
+  const health = await fetchHealth(port)
+  const healthy = health !== null ? true : await checkPort(port)
+  for (const line of formatStatusLines(health, port, VERSION, healthy)) {
+    console.log(line)
+  }
   if (process.platform === 'linux') {
     try { execFileSync('systemctl', ['--user', 'status', 'tamp.service', '--no-pager'], { stdio: 'inherit' }) } catch {}
   }
@@ -389,7 +456,7 @@ if (subcommand === 'compress-config') {
 }
 
 if (subcommand === 'stop') {
-  const port = Number(process.env.TAMP_PORT) || 7778
+  const port = loadConfig().port
   await reconcileStalePidFile(port)
   const rec = readPidFile(port)
 
@@ -402,6 +469,12 @@ if (subcommand === 'stop') {
     }
     console.log(`No Tamp running on :${port}.`)
     process.exit(0)
+  }
+
+  if (isTampProcess(rec.pid) === false) {
+    clearPidFile(port)
+    console.error(`Refusing to signal pid ${rec.pid} — process does not appear to be Tamp. Cleared stale PID file.`)
+    process.exit(1)
   }
 
   try {
@@ -421,8 +494,12 @@ if (subcommand === 'stop') {
   }
 
   if (await checkPort(port) || isProcessAlive(rec.pid)) {
-    try { process.kill(rec.pid, 'SIGKILL') } catch {}
-    console.warn(`Tamp (pid ${rec.pid}) did not respond to SIGTERM within 2s — sent SIGKILL.`)
+    if (isTampProcess(rec.pid) !== false) {
+      try { process.kill(rec.pid, 'SIGKILL') } catch {}
+      console.warn(`Tamp (pid ${rec.pid}) did not respond to SIGTERM within 2s — sent SIGKILL.`)
+    } else {
+      console.warn(`PID ${rec.pid} no longer appears to be Tamp — skipping SIGKILL.`)
+    }
   } else {
     console.log(`Stopped Tamp (pid ${rec.pid}) on :${port}.`)
   }
@@ -483,13 +560,13 @@ async function ensurePortFree(port) {
 
   if (forceReplace) {
     const rec = readPidFile(port)
-    if (rec) {
+    if (rec && isTampProcess(rec.pid) !== false) {
       try { process.kill(rec.pid, 'SIGTERM') } catch {}
       for (let i = 0; i < 20; i++) {
         await new Promise(r => setTimeout(r, 100))
         if (!(await checkPort(port))) break
       }
-      if (await checkPort(port)) {
+      if (await checkPort(port) && isTampProcess(rec.pid) !== false) {
         try { process.kill(rec.pid, 'SIGKILL') } catch {}
         await new Promise(r => setTimeout(r, 300))
       }
@@ -509,39 +586,21 @@ if (skipPrompt) {
   // --- Non-interactive mode (plain text, no Ink) ---
   const { ANSI: c } = await import('./ui/theme.js')
 
-  // When --level is given (and TAMP_STAGES is unset), resolve stages via
-  // loadConfig so the level ladder drives the selection. Otherwise keep legacy
-  // behavior (envStages-derived TAMP_STAGES auto-echo).
-  let selectedStages
-  if (envStages) {
-    selectedStages = [...envStages]
-    process.env.TAMP_STAGES = selectedStages.join(',')
-  } else if (argvLevel !== null) {
-    const { loadConfig } = await import('../config.js')
-    const probe = loadConfig(process.env, { levelOverride: argvLevel })
-    selectedStages = [...probe.stages]
-    // Do NOT set TAMP_STAGES — that would clobber level-flag source tracking
-    // when the full createProxy call runs below.
-  } else {
-    selectedStages = [...DEFAULT_STAGES]
-    process.env.TAMP_STAGES = selectedStages.join(',')
-  }
-
-  if (selectedStages.includes('llmlingua')) {
-    const sidecarUrl = await startSidecar()
-    if (sidecarUrl) {
-      process.env.TAMP_LLMLINGUA_URL = sidecarUrl
+  const { overrides, loadOpts } = await resolveNonInteractiveConfig({
+    env: process.env,
+    argvLevel,
+    startSidecarFn: startSidecar,
+    onSidecarReady: () => {
       console.error(`  ${c.green}\u2713${c.reset} LLMLingua-2 ready on :${c.bold}8788${c.reset}`)
-    } else {
+    },
+    onSidecarUnavailable: () => {
       console.error(`  ${c.yellow}!${c.reset} LLMLingua-2 not available`)
       if (!hasCommand('uv')) console.error(`    ${c.dim}Install uv: curl -LsSf https://astral.sh/uv/install.sh | sh${c.reset}`)
       console.error(`    ${c.dim}Continuing without neural compression.${c.reset}`)
-      selectedStages = selectedStages.filter(s => s !== 'llmlingua')
-      process.env.TAMP_STAGES = selectedStages.join(',')
-    }
-  }
+    },
+  })
 
-  const { config, server } = createProxy({}, argvLevel !== null ? { levelOverride: argvLevel } : {})
+  const { config, server } = createProxy(overrides, loadOpts)
 
   await ensurePortFree(config.port)
 
@@ -629,4 +688,9 @@ if (skipPrompt) {
     getSidecarProc,
     ensurePortFree,
   }))
+}
+}
+
+if (isEntrypoint()) {
+  await main()
 }

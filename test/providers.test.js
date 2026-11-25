@@ -186,6 +186,25 @@ describe('openai adapter', () => {
     ])
   })
 
+  it('cacheSafe walks past trailing non-tool messages to find the latest contiguous tool group', () => {
+    const body = {
+      messages: [
+        { role: 'tool', tool_call_id: 'call_1', content: '{"old":"data"}' },
+        { role: 'assistant', content: 'next' },
+        { role: 'tool', tool_call_id: 'call_2', content: '{"new":"data"}' },
+        { role: 'tool', tool_call_id: 'call_3', content: '{"newer":"data"}' },
+        { role: 'developer', content: 'system reminder' },
+        { role: 'user', content: 'continue' },
+      ],
+    }
+    const targets = openai.extract(body, { cacheSafe: true })
+    assert.equal(targets.length, 2)
+    assert.deepEqual(targets.map(target => target.path), [
+      ['messages', 2, 'content'],
+      ['messages', 3, 'content'],
+    ])
+  })
+
   it('returns empty for no messages', () => {
     assert.deepEqual(openai.extract({}), [])
     assert.deepEqual(openai.extract({ messages: [] }), [])
@@ -319,6 +338,25 @@ describe('openai-responses adapter', () => {
         { role: 'assistant', content: [{ type: 'output_text', text: 'done' }] },
         { type: 'function_call_output', call_id: 'new1', output: '{"new":"data"}' },
         { type: 'function_call_output', call_id: 'new2', output: '{"newer":"data"}' },
+      ],
+    }
+    const targets = openaiResponses.extract(body, { cacheSafe: true })
+    assert.equal(targets.length, 2)
+    assert.deepEqual(targets.map(t => t.path), [
+      ['input', 2, 'output'],
+      ['input', 3, 'output'],
+    ])
+  })
+
+  it('cacheSafe walks past trailing non-tool items to find the latest contiguous output group', () => {
+    const body = {
+      input: [
+        { type: 'function_call_output', call_id: 'old', output: '{"old":"data"}' },
+        { role: 'assistant', content: [{ type: 'output_text', text: 'next' }] },
+        { type: 'custom_tool_call_output', call_id: 'new1', output: '{"new":"data"}' },
+        { type: 'function_call_output', call_id: 'new2', output: '{"newer":"data"}' },
+        { role: 'developer', content: [{ type: 'input_text', text: 'reminder' }] },
+        { role: 'user', content: [{ type: 'input_text', text: 'keep going' }] },
       ],
     }
     const targets = openaiResponses.extract(body, { cacheSafe: true })

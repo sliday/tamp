@@ -81,3 +81,18 @@ moves the cache break forward each request. Watch `replay.evictions` in
 `ceil(w/28) * ceil(h/28)` per image is the current upstream formula
 (pxpipe 0.16 `anthropic-vision.ts`); `pixels / 750` above is the older
 approximation and reads about 3% high. `lib/px-render.js` uses the patch count.
+
+## Never import raw `countTokens` from `@anthropic-ai/tokenizer`
+
+Raw `countTokens` stalls quadratically on low-entropy padding (~88s on 400KB)
+and traps WASM (`RuntimeError: unreachable`) at ~1MB. Always import
+`safeCountTokens` (or `countTokens`) from `lib/tokens.js`, and reuse precomputed
+stage token counts (e.g. `bm25OriginalTokens` / `bm25TrimmedTokens`) in
+`compress.js` rather than recounting.
+
+## Never mutate `process.env.TAMP_STAGES` in CLI startup paths
+
+`TAMP_STAGES` holds #1 precedence in `config.js`. Writing `DEFAULT_STAGES` into
+`process.env.TAMP_STAGES` inside `bin/tamp.js` silently clobbered `level=`,
+`TAMP_LEVEL`, and `TAMP_COMPRESSION_PRESET` on every `tamp -y` / service launch.
+Resolve via `loadConfig` and pass explicit overrides to `createProxy(overrides, loadOpts)` instead.

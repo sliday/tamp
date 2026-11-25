@@ -198,3 +198,58 @@ describe('br-cache — cross-instance persistence', () => {
     assert.equal(b.get(put.hash), lorem(4096) + 'persist-me')
   })
 })
+
+describe('br-cache — incremental byte tracking (no full scan on every put)', () => {
+  const dir = freshDir('tracked-bytes')
+  after(() => rmSync(dir, { recursive: true, force: true }))
+
+  it('skips full directory scan while trackedBytes stays under maxBytes, then evicts once crossed', () => {
+    const maxBytes = 40 * 1024
+    const cache = createBrCache({ cacheDir: dir, minSize: 512, maxBytes })
+
+    // First put initializes trackedBytes via scan() and stays well under maxBytes.
+    const first = cache.put(`first-${incompressible(4 * 1024)}`)
+    assert.ok(first)
+
+    // Drop an external .br file into a shard dir AFTER initialization. If put()
+    // ran a full scan() on every write, this 80 KB file would push disk usage
+    // over maxBytes and get evicted immediately on the next small put().
+    const shard = first.hash.slice(0, 2)
+    const externalPath = join(dir, shard, `${'f'.repeat(64)}.br`)
+    writeFileSync(externalPath, Buffer.alloc(80 * 1024, 0x41))
+
+    const second = cache.put(`second-${incompressible(4 * 1024)}`)
+    assert.ok(second)
+    // Because trackedBytes (~8 KB) <= maxBytes (40 KB), no prune scan occurred.
+    assert.equal(statSync(externalPath).size, 80 * 1024, 'put() under maxBytes should not trigger a full directory scan')
+
+    // Now push trackedBytes past maxBytes — eviction must run and bring disk
+    // total back under maxBytes.
+    for (let i = 0; i < 8; i++) {
+      cache.put(`push-${i}-${incompressible(8 * 1024)}`)
+    }
+    const s = cache.stats()
+    assert.ok(s.totalBytes <= maxBytes, `totalBytes=${s.totalBytes} should be <= ${maxBytes}`)
+    assert.ok(s.evictions > 0, 'eviction must trigger once trackedBytes crosses maxBytes')
+  })
+
+  it('accounts for pre-existing disk entries on first put of a new instance', () => {
+    const preDir = freshDir('tracked-preexisting')
+    try {
+      const maxBytes = 20 * 1024
+      const first = createBrCache({ cacheDir: preDir, minSize: 512, maxBytes: 100 * 1024 })
+      for (let i = 0; i < 4; i++) {
+        first.put(`pre-${i}-${incompressible(8 * 1024)}`)
+      }
+      // Second instance starts with a tighter maxBytes; its first put must
+      // lazily seed trackedBytes from disk and evict down to maxBytes.
+      const second = createBrCache({ cacheDir: preDir, minSize: 512, maxBytes })
+      second.put(`new-${incompressible(4 * 1024)}`)
+      const s = second.stats()
+      assert.ok(s.totalBytes <= maxBytes, `totalBytes=${s.totalBytes} should be <= ${maxBytes}`)
+      assert.ok(s.evictions > 0)
+    } finally {
+      rmSync(preDir, { recursive: true, force: true })
+    }
+  })
+})
