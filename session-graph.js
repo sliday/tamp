@@ -55,24 +55,35 @@ export function createSessionBucket({ brCache = null } = {}) {
   }
 }
 
-// A conversation-stable fingerprint: the system prompt plus the first turn.
+const stripCacheControl = (k, v) => (k === 'cache_control' ? undefined : v)
+
+// A conversation-stable fingerprint: the system prompt plus the first turn
+// (and the first user turn when turns[0] is a shared system/developer message).
 // Claude Code (and peers) resend an immutable opening every turn, so this is
 // constant within a conversation but differs across conversations — even when
 // they share one API token. Empty when no body is available (callers that omit
 // it get the legacy token-only key).
-function conversationSeed(body) {
+export function conversationSeed(body) {
   if (!body || typeof body !== 'object') return ''
   const turns = body.messages || body.contents || body.input
-  const first = Array.isArray(turns) && turns.length ? turns[0] : null
+  const list = Array.isArray(turns) ? turns : null
+  const first = list && list.length ? list[0] : null
+  const firstUser = list ? (list.find(t => t?.role === 'user') ?? null) : null
   if (first == null && body.system === undefined) return ''
   try {
-    // Hash system and the first turn INDEPENDENTLY. A single slice over the
-    // combined JSON let a long system prompt (Claude Code ships a multi-KB one)
-    // crowd the conversation-specific first turn past the cutoff, collapsing
-    // distinct conversations onto one key — the exact cross-conversation leak
-    // this seed exists to prevent. Per-part hashes keep the seed bounded + stable.
-    const sys = createHash('sha256').update(JSON.stringify(body.system ?? null)).digest('hex')
-    const frst = createHash('sha256').update(JSON.stringify(first ?? null)).digest('hex')
+    // Hash system, first turn, and first user turn INDEPENDENTLY. A single
+    // slice over the combined JSON let a long system prompt (Claude Code ships
+    // a multi-KB one) crowd the conversation-specific first turn past the
+    // cutoff, collapsing distinct conversations onto one key — the exact
+    // cross-conversation leak this seed exists to prevent. Stripping
+    // cache_control keeps moving prompt-cache breakpoints from splitting one
+    // conversation across keys.
+    const sys = createHash('sha256').update(JSON.stringify(body.system ?? null, stripCacheControl)).digest('hex')
+    const frst = createHash('sha256').update(JSON.stringify(first ?? null, stripCacheControl)).digest('hex')
+    if (firstUser && firstUser !== first) {
+      const usr = createHash('sha256').update(JSON.stringify(firstUser, stripCacheControl)).digest('hex')
+      return `${sys}:${frst}:${usr}`
+    }
     return `${sys}:${frst}`
   } catch {
     return ''

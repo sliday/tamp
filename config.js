@@ -21,6 +21,14 @@ function parseBoolean(value, defaultValue) {
   return defaultValue
 }
 
+function parseNonNegativeInt(value, defaultValue) {
+  if (value === undefined || value === null || value === '') return defaultValue
+  const s = String(value).trim()
+  if (!/^\d+$/.test(s)) return defaultValue
+  const n = parseInt(s, 10)
+  return Number.isSafeInteger(n) ? n : defaultValue
+}
+
 // Coerce numeric strings to integers; leave alias strings untouched.
 // Returns { value, valid } — value is the coerced input for resolveLevel(),
 // valid is whether the input is recognisable as a level at all.
@@ -266,6 +274,10 @@ export function loadConfig(env = process.env, options = {}) {
     pxModels: get('TAMP_PX_MODELS') || 'claude-fable-5',
     pxMinChars: parseInt(get('TAMP_PX_MIN_CHARS'), 10) || 4096,
     pxMaxImages: parseInt(get('TAMP_PX_MAX_IMAGES'), 10) || 6,
+    staleImageKeepRecent: parseNonNegativeInt(get('TAMP_STALE_IMAGE_KEEP_RECENT'), 2),
+    staleInputKeepRecent: parseNonNegativeInt(get('TAMP_STALE_INPUT_KEEP_RECENT'), 2),
+    staleBatchSize: Math.max(1, parseNonNegativeInt(get('TAMP_STALE_BATCH_SIZE'), 1)),
+    upstreamTimeout: parseNonNegativeInt(get('TAMP_UPSTREAM_TIMEOUT'), 0),
     tokenCost: parseFloat(get('TAMP_TOKEN_COST')) || 3,
   })
 }
@@ -321,6 +333,15 @@ export const CONFIG_TEMPLATE = `# Tamp configuration
 # prefix, secrets stay masked). In-memory, bounded by TAMP_REPLAY_MAX_BYTES.
 # TAMP_REPLAY=true
 # TAMP_REPLAY_MAX_BYTES=67108864
+
+# Stale eviction (opt-in stages: stale-images, stale-inputs).
+# Number of most recent turns to keep intact (0 = evict/prune all turns).
+# TAMP_STALE_IMAGE_KEEP_RECENT=2
+# TAMP_STALE_INPUT_KEEP_RECENT=2
+# TAMP_STALE_BATCH_SIZE=1
+
+# Optional upstream socket timeout in ms (0 = disabled, safe for long streams).
+# TAMP_UPSTREAM_TIMEOUT=0
 
 # TAMP_MIN_SIZE=200
 # TAMP_LOG=true

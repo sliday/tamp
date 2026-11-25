@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { writeFileSync, mkdirSync, unlinkSync, rmdirSync } from 'node:fs'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
-import { loadConfig, loadConfigFile } from '../config.js'
+import { loadConfig, loadConfigFile, CONFIG_TEMPLATE } from '../config.js'
 import { DEFAULT_STAGES, VERSION, COMPRESSION_LEVELS, DEFAULT_LEVEL } from '../metadata.js'
 
 describe('loadConfig', () => {
@@ -364,5 +364,58 @@ describe('loadConfig — level precedence matrix (Phase C)', () => {
 
   it('lowercases TAMP_AGENT so per-agent overrides resolve', () => {
     assert.equal(loadConfig({ TAMP_AGENT: 'Codex' }).agent, 'codex')
+  })
+})
+
+describe('loadConfig — stale eviction & upstreamTimeout non-negative int parsing', () => {
+  it('defaults stale eviction and upstreamTimeout settings', () => {
+    const cfg = loadConfig({})
+    assert.equal(cfg.staleImageKeepRecent, 2)
+    assert.equal(cfg.staleInputKeepRecent, 2)
+    assert.equal(cfg.staleBatchSize, 1)
+    assert.equal(cfg.upstreamTimeout, 0)
+  })
+
+  it('honors 0 for TAMP_STALE_IMAGE_KEEP_RECENT and TAMP_STALE_INPUT_KEEP_RECENT', () => {
+    const cfg = loadConfig({
+      TAMP_STALE_IMAGE_KEEP_RECENT: '0',
+      TAMP_STALE_INPUT_KEEP_RECENT: '0',
+    })
+    assert.equal(cfg.staleImageKeepRecent, 0)
+    assert.equal(cfg.staleInputKeepRecent, 0)
+  })
+
+  it('parses positive integers and clamps staleBatchSize to >= 1', () => {
+    const cfg = loadConfig({
+      TAMP_STALE_IMAGE_KEEP_RECENT: '5',
+      TAMP_STALE_INPUT_KEEP_RECENT: '3',
+      TAMP_STALE_BATCH_SIZE: '4',
+      TAMP_UPSTREAM_TIMEOUT: '30000',
+    })
+    assert.equal(cfg.staleImageKeepRecent, 5)
+    assert.equal(cfg.staleInputKeepRecent, 3)
+    assert.equal(cfg.staleBatchSize, 4)
+    assert.equal(cfg.upstreamTimeout, 30000)
+
+    assert.equal(loadConfig({ TAMP_STALE_BATCH_SIZE: '0' }).staleBatchSize, 1)
+  })
+
+  it('falls back to defaults on negative or non-integer values', () => {
+    const cfg = loadConfig({
+      TAMP_STALE_IMAGE_KEEP_RECENT: '-1',
+      TAMP_STALE_INPUT_KEEP_RECENT: 'abc',
+      TAMP_STALE_BATCH_SIZE: '2.5',
+      TAMP_UPSTREAM_TIMEOUT: '-500',
+    })
+    assert.equal(cfg.staleImageKeepRecent, 2)
+    assert.equal(cfg.staleInputKeepRecent, 2)
+    assert.equal(cfg.staleBatchSize, 1)
+    assert.equal(cfg.upstreamTimeout, 0)
+  })
+
+  it('documents stale eviction env vars in CONFIG_TEMPLATE', () => {
+    assert.ok(CONFIG_TEMPLATE.includes('TAMP_STALE_IMAGE_KEEP_RECENT'))
+    assert.ok(CONFIG_TEMPLATE.includes('TAMP_STALE_INPUT_KEEP_RECENT'))
+    assert.ok(CONFIG_TEMPLATE.includes('TAMP_STALE_BATCH_SIZE'))
   })
 })

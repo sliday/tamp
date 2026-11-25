@@ -1,6 +1,7 @@
 import React from 'react'
 import { Box, Text, Static } from 'ink'
 import { Banner } from './Banner.js'
+import { redactUrl } from '../../stats.js'
 
 const h = React.createElement
 
@@ -16,15 +17,16 @@ function fmtTokens(n) {
   return n + ''
 }
 
-function LogEntry({ event }) {
+export function LogEntry({ event }) {
   const { stats, meta } = event
+  const safeUrl = redactUrl(meta.url)
   const compressed = stats.filter(s => s.method)
   const skipped = stats.filter(s => s.skipped)
 
   if (!compressed.length) {
     const reason = skipped.length ? `${skipped.length} skipped` : 'passthrough'
     return h(Text, { dimColor: true },
-      `  ${meta.provider} ${meta.url} \u2014 ${stats.length} block${stats.length !== 1 ? 's' : ''}, ${reason}`
+      `  ${meta.provider} ${safeUrl} \u2014 ${stats.length} block${stats.length !== 1 ? 's' : ''}, ${reason}`
     )
   }
 
@@ -36,7 +38,7 @@ function LogEntry({ event }) {
 
   return h(Text, null,
     h(Text, { color: 'cyan' }, `  ${meta.provider}`),
-    h(Text, null, ` ${meta.url} `),
+    h(Text, null, ` ${safeUrl} `),
     h(Text, { dimColor: true }, `${fmtSize(meta.bodySize)} `),
     h(Text, { color: 'green', bold: true }, `-${pct}%`),
     h(Text, null, ` ${n} block${n !== 1 ? 's' : ''}`),

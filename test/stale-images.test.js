@@ -104,3 +104,30 @@ describe('stale-images — registration', () => {
     assert.ok(isLossy('stale-images'), 'dropped pixels are not recoverable from tamp itself')
   })
 })
+
+describe('stale-images — epoch batching (batchSize)', () => {
+  it('quantizes eviction to multiples of batchSize to preserve prompt cache prefix', async () => {
+    const batched = { ...config, staleImageKeepRecent: 2, staleBatchSize: 3 }
+
+    // 3 and 4 turns: eligible = 1 and 2, below batchSize=3 -> 0 evicted
+    assert.equal((await compressRequest(session(3), batched, anthropic)).staleImages, null)
+    assert.equal((await compressRequest(session(4), batched, anthropic)).staleImages, null)
+
+    // 5 turns: eligible = 3 -> evicts first 3 turns (0, 1, 2)
+    const r5 = await compressRequest(session(5), batched, anthropic)
+    assert.equal(r5.staleImages?.evicted, 3)
+
+    // 6 and 7 turns: eligible = 4 and 5 -> still evicts only first 3 turns (prefix stays identical)
+    const r6 = await compressRequest(session(6), batched, anthropic)
+    assert.equal(r6.staleImages?.evicted, 3)
+    assert.deepEqual(r6.body.messages.slice(0, 7), r5.body.messages.slice(0, 7))
+    assert.equal(imageBlocks(r6.body.messages[8]).length, 1, 'turn 3 not yet evicted in this epoch')
+
+    const r7 = await compressRequest(session(7), batched, anthropic)
+    assert.equal(r7.staleImages?.evicted, 3)
+
+    // 8 turns: eligible = 6 -> crosses next epoch boundary, evicts 6 turns
+    const r8 = await compressRequest(session(8), batched, anthropic)
+    assert.equal(r8.staleImages?.evicted, 6)
+  })
+})

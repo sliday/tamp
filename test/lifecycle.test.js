@@ -10,6 +10,7 @@ import {
   readPidFile,
   clearPidFile,
   isProcessAlive,
+  isTampProcess,
   checkPort,
   fetchHealth,
   formatAge,
@@ -79,6 +80,49 @@ describe('isProcessAlive', () => {
   })
 })
 
+describe('isTampProcess', () => {
+  it('returns false for falsy pid', () => {
+    assert.equal(isTampProcess(0), false)
+    assert.equal(isTampProcess(null), false)
+    assert.equal(isTampProcess(undefined), false)
+  })
+
+  it('returns true when command mentions tamp or node running tamp', () => {
+    const tampCmds = [
+      'node /usr/local/bin/tamp -y',
+      '/opt/homebrew/bin/node /Users/dev/tamp/bin/tamp.js -y',
+      'tamp -y --force',
+      'node /srv/tamp/index.js',
+    ]
+    for (const cmd of tampCmds) {
+      assert.equal(isTampProcess(1234, { readCmd: () => cmd }), true, `expected true for: ${cmd}`)
+    }
+  })
+
+  it('returns false for unrelated processes', () => {
+    const otherCmds = [
+      '/usr/bin/python3 app.py',
+      'sleep 30',
+      'node server.js',
+      '/usr/bin/stamp-cli --run',
+      '',
+    ]
+    for (const cmd of otherCmds) {
+      assert.equal(isTampProcess(1234, { readCmd: () => cmd }), false, `expected false for: ${cmd}`)
+    }
+  })
+
+  it('returns null when ps fails or is unavailable', () => {
+    assert.equal(isTampProcess(1234, { readCmd: () => { throw new Error('EPERM') } }), null)
+    assert.equal(isTampProcess(1234, { readCmd: () => null }), null)
+  })
+
+  it('does not throw when probing a live pid directly', () => {
+    const res = isTampProcess(process.pid)
+    assert.ok(res === true || res === false || res === null)
+  })
+})
+
 describe('reconcileStalePidFile', () => {
   it('removes file when pid is dead', async () => {
     mkdirSync(dirname(pidFilePath(TEST_PORT)), { recursive: true })
@@ -89,11 +133,27 @@ describe('reconcileStalePidFile', () => {
     assert.equal(existsSync(pidFilePath(TEST_PORT)), false)
   })
 
-  it('keeps file when pid is alive', async () => {
+  it('keeps file when pid is alive and belongs to tamp', async () => {
     writePidFile(TEST_PORT)
-    const res = await reconcileStalePidFile(TEST_PORT)
+    const res = await reconcileStalePidFile(TEST_PORT, { checkIsTamp: () => true })
     assert.equal(res.wasStale, false)
     assert.ok(existsSync(pidFilePath(TEST_PORT)))
+  })
+
+  it('keeps file when pid is alive and process identity cannot be determined (null)', async () => {
+    writePidFile(TEST_PORT)
+    const res = await reconcileStalePidFile(TEST_PORT, { checkIsTamp: () => null })
+    assert.equal(res.wasStale, false)
+    assert.ok(existsSync(pidFilePath(TEST_PORT)))
+  })
+
+  it('removes file with reason=pid-reused when pid is alive but unrelated', async () => {
+    writePidFile(TEST_PORT)
+    const res = await reconcileStalePidFile(TEST_PORT, { checkIsTamp: () => false })
+    assert.equal(res.wasStale, true)
+    assert.equal(res.pid, process.pid)
+    assert.equal(res.reason, 'pid-reused')
+    assert.equal(existsSync(pidFilePath(TEST_PORT)), false)
   })
 
   it('is a no-op when no file exists', async () => {

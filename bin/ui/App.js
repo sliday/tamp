@@ -48,7 +48,7 @@ export function App({ version, envStages, argvLevel, startSidecar, createProxy, 
       }
       process.exit(1)
     })
-    server.listen(proxyConfig.port, () => {
+    server.listen(proxyConfig.port, proxyConfig.host, () => {
       try { writePidFile(proxyConfig.port) } catch {}
       installShutdown({
         server,

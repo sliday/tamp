@@ -54,10 +54,9 @@ describe('detectOpenAIAuthMode', () => {
 })
 
 describe('resolveOpenAIUpstream', () => {
-  it('routes chatgpt-oauth to chatgpt.com and prefixes /backend-api/codex', () => {
+  it('routes chatgpt-oauth to chatgpt.com by default and prefixes /backend-api/codex', () => {
     const route = resolveOpenAIUpstream({
       mode: 'chatgpt-oauth',
-      base: 'https://api.openai.com',
       providerName: 'openai-responses',
     })
     assert.equal(route.base, 'https://chatgpt.com')
@@ -65,6 +64,16 @@ describe('resolveOpenAIUpstream', () => {
     // returns 404 {"detail":"Not Found"} from chatgpt.com, so the /v1 must go.
     assert.equal(route.transformPath('/v1/responses'), '/backend-api/codex/responses')
     assert.equal(route.transformPath('/v1/chat/completions'), '/backend-api/codex/chat/completions')
+  })
+
+  it('honors custom base in chatgpt-oauth mode (for TAMP_UPSTREAM_CHATGPT)', () => {
+    const route = resolveOpenAIUpstream({
+      mode: 'chatgpt-oauth',
+      base: 'https://chatgpt.proxy.local',
+      providerName: 'openai-responses',
+    })
+    assert.equal(route.base, 'https://chatgpt.proxy.local')
+    assert.equal(route.transformPath('/v1/responses'), '/backend-api/codex/responses')
   })
 
   it('leaves non-/v1 paths alone when prefixing', () => {
@@ -118,6 +127,18 @@ describe('resolveUpstream (index.js integration)', () => {
     const jwt = 'eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ1In0.sig'
     const route = resolveUpstream(provider, { authorization: `Bearer ${jwt}` }, config)
     assert.equal(new URL(route.base).hostname, 'chatgpt.com')
+  })
+
+  it('TAMP_UPSTREAM_CHATGPT overrides the ChatGPT upstream base', () => {
+    const config = mkConfig({ TAMP_UPSTREAM_CHATGPT: 'https://chatgpt.internal.example' })
+    const provider = detectProvider('POST', '/v1/responses')
+    const jwt = 'eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ1In0.sig'
+    const route = resolveUpstream(provider, {
+      authorization: `Bearer ${jwt}`,
+      'chatgpt-account-id': 'acct_xyz',
+    }, config)
+    assert.equal(route.base, 'https://chatgpt.internal.example')
+    assert.equal(route.transformPath('/v1/responses'), '/backend-api/codex/responses')
   })
 
   it('TAMP_DISABLE_CHATGPT_ROUTE=1 forces legacy api.openai.com routing', () => {
