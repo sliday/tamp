@@ -1,0 +1,25 @@
+# Lint / Static Verification Checks
+$ node --check bin/ui/App.js bin/ui/Dashboard.js index.js test/tui-state-telemetry.test.js test/proxy-usage.test.js
+syntax_exit=0
+
+$ git status --short
+ M bin/ui/App.js
+ M bin/ui/Dashboard.js
+ M index.js
+ M test/proxy-usage.test.js
+?? .agent/tasks/tui-state-and-telemetry/
+?? test/tui-state-telemetry.test.js
+
+$ git diff --stat
+ bin/ui/App.js            | 124 +++++++++++++++++++++++++++++++++--------------
+ bin/ui/Dashboard.js      |  32 ++++++++----
+ index.js                 |   1 +
+ test/proxy-usage.test.js |  63 ++++++++++++++++++++++++
+ 4 files changed, 175 insertions(+), 45 deletions(-)
+
+# Static constraint checks
+process.env.TAMP_* assignments in bin/ui/App.js: 0
+server.listen loopback host binding in bin/ui/App.js: 1
+getSidecarProc?.()?.kill() in bin/ui/App.js: 1
+Static usage in bin/ui/Dashboard.js: 0
+redactUrl usage in bin/ui/Dashboard.js: 1

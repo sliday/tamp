@@ -1,7 +1,7 @@
 # Tamp Feature Atlas
 
 Comprehensive map of all states, modes, entrypoints, stages, and surfaces in `@sliday/tamp` (`v0.9.1`).
-Last updated: 2026-11-26 (Cycle 1).
+Last updated: 2026-11-26 (Cycle 3).
 
 ---
 
@@ -33,11 +33,11 @@ Last updated: 2026-11-26 (Cycle 1).
 
 | Component | States / Modes | Notes |
 |---|---|---|
-| `App.js` | Phases: `pick` → (`loading` if `llmlingua`) → `running` | Binds `proxyConfig.host` (`127.0.0.1` default); installs shutdown hooks |
+| `App.js` | Phases: `pick` → (`loading` if `llmlingua`) → `running` | Passes explicit `(overrides, loadOpts)` to `createProxy` (zero `process.env.TAMP_*` mutation); binds `proxyConfig.host` (`127.0.0.1` default); kills sidecar on bind errors; bounds `events` to `MAX_EVENTS = 200`; wires live `usage` via `onUsage`; installs shutdown hooks |
 | `LevelPicker.js` | 1–9 slider (`←`/`→`/`h`/`l`/`1-9`), `A` → advanced `StagePicker`, `Enter` confirm, `Esc` cancel | Shows `LOSSLESS` (L1–L4) vs `LOSSY` (L5–L9) badge and cumulative stage chips |
 | `StagePicker.js` | MultiSelect over all 20 stages (`DEFAULT_STAGES` + `EXTRA_STAGES`) | Enforces `>= 1` stage selected |
 | `SidecarLoader.js` | `loading` → `success` (600ms) or `warning` (1200ms fallback without `llmlingua`) | Spawns `startSidecar()` |
-| `Dashboard.js` | `Banner` + `StatsBar` (empty vs active) + Ink `Static` request log | Redacts query-string secrets in URLs via `redactUrl` |
+| `Dashboard.js` | `Banner` (with `level`) + `StatsBar` (empty vs active + live `cache XX.X%`) + bounded `<Box>` tail (`MAX_VISIBLE_EVENTS = 20`) | Avoids Ink 5 `<Static>` stall past `MAX_EVENTS`; redacts query-string secrets in URLs via `redactUrl` |
 | `Banner.js` | Compact `level` mode vs expanded `TAMP_STAGES` mode + `Available` opt-in hints + `Output mode` banner | Shows `ANTHROPIC_BASE_URL` and `OPENAI_API_BASE` setup lines |
 
 ---
@@ -55,7 +55,7 @@ Last updated: 2026-11-26 (Cycle 1).
 | Request `Content-Encoding` | `gzip`, `deflate`, `br`, `zstd` (streaming bomb-guarded `decompressZstd`), `identity`; limit `5× maxBody`; unknown/corrupt passes through raw |
 | JSON parse vs compression errors | Separate `try/catch` blocks (`parse error` vs `compress error`), fail-open passthrough |
 | Connection lifecycle | Per-proxy keep-alive `http.Agent` / `https.Agent` (destroyed on `server.close`), optional `TAMP_UPSTREAM_TIMEOUT`, `upstream.destroy()` on premature client `res.on('close')`, `502` JSON before headersSent or socket destroy mid-stream |
-| Passive response telemetry (`lib/usage-tap.js`) | Non-blocking side tap over SSE/JSON (identity, gzip, br, deflate, raw deflate); bounded memory; extracts Anthropic, OpenAI Chat, OpenAI Responses, and Gemini usage + prompt-cache counters |
+| Passive response telemetry (`lib/usage-tap.js`) | Non-blocking side tap over SSE/JSON (identity, gzip, br, deflate, raw deflate); bounded memory; extracts Anthropic, OpenAI Chat, OpenAI Responses, and Gemini usage + prompt-cache counters; invokes optional non-fatal `config.onUsage(usageTotals.snapshot(), u)` |
 
 ---
 

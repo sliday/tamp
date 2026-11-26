@@ -112,4 +112,67 @@ describe('proxy usage telemetry and replay, end to end', () => {
       await proxy.close(); await up.close()
     }
   })
+
+  it('invokes config.onUsage with (snapshot, usage) on streamed responses', async () => {
+    const calls = []
+    const up = await startMockUpstream(async (req, res, ctx) => {
+      await ctx.body()
+      res.writeHead(200, { 'content-type': 'text/event-stream' })
+      res.write(SSE.slice(0, 70))
+      res.end(SSE.slice(70))
+    })
+    const proxy = await startProxy({
+      upstream: up.url,
+      onUsage: (snapshot, u) => calls.push({ snapshot, u }),
+    })
+    try {
+      const r = await post(proxy.port, [...head, turn1])
+      assert.equal(r.body.toString(), SSE)
+      assert.equal(calls.length, 1)
+      assert.deepEqual(calls[0].snapshot, {
+        requests: 1,
+        inputTokens: 12,
+        outputTokens: 40,
+        cacheReadTokens: 900,
+        cacheCreationTokens: 88,
+        cacheHitRate: 0.9,
+      })
+      assert.deepEqual(calls[0].u, {
+        provider: 'anthropic',
+        inputTokens: 12,
+        outputTokens: 40,
+        cacheReadTokens: 900,
+        cacheCreationTokens: 88,
+      })
+    } finally {
+      await proxy.close(); await up.close()
+    }
+  })
+
+  it('isolates throwing config.onUsage without disrupting response streaming or usage totals', async () => {
+    let called = 0
+    const up = await startMockUpstream(async (req, res, ctx) => {
+      await ctx.body()
+      res.writeHead(200, { 'content-type': 'text/event-stream' })
+      res.end(SSE)
+    })
+    const proxy = await startProxy({
+      upstream: up.url,
+      onUsage: () => {
+        called++
+        throw new Error('boom from interactive telemetry')
+      },
+    })
+    try {
+      const r = await post(proxy.port, [...head, turn1])
+      assert.equal(r.status, 200)
+      assert.equal(r.body.toString(), SSE)
+      assert.equal(called, 1)
+      const health = JSON.parse((await rawRequest(proxy.port, { path: '/health' })).body.toString())
+      assert.equal(health.usage.requests, 1)
+      assert.equal(health.usage.cacheHitRate, 0.9)
+    } finally {
+      await proxy.close(); await up.close()
+    }
+  })
 })

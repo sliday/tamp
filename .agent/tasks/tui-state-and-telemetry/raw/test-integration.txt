@@ -1,0 +1,49 @@
+# Proxy Usage Telemetry End-to-End Integration Tests
+$ node --test test/proxy-usage.test.js
+▶ proxy usage telemetry and replay, end to end
+  ✔ reads cache counters off the response without changing it (72.998375ms)
+  ✔ stops reading the upstream once the client is gone (603.536708ms)
+  ✔ sends an older turn upstream with the same bytes on the next request (57.290833ms)
+  ✔ invokes config.onUsage with (snapshot, usage) on streamed responses (1.7585ms)
+  ✔ isolates throwing config.onUsage without disrupting response streaming or usage totals (2.846667ms)
+✔ proxy usage telemetry and replay, end to end (739.412667ms)
+ℹ tests 5
+ℹ suites 1
+ℹ pass 5
+ℹ fail 0
+ℹ duration_ms 802.263667
+EXIT_CODE=0
+
+# Smoke Integration Suite
+$ node smoke.js
+tamp smoke test (proxy :52246 -> echo :52245)
+
+Test 1: JSON minification
+  PASS compressed (minify or toon)
+  PASS shorter than original
+  PASS shorter than or equal to minified
+  method: toon
+  savings: 234 -> 164 chars (-29.9%)
+
+Test 2: TOON encoding for tabular data
+  PASS TOON is shorter than minified
+  PASS TOON is shorter than original
+  savings: 480 -> 187 chars (-61.0%)
+
+Test 3: Cache-safe mode (only latest message compressed)
+  PASS historical tool_result unchanged (cache-safe)
+  PASS latest tool_result compressed
+
+Test 4: Error results skipped
+  PASS error content unchanged
+
+Test 5: Non-JSON text passthrough
+  PASS text content unchanged
+
+Test 6: GET passthrough
+  PASS status 200
+  PASS response body passed through
+
+────────────────────────────────────────
+All checks passed!
+EXIT_CODE=0

@@ -1,9 +1,11 @@
 import React from 'react'
-import { Box, Text, Static } from 'ink'
+import { Box, Text } from 'ink'
 import { Banner } from './Banner.js'
 import { redactUrl } from '../../stats.js'
 
 const h = React.createElement
+
+export const MAX_VISIBLE_EVENTS = 20
 
 function fmtSize(n) {
   if (n >= 1048576) return (n / 1048576).toFixed(1) + 'M'
@@ -46,15 +48,23 @@ export function LogEntry({ event }) {
   )
 }
 
-function StatsBar({ totals, tokenCost }) {
+export function StatsBar({ totals, tokenCost, usage }) {
   const { totalSaved, totalOriginal, totalTokensSaved, compressionCount } = totals
   const pct = totalOriginal > 0 ? (((totalSaved) / totalOriginal) * 100).toFixed(1) : '0.0'
   const costPerM = tokenCost || 3
   const dollars = (totalTokensSaved / 1_000_000) * costPerM
+  const hasCacheRate = typeof usage?.cacheHitRate === 'number' && Number.isFinite(usage.cacheHitRate)
+  const cacheEl = hasCacheRate
+    ? h(Text, null,
+        h(Text, { dimColor: true }, 'cache '),
+        h(Text, { color: 'cyan', bold: true }, `${(usage.cacheHitRate * 100).toFixed(1)}%`),
+      )
+    : null
 
   if (compressionCount === 0) {
-    return h(Box, { paddingX: 1, marginTop: 1 },
+    return h(Box, { paddingX: 1, marginTop: 1, gap: 2 },
       h(Text, { dimColor: true }, 'Waiting for requests...'),
+      cacheEl,
     )
   }
 
@@ -84,10 +94,15 @@ function StatsBar({ totals, tokenCost }) {
           h(Text, { dimColor: true }, ` @ $${costPerM}/Mtok`),
         )
       : null,
+    cacheEl,
   )
 }
 
-export function Dashboard({ version, config, events, totals }) {
+export function Dashboard({ version, config, events, totals, usage }) {
+  const visibleEvents = events.length > MAX_VISIBLE_EVENTS
+    ? events.slice(-MAX_VISIBLE_EVENTS)
+    : events
+
   return h(Box, { flexDirection: 'column' },
     h(Banner, {
       version,
@@ -95,13 +110,12 @@ export function Dashboard({ version, config, events, totals }) {
       stages: config.stages,
       llmLinguaUrl: config.llmLinguaUrl,
       outputMode: config.outputMode,
+      level: config.level,
     }),
-    h(StatsBar, { totals, tokenCost: config.tokenCost }),
-    events.length > 0
+    h(StatsBar, { totals, tokenCost: config.tokenCost, usage }),
+    visibleEvents.length > 0
       ? h(Box, { flexDirection: 'column', marginTop: 1 },
-          h(Static, { items: events },
-            (event) => h(LogEntry, { key: event.id, event }),
-          ),
+          ...visibleEvents.map(event => h(LogEntry, { key: event.id, event })),
         )
       : null,
   )

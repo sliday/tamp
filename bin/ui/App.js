@@ -7,29 +7,95 @@ import { installShutdown, writePidFile, diagnoseBindConflict } from '../lifecycl
 
 const h = React.createElement
 
+export const MAX_EVENTS = 200
+
+export function appendBoundedEvent(events, event, max = MAX_EVENTS) {
+  if (max <= 0) return []
+  const next = [...events, event]
+  return next.length > max ? next.slice(next.length - max) : next
+}
+
+export function buildInteractiveProxyArgs(selection, { sidecarUrl = null, sidecarFailed = false, onCompress, onUsage } = {}) {
+  const overrides = { log: false }
+  if (onCompress !== undefined) overrides.onCompress = onCompress
+  if (onUsage !== undefined) overrides.onUsage = onUsage
+  const loadOpts = {}
+
+  const isLevel = selection?.kind === 'level' && Number.isInteger(selection.level)
+  const rawStages = Array.isArray(selection?.stages) ? selection.stages : []
+  const activeStages = sidecarFailed ? rawStages.filter(s => s !== 'llmlingua') : [...rawStages]
+
+  if (isLevel) {
+    loadOpts.levelOverride = selection.level
+    if (sidecarFailed) {
+      overrides.stages = activeStages
+    }
+  } else {
+    overrides.stages = activeStages
+    overrides.level = null
+  }
+
+  if (sidecarUrl) {
+    overrides.llmLinguaUrl = sidecarUrl
+  }
+
+  return { overrides, loadOpts }
+}
+
+export async function handleServerError(err, {
+  port,
+  getSidecarProc,
+  exit,
+  diagnose = diagnoseBindConflict,
+  stderr = process.stderr,
+  exitProcess = process.exit,
+} = {}) {
+  let message = `\n[tamp] Failed to start: ${err?.message || String(err)}\n`
+  if (err?.code === 'EADDRINUSE') {
+    try {
+      const diag = await diagnose(port)
+      if (diag?.message) message = `\n[tamp] ${diag.message}\n`
+    } catch {
+      message = `\n[tamp] Port ${port} is already in use.\n`
+    }
+  }
+  try { getSidecarProc?.()?.kill() } catch {}
+  try { exit?.() } catch {}
+  stderr.write(message)
+  exitProcess(1)
+}
+
 export function App({ version, envStages, argvLevel, startSidecar, createProxy, getSidecarProc, ensurePortFree }) {
   const { exit } = useApp()
   const [phase, setPhase] = useState('pick')
-  const [stages, setStages] = useState(null)
   const [events, setEvents] = useState([])
   const [totals, setTotals] = useState({ totalSaved: 0, totalOriginal: 0, totalTokensSaved: 0, compressionCount: 0 })
+  const [usage, setUsage] = useState(null)
   const [config, setConfig] = useState(null)
   const serverRef = useRef(null)
   const sidecarUrlRef = useRef(null)
-  const stagesRef = useRef(null)
+  const selectionRef = useRef(null)
   const eventIdRef = useRef(0)
 
   const onCompress = useCallback((stats, newTotals, meta) => {
     const id = eventIdRef.current++
-    setEvents(prev => [...prev, { id, stats, totals: newTotals, meta }])
+    setEvents(prev => appendBoundedEvent(prev, { id, stats, totals: newTotals, meta }))
     setTotals(newTotals)
   }, [])
 
-  const startProxy = useCallback(async (selectedStages, sidecarUrl) => {
-    process.env.TAMP_STAGES = selectedStages.join(',')
-    if (sidecarUrl) process.env.TAMP_LLMLINGUA_URL = sidecarUrl
+  const onUsage = useCallback((snapshot) => {
+    setUsage(snapshot)
+  }, [])
 
-    const { config: proxyConfig, server } = createProxy({ onCompress, log: false })
+  const startProxy = useCallback(async (selection, { sidecarUrl = null, sidecarFailed = false } = {}) => {
+    const { overrides, loadOpts } = buildInteractiveProxyArgs(selection, {
+      sidecarUrl,
+      sidecarFailed,
+      onCompress,
+      onUsage,
+    })
+
+    const { config: proxyConfig, server } = createProxy(overrides, loadOpts)
     serverRef.current = server
     setConfig(proxyConfig)
 
@@ -38,15 +104,11 @@ export function App({ version, envStages, argvLevel, startSidecar, createProxy, 
     }
 
     server.on('error', async (err) => {
-      if (err.code === 'EADDRINUSE') {
-        const diag = await diagnoseBindConflict(proxyConfig.port)
-        exit()
-        process.stderr.write(`\n[tamp] ${diag.message}\n`)
-      } else {
-        exit()
-        process.stderr.write(`\n[tamp] Failed to start: ${err.message}\n`)
-      }
-      process.exit(1)
+      await handleServerError(err, {
+        port: proxyConfig.port,
+        getSidecarProc,
+        exit,
+      })
     })
     server.listen(proxyConfig.port, proxyConfig.host, () => {
       try { writePidFile(proxyConfig.port) } catch {}
@@ -58,38 +120,28 @@ export function App({ version, envStages, argvLevel, startSidecar, createProxy, 
       })
       setPhase('running')
     })
-  }, [onCompress, createProxy, exit, getSidecarProc, ensurePortFree])
-
-  const onStagesSelected = useCallback((selected) => {
-    setStages(selected)
-    stagesRef.current = selected
-    if (selected.includes('llmlingua')) {
-      setPhase('loading')
-    } else {
-      startProxy(selected, null)
-    }
-  }, [startProxy])
+  }, [onCompress, onUsage, createProxy, exit, getSidecarProc, ensurePortFree])
 
   const onPickerSubmit = useCallback((payload) => {
     // payload: { kind: 'level', level, stages } | { kind: 'stages', stages }
-    if (payload && payload.kind === 'level' && Number.isInteger(payload.level)) {
-      process.env.TAMP_LEVEL = String(payload.level)
+    selectionRef.current = payload
+    const selected = Array.isArray(payload?.stages) ? payload.stages : []
+    if (selected.includes('llmlingua')) {
+      setPhase('loading')
+    } else {
+      startProxy(payload, { sidecarUrl: null, sidecarFailed: false })
     }
-    onStagesSelected(payload.stages)
-  }, [onStagesSelected])
+  }, [startProxy])
 
-  // Use stagesRef to avoid stale closure — SidecarLoader's useEffect
+  // Use selectionRef to avoid stale closure — SidecarLoader's useEffect
   // captures onReady/onFail on first render only
   const onSidecarReady = useCallback((url) => {
     sidecarUrlRef.current = url
-    startProxy(stagesRef.current, url)
+    startProxy(selectionRef.current, { sidecarUrl: url, sidecarFailed: false })
   }, [startProxy])
 
   const onSidecarFail = useCallback(() => {
-    const filtered = stagesRef.current.filter(s => s !== 'llmlingua')
-    setStages(filtered)
-    stagesRef.current = filtered
-    startProxy(filtered, null)
+    startProxy(selectionRef.current, { sidecarUrl: null, sidecarFailed: true })
   }, [startProxy])
 
   if (phase === 'pick') {
@@ -101,7 +153,7 @@ export function App({ version, envStages, argvLevel, startSidecar, createProxy, 
   }
 
   if (phase === 'running' && config) {
-    return h(Dashboard, { version, config, events, totals })
+    return h(Dashboard, { version, config, events, totals, usage })
   }
 
   return h(Box, { paddingX: 1 }, h(Text, { dimColor: true }, 'Starting...'))

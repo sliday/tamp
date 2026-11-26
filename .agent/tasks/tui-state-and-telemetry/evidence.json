@@ -1,0 +1,86 @@
+{
+  "task_id": "tui-state-and-telemetry",
+  "overall_status": "PASS",
+  "acceptance_criteria": [
+    {
+      "id": "AC1",
+      "text": "No process.env mutation & accurate proxy config in bin/ui/App.js",
+      "status": "PASS",
+      "proof": [
+        "bin/ui/App.js exports buildInteractiveProxyArgs and removes all process.env.TAMP_* writes",
+        "test/tui-state-telemetry.test.js AC1 suite (6/6 pass)",
+        ".agent/tasks/tui-state-and-telemetry/raw/lint.txt confirms 0 process.env.TAMP_* assignments"
+      ],
+      "gaps": []
+    },
+    {
+      "id": "AC2",
+      "text": "Sidecar cleanup on server bind error in bin/ui/App.js",
+      "status": "PASS",
+      "proof": [
+        "bin/ui/App.js exports handleServerError calling getSidecarProc?.()?.kill() in try/catch before exit on EADDRINUSE and generic errors",
+        "test/tui-state-telemetry.test.js AC2 suite (3/3 pass)",
+        "test/cli-hardening.test.js confirms server.listen loopback host binding preserved"
+      ],
+      "gaps": []
+    },
+    {
+      "id": "AC3",
+      "text": "Bounded events state in bin/ui/App.js & Ink rendering compatibility in bin/ui/Dashboard.js",
+      "status": "PASS",
+      "proof": [
+        "bin/ui/App.js exports MAX_EVENTS = 200 and appendBoundedEvent used in onCompress",
+        "bin/ui/Dashboard.js replaces Ink <Static> with bounded Box tail (MAX_VISIBLE_EVENTS = 20) while preserving redactUrl",
+        "test/tui-state-telemetry.test.js AC3 suite (2/2 pass) and test/cli-hardening.test.js URL redaction (2/2 pass)"
+      ],
+      "gaps": []
+    },
+    {
+      "id": "AC4",
+      "text": "Live usage telemetry callback in index.js",
+      "status": "PASS",
+      "proof": [
+        "index.js invokes try { config.onUsage?.(usageTotals.snapshot(), u) } catch {} after usageTotals.record(u)",
+        "test/proxy-usage.test.js verifies (snapshot, usage) delivery and throwing-callback isolation (5/5 pass)"
+      ],
+      "gaps": []
+    },
+    {
+      "id": "AC5",
+      "text": "Banner level propagation and live cache-hit display in bin/ui/Dashboard.js & bin/ui/App.js",
+      "status": "PASS",
+      "proof": [
+        "bin/ui/App.js stores live usage state via onUsage and passes usage to Dashboard",
+        "bin/ui/Dashboard.js forwards level: config.level to Banner and renders finite usage.cacheHitRate as cache XX.X% in StatsBar",
+        "test/tui-state-telemetry.test.js AC5 suite (7/7 pass) and test/banner.test.js (13/13 pass)"
+      ],
+      "gaps": []
+    },
+    {
+      "id": "AC6",
+      "text": "Deterministic unit tests without a live TTY and existing suites green",
+      "status": "PASS",
+      "proof": [
+        "test/tui-state-telemetry.test.js (18 tests) and test/proxy-usage.test.js (+2 tests) require no TTY or new dependencies",
+        "npm test passes 931/931 tests across 211 suites + bench/retrieval-eval.js PASS",
+        "node smoke.js passes 6/6 checks"
+      ],
+      "gaps": []
+    }
+  ],
+  "changed_files": [
+    "bin/ui/App.js",
+    "bin/ui/Dashboard.js",
+    "index.js",
+    "test/proxy-usage.test.js",
+    "test/tui-state-telemetry.test.js"
+  ],
+  "commands_for_fresh_verifier": [
+    "node --check bin/ui/App.js bin/ui/Dashboard.js index.js test/tui-state-telemetry.test.js test/proxy-usage.test.js",
+    "node --test test/tui-state-telemetry.test.js test/cli-hardening.test.js test/banner.test.js",
+    "node --test test/proxy-usage.test.js",
+    "npm test",
+    "node smoke.js"
+  ],
+  "known_gaps": []
+}

@@ -160,6 +160,7 @@ function openUpstream(method, upstreamUrl, headers, res) {
       contentEncoding: upstreamRes.headers['content-encoding'],
       onUsage: (u) => {
         usageTotals.record(u)
+        try { config.onUsage?.(usageTotals.snapshot(), u) } catch {}
         log(`[tamp]   usage: in=${u.inputTokens} cache_read=${u.cacheReadTokens} cache_write=${u.cacheCreationTokens} out=${u.outputTokens}`)
       },
     })

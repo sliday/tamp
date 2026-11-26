@@ -1,0 +1,5 @@
+# Build Check (plain Node.js ESM — no build step)
+$ node --version
+v22.17.0
+$ node --check bin/ui/App.js bin/ui/Dashboard.js index.js test/tui-state-telemetry.test.js test/proxy-usage.test.js
+EXIT_CODE=0
