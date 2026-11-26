@@ -221,7 +221,7 @@ export function resolveLevel(input) {
   if (typeof input === 'number' && Number.isInteger(input) && input >= 1 && input <= 9) {
     return COMPRESSION_LEVELS[input]
   }
-  if (typeof input === 'string' && input in LEVEL_ALIASES) {
+  if (typeof input === 'string' && Object.hasOwn(LEVEL_ALIASES, input)) {
     return COMPRESSION_LEVELS[LEVEL_ALIASES[input]]
   }
   return null

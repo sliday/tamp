@@ -1,0 +1,110 @@
+=== Targeted Unit Tests ===
+Command: node --test test/config.test.js test/metadata.test.js test/cli-hardening.test.js test/tui-state-telemetry.test.js
+Exit code: 0
+
+▶ App.js host binding hardening
+  ✔ passes proxyConfig.host to server.listen so interactive TUI binds loopback by default (0.309625ms)
+✔ App.js host binding hardening (0.642541ms)
+▶ Dashboard.js URL redaction
+  ✔ redacts query-string API keys in compressed log entries (0.520041ms)
+  ✔ redacts query-string API keys in passthrough/skipped log entries (0.060791ms)
+✔ Dashboard.js URL redaction (0.633458ms)
+▶ bin/tamp.js non-interactive stage resolution
+  ✔ respects TAMP_COMPRESSION_PRESET without mutating process.env.TAMP_STAGES (0.703917ms)
+  ✔ respects TAMP_LEVEL without mutating process.env.TAMP_STAGES (0.286667ms)
+  ✔ respects level= in config file without clobbering with DEFAULT_STAGES (0.790458ms)
+  ✔ strips llmlingua via overrides instead of mutating TAMP_STAGES when sidecar fails (1.254584ms)
+  ✔ passes llmLinguaUrl via overrides when sidecar starts (0.147542ms)
+  ✔ resolves --preset recommended non-interactively without starting sidecar or mutating process.env (0.401792ms)
+✔ bin/tamp.js non-interactive stage resolution (3.761084ms)
+▶ bin/tamp.js --preset flag parsing, validation, and subprocess CLI checks
+  ✔ parsePresetArgv accepts --preset NAME and --preset=NAME for all COMPRESSION_PRESETS keys (0.280542ms)
+  ✔ parsePresetArgv rejects missing, empty, unknown, and prototype-chain keys (0.1295ms)
+  ✔ parseCliFlags rejects mutually exclusive --level and --preset in any order/form (0.038625ms)
+  ✔ resolveInteractiveSeed maps anchored presets to envLevel and recommended to envStages Set (0.086208ms)
+  ✔ subprocess: tamp help / --help / -h exits 0 and documents --preset NAME (147.142042ms)
+  ✔ subprocess: invalid/missing/prototype-key --preset and --level + --preset conflict exit 2 with stderr (453.516625ms)
+✔ bin/tamp.js --preset flag parsing, validation, and subprocess CLI checks (601.302958ms)
+▶ bin/tamp.js status formatting and lifecycle guards
+  ✔ formats live health stats including cache hit rate when present (0.167917ms)
+  ✔ omits cache hit rate when usage.cacheHitRate is null (0.054625ms)
+  ✔ uses loadConfig().port in status and stop, and guards kill calls with isTampProcess (0.224708ms)
+✔ bin/tamp.js status formatting and lifecycle guards (0.520209ms)
+▶ sidecar/server.py hardening
+  ✔ uses FastAPI lifespan, sync compress endpoint, and 503 guard before model loads (0.141833ms)
+✔ sidecar/server.py hardening (0.176667ms)
+▶ loadConfig (19 passed)
+▶ loadConfigFile (7 passed)
+▶ loadConfig — level precedence matrix (Phase C) (14 passed)
+▶ loadConfig — stale eviction & upstreamTimeout non-negative int parsing (5 passed)
+▶ loadConfig — options.presetOverride precedence & safety
+  ✔ resolves every valid presetOverride with accurate preset, level, levelSource, and fresh stages copy (0.201875ms)
+  ✔ enforces full 7-tier precedence: TAMP_STAGES > levelOverride > presetOverride > TAMP_LEVEL > TAMP_COMPRESSION_PRESET > config-file > default (0.640625ms)
+  ✔ treats undefined, null, and empty string presetOverride as unset without warning (0.072875ms)
+  ✔ warns and falls through cleanly on invalid, non-string, and prototype-chain presetOverride values (0.208417ms)
+✔ loadConfig — options.presetOverride precedence & safety (1.229583ms)
+▶ isLossy classification (4 passed)
+▶ metadata invariants (8 passed)
+▶ COMPRESSION_LEVELS ladder (11 passed)
+▶ resolveLevel
+  ✔ resolves integer 1..9 to the matching level (0.056459ms)
+  ✔ resolveLevel(4).stages === COMPRESSION_LEVELS[4].stages (0.021083ms)
+  ✔ resolveLevel("balanced").stages equals L5 stages (0.020625ms)
+  ✔ resolves each preset alias (0.025042ms)
+  ✔ returns null for unknown string (0.020334ms)
+  ✔ returns null for out-of-range or non-integer numbers (0.0225ms)
+  ✔ returns null for non-number/non-string inputs (0.054792ms)
+  ✔ returns null for prototype-chain keys (Object.hasOwn guard) (0.033708ms)
+  ✔ LEVEL_ALIASES maps to canonical level numbers (0.02125ms)
+✔ resolveLevel (0.337ms)
+▶ AC1: App.js proxy arg building and zero process.env mutation (6 passed)
+▶ AC2: Sidecar cleanup on server bind error (3 passed)
+▶ AC3: Bounded events array and Dashboard rendering past MAX_EVENTS (2 passed)
+▶ AC5: Dashboard Banner level propagation and StatsBar live cache hit rate (7 passed)
+
+ℹ tests 118
+ℹ suites 19
+ℹ pass 118
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 893.053167
+
+=== Full Test Suite (npm test) ===
+Command: npm test (runs `node --test test/*.test.js && node bench/retrieval-eval.js`)
+Exit code: 0
+
+ℹ tests 943
+ℹ suites 213
+ℹ pass 943
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 8374.439709
+
+bm25-trim retrieval quality  (15 fixtures, offline)
+
+fixture                    NDCG@10 before   after      Recall before   after
+--------------------------------------------------------------------------------
+camel-definition             0.000      0.920           0.0%   100.0%
+snake-definition             0.000      0.920           0.0%   100.0%
+pascal-class                 0.613      0.920          50.0%   100.0%
+acronym-method               0.000      0.920           0.0%   100.0%
+interface-type               0.000      0.920           0.0%   100.0%
+go-func                      0.613      1.000         100.0%   100.0%
+rust-fn                      0.387      0.877          50.0%   100.0%
+nested-method                0.000      0.920           0.0%   100.0%
+const-arrow                  1.000      1.000         100.0%   100.0%
+error-string                 1.000      1.000         100.0%   100.0%
+config-key                   0.000      1.000           0.0%   100.0%
+comment-vs-code              0.000      0.920           0.0%   100.0%
+definition-vs-callsite       0.000      0.651           0.0%   100.0%
+multi-term                   1.000      1.000         100.0%   100.0%
+dotted-path                  0.613      1.000         100.0%   100.0%
+--------------------------------------------------------------------------------
+MEAN                         0.348      0.931          40.0%   100.0%
+
+definition survival at 4096-token budget: 100.0%
+PASS

@@ -1,11 +1,18 @@
 import { describe, it, afterEach } from 'node:test'
 import assert from 'node:assert/strict'
+import { spawnSync } from 'node:child_process'
 import { readFileSync, writeFileSync, unlinkSync, mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { LogEntry } from '../bin/ui/Dashboard.js'
-import { resolveNonInteractiveConfig, formatStatusLines } from '../bin/tamp.js'
+import { resolveInteractiveSeed } from '../bin/ui/App.js'
+import {
+  resolveNonInteractiveConfig,
+  formatStatusLines,
+  parsePresetArgv,
+  parseCliFlags,
+} from '../bin/tamp.js'
 import { createProxy } from '../index.js'
 import { COMPRESSION_PRESETS, COMPRESSION_LEVELS } from '../metadata.js'
 
@@ -165,6 +172,172 @@ describe('bin/tamp.js non-interactive stage resolution', () => {
     assert.equal(res.overrides.llmLinguaUrl, 'http://localhost:8788')
     assert.equal(process.env.TAMP_LLMLINGUA_URL, undefined)
     assert.equal(process.env.TAMP_STAGES, undefined)
+  })
+
+  it('resolves --preset recommended non-interactively without starting sidecar or mutating process.env', async () => {
+    snapshotEnv()
+    for (const k of ['TAMP_STAGES', 'TAMP_LEVEL', 'TAMP_COMPRESSION_PRESET', 'TAMP_LLMLINGUA_URL']) {
+      delete process.env[k]
+    }
+    const dir = mkdtempSync(join(tmpdir(), 'tamp-cfg-'))
+    tempDirs.push(dir)
+    process.env.TAMP_CONFIG = join(dir, 'missing-config')
+
+    let sidecarCalled = false
+    const res = await resolveNonInteractiveConfig({
+      env: process.env,
+      argvPreset: 'recommended',
+      startSidecarFn: async () => { sidecarCalled = true; return 'http://localhost:8788' },
+    })
+
+    assert.equal(res.probe.preset, 'recommended')
+    assert.equal(res.probe.level, null)
+    assert.equal(res.probe.levelSource, 'preset-flag')
+    assert.equal(res.selectedStages.length, 14)
+    assert.deepEqual(res.selectedStages, [...COMPRESSION_PRESETS.recommended.stages])
+    assert.equal(res.selectedStages.includes('llmlingua'), false)
+    assert.equal(sidecarCalled, false, 'recommended excludes llmlingua so sidecar must not start')
+    assert.deepEqual(res.loadOpts, { presetOverride: 'recommended' })
+
+    const { config } = createProxy(res.overrides, res.loadOpts)
+    assert.equal(config.preset, 'recommended')
+    assert.equal(config.level, null)
+    assert.equal(config.levelSource, 'preset-flag')
+    assert.deepEqual(config.stages, [...COMPRESSION_PRESETS.recommended.stages])
+
+    assert.equal(process.env.TAMP_STAGES, undefined)
+    assert.equal(process.env.TAMP_COMPRESSION_PRESET, undefined)
+    assert.equal(process.env.TAMP_LEVEL, undefined)
+    assert.equal(process.env.TAMP_LLMLINGUA_URL, undefined)
+  })
+})
+
+describe('bin/tamp.js --preset flag parsing, validation, and subprocess CLI checks', () => {
+  const cliPath = join(ROOT, 'bin', 'tamp.js')
+
+  it('parsePresetArgv accepts --preset NAME and --preset=NAME for all COMPRESSION_PRESETS keys', () => {
+    for (const name of Object.keys(COMPRESSION_PRESETS)) {
+      assert.deepEqual(parsePresetArgv(['--preset', name]), { preset: name, error: null })
+      assert.deepEqual(parsePresetArgv([`--preset=${name}`]), { preset: name, error: null })
+      assert.deepEqual(parseCliFlags(['-y', '--preset', name]), { level: null, preset: name, error: null })
+    }
+    assert.deepEqual(parsePresetArgv([]), { preset: null, error: null })
+    assert.deepEqual(parseCliFlags(['-y']), { level: null, preset: null, error: null })
+  })
+
+  it('parsePresetArgv rejects missing, empty, unknown, and prototype-chain keys', () => {
+    for (const argv of [
+      ['--preset'],
+      ['-y', '--preset'],
+      ['--preset='],
+      ['--preset', 'bogus'],
+      ['--preset', '-y'],
+      ['--preset', 'toString'],
+      ['--preset=constructor'],
+      ['--preset', 'valueOf'],
+      ['--preset', 'hasOwnProperty'],
+      ['--preset', '__proto__'],
+    ]) {
+      const res = parsePresetArgv(argv)
+      assert.equal(res.preset, null, `expected null preset for ${JSON.stringify(argv)}`)
+      assert.ok(typeof res.error === 'string' && res.error.length > 0, `expected error for ${JSON.stringify(argv)}`)
+      assert.match(res.error, /--preset/)
+      assert.match(res.error, /recommended/)
+    }
+  })
+
+  it('parseCliFlags rejects mutually exclusive --level and --preset in any order/form', () => {
+    for (const argv of [
+      ['--level', '5', '--preset', 'recommended'],
+      ['--preset=balanced', '--level=5'],
+      ['--preset', 'conservative', '--level', '3'],
+      ['--level=8', '--preset=aggressive'],
+    ]) {
+      const res = parseCliFlags(argv)
+      assert.equal(res.level, null)
+      assert.equal(res.preset, null)
+      assert.match(res.error, /--level/)
+      assert.match(res.error, /--preset/)
+    }
+  })
+
+  it('resolveInteractiveSeed maps anchored presets to envLevel and recommended to envStages Set', () => {
+    assert.deepEqual(
+      resolveInteractiveSeed({ argvLevel: null, argvPreset: 'conservative', envStages: null }),
+      { envLevel: 4, envStages: null },
+    )
+    assert.deepEqual(
+      resolveInteractiveSeed({ argvLevel: null, argvPreset: 'balanced', envStages: null }),
+      { envLevel: 5, envStages: null },
+    )
+    assert.deepEqual(
+      resolveInteractiveSeed({ argvLevel: null, argvPreset: 'aggressive', envStages: null }),
+      { envLevel: 8, envStages: null },
+    )
+    // Explicit argvLevel wins over preset level if both passed programmatically
+    assert.deepEqual(
+      resolveInteractiveSeed({ argvLevel: 2, argvPreset: 'aggressive', envStages: null }),
+      { envLevel: 2, envStages: null },
+    )
+
+    // recommended seeds envStages as a Set when unset
+    const recSeed = resolveInteractiveSeed({ argvLevel: null, argvPreset: 'recommended', envStages: null })
+    assert.equal(recSeed.envLevel, null)
+    assert.ok(recSeed.envStages instanceof Set)
+    assert.equal(recSeed.envStages.size, 14)
+    assert.deepEqual([...recSeed.envStages], COMPRESSION_PRESETS.recommended.stages)
+
+    // existing envStages (TAMP_STAGES) beats --preset recommended
+    const custom = new Set(['minify', 'dedup'])
+    const kept = resolveInteractiveSeed({ argvLevel: null, argvPreset: 'recommended', envStages: custom })
+    assert.equal(kept.envLevel, null)
+    assert.equal(kept.envStages, custom)
+
+    // absent / invalid / prototype key passes through unchanged
+    for (const bad of [null, undefined, '', 'bogus', 'toString', '__proto__']) {
+      assert.deepEqual(
+        resolveInteractiveSeed({ argvLevel: null, argvPreset: bad, envStages: null }),
+        { envLevel: null, envStages: null },
+      )
+    }
+  })
+
+  it('subprocess: tamp help / --help / -h exits 0 and documents --preset NAME', () => {
+    for (const args of [['help'], ['--help'], ['-h']]) {
+      const r = spawnSync(process.execPath, [cliPath, ...args], { encoding: 'utf8' })
+      assert.equal(r.status, 0, `${args.join(' ')} must exit 0`)
+      assert.match(r.stdout, /--preset NAME/)
+      assert.match(r.stdout, /conservative, balanced, aggressive, recommended/)
+    }
+  })
+
+  it('subprocess: invalid/missing/prototype-key --preset and --level + --preset conflict exit 2 with stderr', () => {
+    const invalidCases = [
+      ['--preset'],
+      ['-y', '--preset'],
+      ['--preset='],
+      ['--preset', 'bogus'],
+      ['--preset', 'toString'],
+      ['--preset=constructor'],
+      ['--preset', '__proto__'],
+    ]
+    for (const args of invalidCases) {
+      const r = spawnSync(process.execPath, [cliPath, ...args], { encoding: 'utf8' })
+      assert.equal(r.status, 2, `expected exit 2 for ${JSON.stringify(args)}, got ${r.status}`)
+      assert.match(r.stderr, /--preset/)
+      assert.match(r.stderr, /recommended/)
+    }
+
+    const conflictCases = [
+      ['--level', '5', '--preset', 'recommended'],
+      ['--preset=balanced', '--level=5'],
+    ]
+    for (const args of conflictCases) {
+      const r = spawnSync(process.execPath, [cliPath, ...args], { encoding: 'utf8' })
+      assert.equal(r.status, 2, `expected exit 2 for ${JSON.stringify(args)}, got ${r.status}`)
+      assert.match(r.stderr, /--level/)
+      assert.match(r.stderr, /--preset/)
+    }
   })
 })
 

@@ -4,10 +4,30 @@ import { LevelPicker } from './LevelPicker.js'
 import { SidecarLoader } from './SidecarLoader.js'
 import { Dashboard } from './Dashboard.js'
 import { installShutdown, writePidFile, diagnoseBindConflict } from '../lifecycle.js'
+import { COMPRESSION_PRESETS } from '../../metadata.js'
 
 const h = React.createElement
 
 export const MAX_EVENTS = 200
+
+export function resolveInteractiveSeed({ argvLevel = null, argvPreset = null, envStages = null } = {}) {
+  if (typeof argvPreset === 'string' && Object.hasOwn(COMPRESSION_PRESETS, argvPreset)) {
+    const preset = COMPRESSION_PRESETS[argvPreset]
+    if (Number.isInteger(preset.level)) {
+      return {
+        envLevel: argvLevel ?? preset.level,
+        envStages,
+      }
+    }
+    if (preset.level === null) {
+      return {
+        envLevel: argvLevel,
+        envStages: envStages ?? new Set(preset.stages),
+      }
+    }
+  }
+  return { envLevel: argvLevel, envStages }
+}
 
 export function appendBoundedEvent(events, event, max = MAX_EVENTS) {
   if (max <= 0) return []
@@ -65,7 +85,7 @@ export async function handleServerError(err, {
   exitProcess(1)
 }
 
-export function App({ version, envStages, argvLevel, startSidecar, createProxy, getSidecarProc, ensurePortFree }) {
+export function App({ version, envStages, argvLevel, argvPreset, startSidecar, createProxy, getSidecarProc, ensurePortFree }) {
   const { exit } = useApp()
   const [phase, setPhase] = useState('pick')
   const [events, setEvents] = useState([])
@@ -145,7 +165,8 @@ export function App({ version, envStages, argvLevel, startSidecar, createProxy, 
   }, [startProxy])
 
   if (phase === 'pick') {
-    return h(LevelPicker, { version, envLevel: argvLevel, envStages, onSelect: onPickerSubmit })
+    const seed = resolveInteractiveSeed({ argvLevel, argvPreset, envStages })
+    return h(LevelPicker, { version, envLevel: seed.envLevel, envStages: seed.envStages, onSelect: onPickerSubmit })
   }
 
   if (phase === 'loading') {

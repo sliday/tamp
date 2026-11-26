@@ -1,0 +1,107 @@
+=== Smoke Test Suite ===
+Command: node smoke.js
+Exit code: 0
+
+tamp smoke test (proxy :64336 -> echo :64335)
+
+Test 1: JSON minification
+  PASS compressed (minify or toon)
+  PASS shorter than original
+  PASS shorter than or equal to minified
+  method: toon
+  savings: 234 -> 164 chars (-29.9%)
+
+Test 2: TOON encoding for tabular data
+  PASS TOON is shorter than minified
+  PASS TOON is shorter than original
+  savings: 480 -> 187 chars (-61.0%)
+
+Test 3: Cache-safe mode (only latest message compressed)
+  PASS historical tool_result unchanged (cache-safe)
+  PASS latest tool_result compressed
+
+Test 4: Error results skipped
+  PASS error content unchanged
+
+Test 5: Non-JSON text passthrough
+  PASS text content unchanged
+
+Test 6: GET passthrough
+  PASS status 200
+  PASS response body passed through
+
+────────────────────────────────────────
+All checks passed!
+
+=== CLI Subprocess Verification ===
+=== node bin/tamp.js help ===
+exit=0
+stdout:
+Tamp v0.9.1 — Token compression proxy for coding agents
+
+Usage: tamp [command] [options]
+
+Commands:
+  (default)           Start proxy (interactive stage picker)
+  -y                  Start proxy (non-interactive, use defaults)
+  -y --force          Replace any existing Tamp on the same port
+  stop                Stop a running Tamp on TAMP_PORT (default 7778)
+  compress-config     Compress CLAUDE.md or config files (caveman mode)
+  init                Create config file (~/.config/tamp/config)
+  settings            Edit compression level and stages
+  status              Check if proxy is running
+  install-service     Keep Tamp running (launchd on macOS, systemd on Linux)
+  uninstall-service   Remove the service
+  help                Show this help
+
+Options:
+  --level N        Compression level 1..9 (or: conservative, balanced, aggressive, max)
+  --preset NAME    Compression preset (conservative, balanced, aggressive, recommended)
+
+Config: /Users/stas/.config/tamp/config
+
+=== node bin/tamp.js --help ===
+exit=0 (same help output including --preset NAME)
+
+=== node bin/tamp.js -h ===
+exit=0 (same help output including --preset NAME)
+
+=== node bin/tamp.js --preset ===
+exit=2
+stderr:
+[tamp] --preset requires a value (one of: conservative, balanced, aggressive, recommended)
+
+=== node bin/tamp.js --preset= ===
+exit=2
+stderr:
+[tamp] --preset requires a value (one of: conservative, balanced, aggressive, recommended)
+
+=== node bin/tamp.js --preset bogus ===
+exit=2
+stderr:
+[tamp] invalid --preset=bogus — expected one of: conservative, balanced, aggressive, recommended
+
+=== node bin/tamp.js --preset toString ===
+exit=2
+stderr:
+[tamp] invalid --preset=toString — expected one of: conservative, balanced, aggressive, recommended
+
+=== node bin/tamp.js --preset=constructor ===
+exit=2
+stderr:
+[tamp] invalid --preset=constructor — expected one of: conservative, balanced, aggressive, recommended
+
+=== node bin/tamp.js --preset __proto__ ===
+exit=2
+stderr:
+[tamp] invalid --preset=__proto__ — expected one of: conservative, balanced, aggressive, recommended
+
+=== node bin/tamp.js --level 5 --preset recommended ===
+exit=2
+stderr:
+[tamp] --level and --preset cannot be used together — choose one
+
+=== node bin/tamp.js --preset=balanced --level=5 ===
+exit=2
+stderr:
+[tamp] --level and --preset cannot be used together — choose one
