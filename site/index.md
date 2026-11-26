@@ -26,7 +26,7 @@ Or via npm:
 
 ```sh
 npm install -g @sliday/tamp
-tamp start
+tamp # or: tamp -y
 ```
 
 ## Wire it up in 30 seconds
@@ -34,7 +34,8 @@ tamp start
 Set one environment variable. Your agent never knows there's a proxy in the way.
 
 ```sh
-export ANTHROPIC_BASE_URL="http://localhost:7778"
+export ANTHROPIC_BASE_URL="http://localhost:7778"    # Claude Code
+export OPENAI_API_BASE="http://localhost:7778/v1"    # Aider, Cursor, Cline
 ```
 
 Per-agent instructions (Claude Code, Codex CLI, Cursor, Cline, Continue, Aider): <https://github.com/sliday/tamp#wire-it-up-in-30-seconds>

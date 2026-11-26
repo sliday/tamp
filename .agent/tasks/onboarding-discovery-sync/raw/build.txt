@@ -1,0 +1,16 @@
+# Build check: N/A (plain ESM Node.js + static HTML/Markdown/Bash)
+$ git status --short
+ M setup.sh
+ M site/index.html
+ M site/index.md
+ M site/setup.sh
+ M test/docs.test.js
+?? .agent/tasks/onboarding-discovery-sync/
+
+$ git diff --stat
+ setup.sh          | 25 +++++++++++++------------
+ site/index.html   | 29 +++++++++++++++++++++--------
+ site/index.md     |  5 +++--
+ site/setup.sh     | 25 +++++++++++++------------
+ test/docs.test.js | 33 +++++++++++++++++++++++++++++++++
+ 5 files changed, 83 insertions(+), 34 deletions(-)

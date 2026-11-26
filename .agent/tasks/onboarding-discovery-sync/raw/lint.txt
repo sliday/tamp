@@ -1,0 +1,28 @@
+$ bash -n setup.sh && bash -n site/setup.sh
+EXIT=0
+
+$ cmp -s setup.sh site/setup.sh
+EXIT=0 (byte-identical)
+
+$ test -x setup.sh && test -x site/setup.sh
+EXIT=0 (both executable)
+
+$ ls -la setup.sh site/setup.sh
+-rwxr-xr-x@ 1 stas  staff  4058 Nov 26 21:21 setup.sh
+-rwxr-xr-x@ 1 stas  staff  4058 Nov 26 21:21 site/setup.sh
+
+# Done box visible width alignment check (setup.sh lines 68-78)
+61 |  ┌─────────────────────────────────────────────────────────┐|
+61 |  │  ✓ Done! Restart your shell, then:                      │|
+61 |  │                                                         │|
+61 |  │  tamp                 # start proxy (interactive)       │|
+61 |  │  tamp -y              # start proxy (non-interactive)   │|
+61 |  │                                                         │|
+61 |  │  Claude Code plugin: auto-starts Tamp; still requires   │|
+61 |  │  ANTHROPIC_BASE_URL in ~/.claude/settings.json          │|
+61 |  │  claude plugin marketplace add sliday/claude-plugins    │|
+61 |  │  claude plugin install tamp@sliday                      │|
+61 |  └─────────────────────────────────────────────────────────┘|
+
+# site/index.html color token diff check (no new hex/rgb/hsl literals)
+OK: 0 hardcoded color literals added in site/index.html

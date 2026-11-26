@@ -1,0 +1,70 @@
+$ node --test test/docs.test.js
+TAP version 13
+# Subtest: docs and helper scripts
+    # Subtest: uses OPENAI_API_BASE consistently in user-facing shell guidance
+    ok 1 - uses OPENAI_API_BASE consistently in user-facing shell guidance
+      ---
+      duration_ms: 1.0785
+      type: 'test'
+      ...
+    # Subtest: suggests binding the llmlingua sidecar to localhost, not all interfaces
+    ok 2 - suggests binding the llmlingua sidecar to localhost, not all interfaces
+      ---
+      duration_ms: 0.333916
+      type: 'test'
+      ...
+    # Subtest: keeps test-live.sh on current TAMP naming and repo-relative paths
+    ok 3 - keeps test-live.sh on current TAMP naming and repo-relative paths
+      ---
+      duration_ms: 0.12975
+      type: 'test'
+      ...
+    # Subtest: keeps setup.sh and site/setup.sh byte-identical with accurate install and env guidance
+    ok 4 - keeps setup.sh and site/setup.sh byte-identical with accurate install and env guidance
+      ---
+      duration_ms: 0.129042
+      type: 'test'
+      ...
+    # Subtest: documents valid CLI invocation and /v1 OPENAI_API_BASE in site/index.md
+    ok 5 - documents valid CLI invocation and /v1 OPENAI_API_BASE in site/index.md
+      ---
+      duration_ms: 0.073583
+      type: 'test'
+      ...
+    # Subtest: keeps site/index.html WebMCP preset enum and Compression Presets synced
+    ok 6 - keeps site/index.html WebMCP preset enum and Compression Presets synced
+      ---
+      duration_ms: 0.363333
+      type: 'test'
+      ...
+    1..6
+ok 1 - docs and helper scripts
+  ---
+  duration_ms: 2.574625
+  type: 'suite'
+  ...
+1..1
+# tests 6
+# suites 1
+# pass 6
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 36.86725
+EXIT=0
+
+$ npm test (summary from full suite: node --test test/*.test.js && node bench/retrieval-eval.js)
+✔ docs and helper scripts (5.350833ms)
+ℹ tests 911
+ℹ suites 207
+ℹ pass 911
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2609.535083
+MEAN                         0.348      0.931          40.0%   100.0%
+definition survival at 4096-token budget: 100.0%
+PASS
+EXIT=0

@@ -1,0 +1,113 @@
+{
+  "task_id": "onboarding-discovery-sync",
+  "overall_status": "PASS",
+  "acceptance_criteria": [
+    {
+      "id": "AC1",
+      "text": "setup.sh and site/setup.sh are byte-identical (cmp -s setup.sh site/setup.sh), both retain their executable bit (0755 / +x), and both pass bash -n.",
+      "status": "PASS",
+      "proof": [
+        "setup.sh and site/setup.sh (4058 bytes, -rwxr-xr-x)",
+        "bash -n setup.sh && bash -n site/setup.sh -> exit 0 (.agent/tasks/onboarding-discovery-sync/raw/lint.txt)",
+        "cmp -s setup.sh site/setup.sh -> exit 0 (.agent/tasks/onboarding-discovery-sync/raw/lint.txt)",
+        "test -x setup.sh && test -x site/setup.sh -> exit 0 (.agent/tasks/onboarding-discovery-sync/raw/lint.txt)",
+        "node --test test/docs.test.js -> 6/6 pass (.agent/tasks/onboarding-discovery-sync/raw/test-unit.txt)"
+      ],
+      "gaps": []
+    },
+    {
+      "id": "AC2",
+      "text": "Both setup.sh and site/setup.sh configure OPENAI_API_BASE with http://localhost:$PORT/v1 while keeping ANTHROPIC_BASE_URL at http://localhost:$PORT.",
+      "status": "PASS",
+      "proof": [
+        "setup.sh:63-64 and site/setup.sh:63-64 set ANTHROPIC_BASE_URL to http://localhost:$PORT and OPENAI_API_BASE to http://localhost:$PORT/v1",
+        "node --test test/docs.test.js ('keeps setup.sh and site/setup.sh byte-identical with accurate install and env guidance') -> exit 0 (.agent/tasks/onboarding-discovery-sync/raw/test-unit.txt)"
+      ],
+      "gaps": []
+    },
+    {
+      "id": "AC3",
+      "text": "In both setup.sh and site/setup.sh, when tamp is already installed, the script upgrades via npm install -g @sliday/tamp@latest --silent 2>/dev/null and does not invoke npm update -g.",
+      "status": "PASS",
+      "proof": [
+        "setup.sh:30 and site/setup.sh:30 run npm install -g @sliday/tamp@latest --silent 2>/dev/null; fresh-install line 33 unchanged; zero occurrences of npm update -g",
+        "node --test test/docs.test.js -> exit 0 (.agent/tasks/onboarding-discovery-sync/raw/test-unit.txt)"
+      ],
+      "gaps": []
+    },
+    {
+      "id": "AC4",
+      "text": "Both setup.sh and site/setup.sh replace the misleading 'skip all this and use the plugin' copy with an accurate note stating that the Claude Code plugin auto-starts Tamp and still requires ANTHROPIC_BASE_URL in ~/.claude/settings.json, while keeping both plugin install commands and clean box alignment.",
+      "status": "PASS",
+      "proof": [
+        "setup.sh:68-78 and site/setup.sh:68-78 state 'Claude Code plugin: auto-starts Tamp; still requires' / 'ANTHROPIC_BASE_URL in ~/.claude/settings.json' and keep both claude plugin commands",
+        "ANSI-stripped Done box alignment check: all 11 lines exactly 61 visible characters (.agent/tasks/onboarding-discovery-sync/raw/lint.txt)",
+        "node --test test/docs.test.js -> exit 0 (.agent/tasks/onboarding-discovery-sync/raw/test-unit.txt)"
+      ],
+      "gaps": []
+    },
+    {
+      "id": "AC5",
+      "text": "site/index.md replaces tamp start with tamp (or tamp -y), has zero occurrences of tamp start, and documents OPENAI_API_BASE=\"http://localhost:7778/v1\" consistently alongside ANTHROPIC_BASE_URL=\"http://localhost:7778\".",
+      "status": "PASS",
+      "proof": [
+        "site/index.md:29 uses 'tamp # or: tamp -y' with zero occurrences of 'tamp start'",
+        "site/index.md:37-38 documents export ANTHROPIC_BASE_URL=\"http://localhost:7778\" and export OPENAI_API_BASE=\"http://localhost:7778/v1\"",
+        "node --test test/docs.test.js ('documents valid CLI invocation and /v1 OPENAI_API_BASE in site/index.md') -> exit 0 (.agent/tasks/onboarding-discovery-sync/raw/test-unit.txt)"
+      ],
+      "gaps": []
+    },
+    {
+      "id": "AC6",
+      "text": "The WebMCP get_config_example tool schema in site/index.html includes 'recommended' in inputSchema.properties.preset.enum matching COMPRESSION_PRESETS in metadata.js.",
+      "status": "PASS",
+      "proof": [
+        "site/index.html:1680 sets enum: ['conservative','balanced','aggressive','recommended'] and execute() adds TAMP_MIN_SIZE: '1024' when preset === 'recommended'",
+        "node --test test/docs.test.js ('keeps site/index.html WebMCP preset enum and Compression Presets synced') -> exit 0 (.agent/tasks/onboarding-discovery-sync/raw/test-unit.txt)"
+      ],
+      "gaps": []
+    },
+    {
+      "id": "AC7",
+      "text": "In site/index.html #caveman-features Compression Presets: updates stale copy to 4 presets / 20 stage names, adds a fourth .db-card.db-surface--raised.preset-card for recommended (63-80%, aggressive minus llmlingua, TAMP_COMPRESSION_PRESET=recommended, TAMP_MIN_SIZE=1024), disambiguates Balanced sublabel while keeping Default badge, and preserves light/dark WCAG AA CSS tokens.",
+      "status": "PASS",
+      "proof": [
+        "site/index.html:1435 updates copy to 'Four presets simplify configuration—no need to memorize 20 stage names:'",
+        "site/index.html:1449-1460 keeps Default badge on Balanced and changes sublabel from 'Recommended' to 'Everyday default'",
+        "site/index.html:1475-1485 adds fourth .db-card.db-surface--raised.preset-card for Recommended (63–80%, aggressive minus llmlingua, TAMP_COMPRESSION_PRESET=recommended, TAMP_MIN_SIZE=1024)",
+        "Static diff color check: 0 hardcoded hex/rgb/hsl color literals added in site/index.html (.agent/tasks/onboarding-discovery-sync/raw/lint.txt)",
+        "node --test test/docs.test.js -> exit 0 (.agent/tasks/onboarding-discovery-sync/raw/test-unit.txt)"
+      ],
+      "gaps": []
+    },
+    {
+      "id": "AC8",
+      "text": "test/docs.test.js includes regression assertions for setup.sh === site/setup.sh parity, /v1 on OPENAI_API_BASE, npm install -g @sliday/tamp@latest, ~/.claude/settings.json note, no tamp start in site/index.md, and recommended in site/index.html WebMCP enum + Compression Presets.",
+      "status": "PASS",
+      "proof": [
+        "test/docs.test.js:39-70 adds 3 test cases covering all required regression assertions",
+        "node --test test/docs.test.js -> 6/6 pass, exit 0 (.agent/tasks/onboarding-discovery-sync/raw/test-unit.txt)",
+        "npm test -> 911/911 tests pass across 207 suites + bench/retrieval-eval.js PASS (100.0%), exit 0 (.agent/tasks/onboarding-discovery-sync/raw/test-unit.txt, .agent/tasks/onboarding-discovery-sync/raw/test-integration.txt)"
+      ],
+      "gaps": []
+    }
+  ],
+  "changed_files": [
+    "setup.sh",
+    "site/setup.sh",
+    "site/index.md",
+    "site/index.html",
+    "test/docs.test.js"
+  ],
+  "commands_for_fresh_verifier": [
+    "bash -n setup.sh && bash -n site/setup.sh",
+    "cmp -s setup.sh site/setup.sh",
+    "test -x setup.sh && test -x site/setup.sh",
+    "node --test test/docs.test.js",
+    "npm test",
+    "git diff --stat"
+  ],
+  "known_gaps": [
+    "No live browser screenshot was captured for site/index.html; light/dark WCAG AA contrast preservation is verified via static diff inspection confirming zero new hardcoded color literals and exclusive reuse of existing theme CSS classes and variables."
+  ]
+}
