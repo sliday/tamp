@@ -1,0 +1,85 @@
+▶ App.js host binding hardening
+  ✔ passes proxyConfig.host to server.listen so interactive TUI binds loopback by default (0.597542ms)
+✔ App.js host binding hardening (0.974417ms)
+▶ Dashboard.js URL redaction
+  ✔ redacts query-string API keys in compressed log entries (0.415333ms)
+  ✔ redacts query-string API keys in passthrough/skipped log entries (0.075917ms)
+✔ Dashboard.js URL redaction (0.585917ms)
+▶ bin/tamp.js non-interactive stage resolution
+  ✔ respects TAMP_COMPRESSION_PRESET without mutating process.env.TAMP_STAGES (0.608166ms)
+  ✔ respects TAMP_LEVEL without mutating process.env.TAMP_STAGES (0.188083ms)
+  ✔ respects level= in config file without clobbering with DEFAULT_STAGES (0.994333ms)
+  ✔ strips llmlingua via overrides instead of mutating TAMP_STAGES when sidecar fails (2.011959ms)
+  ✔ passes llmLinguaUrl via overrides when sidecar starts (0.136ms)
+✔ bin/tamp.js non-interactive stage resolution (4.156167ms)
+▶ bin/tamp.js status formatting and lifecycle guards
+  ✔ formats live health stats including cache hit rate when present (0.130667ms)
+  ✔ omits cache hit rate when usage.cacheHitRate is null (0.08025ms)
+  ✔ uses loadConfig().port in status and stop, and guards kill calls with isTampProcess (0.163291ms)
+✔ bin/tamp.js status formatting and lifecycle guards (0.434541ms)
+▶ sidecar/server.py hardening
+  ✔ uses FastAPI lifespan, sync compress endpoint, and 503 guard before model loads (0.265708ms)
+✔ sidecar/server.py hardening (0.299792ms)
+▶ docs and helper scripts
+  ✔ uses OPENAI_API_BASE consistently in user-facing shell guidance (1.34475ms)
+  ✔ suggests binding the llmlingua sidecar to localhost, not all interfaces (0.224208ms)
+  ✔ keeps test-live.sh on current TAMP naming and repo-relative paths (0.6995ms)
+✔ docs and helper scripts (2.728833ms)
+▶ CLASSIFIER_PATTERNS parity
+  ✔ exports frozen safe/dangerous regex sources from lib/rules-generator.js (0.544417ms)
+  ✔ /caveman-help serves the exact CLASSIFIER_PATTERNS exported by lib/rules-generator.js (1.9915ms)
+✔ CLASSIFIER_PATTERNS parity (2.950292ms)
+▶ proxy hardening — per-proxy state & /health telemetry
+  ✔ isolates sidecarState per proxy instance instead of sharing module global state (0.410125ms)
+  ✔ /health exposes redacted, staleImages, and staleInputs telemetry fields (0.172375ms)
+✔ proxy hardening — per-proxy state & /health telemetry (0.672125ms)
+▶ proxy hardening — sendUpstreamError & decompressZstd
+  ✔ sendUpstreamError writes 502 JSON only before headers are sent (0.109416ms)
+  ✔ decompressZstd throws on invalid frame or excess size (0.215208ms)
+✔ proxy hardening — sendUpstreamError & decompressZstd (0.393791ms)
+▶ AC1: platform-gated --with mlx in bin/tamp.js uv spawn args
+  ✔ includes --with mlx only on darwin + arm64 (0.494875ms)
+  ✔ omits --with mlx on darwin + x64 while preserving base args and 127.0.0.1 bind (0.091833ms)
+  ✔ omits --with mlx on linux + x64 while preserving base args and 127.0.0.1 bind (0.082208ms)
+  ✔ omits --with mlx on linux + arm64 while preserving base args and 127.0.0.1 bind (0.049417ms)
+  ✔ omits --with mlx on win32 + x64 while preserving base args and 127.0.0.1 bind (0.045917ms)
+✔ AC1: platform-gated --with mlx in bin/tamp.js uv spawn args (1.2655ms)
+▶ AC2: platform-gated --with mlx in index.js manual start hint
+  ✔ includes --with mlx on darwin + arm64 and binds 127.0.0.1 (0.156833ms)
+  ✔ omits --with mlx on darwin + x64 and binds 127.0.0.1 (0.112083ms)
+  ✔ omits --with mlx on linux + x64 and binds 127.0.0.1 (0.06175ms)
+  ✔ omits --with mlx on linux + arm64 and binds 127.0.0.1 (0.064791ms)
+  ✔ omits --with mlx on win32 + x64 and binds 127.0.0.1 (0.058667ms)
+  ✔ logs the platform-appropriate hint when probeSidecar cannot reach sidecar (quiet=false) (5.916ms)
+✔ AC2: platform-gated --with mlx in index.js manual start hint (6.585625ms)
+▶ AC3: startSidecar() honors configured TAMP_LLMLINGUA_URL with loopback enforcement
+  ✔ returns normalized configured URL from env without probing or spawning port 8788 (0.280791ms)
+  ✔ supports IPv6 loopback URLs and normalizes trailing slashes (0.045708ms)
+  ✔ honors TAMP_LLMLINGUA_URL from TAMP_CONFIG file when env is unset (0.727625ms)
+  ✔ gives env TAMP_LLMLINGUA_URL precedence over config file (0.541583ms)
+  ✔ fails closed (returns null, no fallback to 8788) for non-loopback or malformed URLs (0.104292ms)
+  ✔ resolveNonInteractiveConfig passes through resolved sidecar URL without mutating process.env (0.339959ms)
+  ✔ resolveNonInteractiveConfig strips llmlingua when configured TAMP_LLMLINGUA_URL is non-loopback (0.101708ms)
+  ✔ non-interactive onSidecarReady displays the resolved url instead of hardcoded :8788 (0.204209ms)
+✔ AC3: startSidecar() honors configured TAMP_LLMLINGUA_URL with loopback enforcement (2.495625ms)
+▶ AC4: probeSidecar checks model_loaded, enforces loopback, and is awaitable/bounded
+  ✔ rejects non-loopback target URLs without issuing network I/O (0.099959ms)
+  ✔ interprets HTTP 200 model_loaded boolean (false -> false, true -> true) (5.156292ms)
+  ✔ treats HTTP 200 without model_loaded or with empty/non-JSON body as available (backwards-compatible) (1.48975ms)
+  ✔ bounds response body size and fails safely on oversized 200 body (0.615042ms)
+  ✔ returns false on non-200 status, connection refused, and bounded timeout (122.321041ms)
+✔ AC4: probeSidecar checks model_loaded, enforces loopback, and is awaitable/bounded (129.853958ms)
+▶ AC5: live, bounded/debounced sidecar refresh on /health and /health?text
+  ✔ transitions false -> true -> false across /health and /health?text while debouncing within TTL (310.835917ms)
+  ✔ coalesces concurrent /health requests into a single in-flight probe (203.022292ms)
+  ✔ does not probe when llmlingua is not in stages and reports sidecar: n/a (2.757708ms)
+  ✔ maintains per-proxy isolation across live probes (4.946833ms)
+✔ AC5: live, bounded/debounced sidecar refresh on /health and /health?text (522.240333ms)
+ℹ tests 49
+ℹ suites 14
+ℹ pass 49
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 744.535667

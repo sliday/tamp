@@ -4,7 +4,7 @@ import { appendFileSync } from 'node:fs'
 import zlib from 'node:zlib'
 import * as fzstd from 'fzstd'
 import { loadConfig } from './config.js'
-import { compressRequest } from './compress.js'
+import { compressRequest, isLoopbackUrl } from './compress.js'
 import { detectProvider, detectOpenAIAuthMode, resolveOpenAIUpstream } from './providers.js'
 import { createSession, formatRequestLog, redactUrl } from './stats.js'
 import { createSessionStore, deriveSessionKey } from './session-graph.js'
@@ -71,11 +71,18 @@ export function createProxy(overrides = {}, loadOpts = {}) {
   const sessionStore = createSessionStore({ brCache })
   const readCache = createReadCache()
   const replayMemo = config.replay ? createReplayMemo({ maxBytes: config.replayMaxBytes }) : null
-  const sidecarState = { available: false }
+  const sidecarState = {
+    available: false,
+    checkedAt: 0,
+    inFlight: null,
+    autoProbe: Boolean(config.sidecarAutoProbe),
+  }
   // `tamp -y` starts the sidecar itself and hands the URL down via env, so the
   // isMain probe below never runs and /health kept reporting sidecar:false
   // while llmlingua was in fact wired up. Probe here too, quietly.
-  if (config.stages?.includes('llmlingua') && config.llmLinguaUrl) probeSidecar(config, sidecarState, true)
+  if (config.stages?.includes('llmlingua') && config.llmLinguaUrl && !config._deferSidecarProbe) {
+    probeSidecar(config, sidecarState, { quiet: true })
+  }
   return { config, session, sessionStore, readCache, brCache, replayMemo, sidecarState, server: _createServer(config, session, sessionStore, readCache, brCache, replayMemo, sidecarState) }
 }
 
@@ -241,6 +248,7 @@ const server = http.createServer(async (req, res) => {
 
   // Health check endpoint
   if ((req.url === '/health' || req.url === '/health?text') && (req.method === 'GET' || req.method === 'HEAD')) {
+    await refreshSidecarState(config, sidecarState)
     const totals = session.getTotals()
     const usage = usageTotals.snapshot()
     if (req.url === '/health?text') {
@@ -498,39 +506,182 @@ function createRequestLogger(config) {
 
 const SIDECAR_PORT = 8788
 const SIDECAR_URL = `http://localhost:${SIDECAR_PORT}`
+const DEFAULT_SIDECAR_PROBE_TTL_MS = 5000
+const DEFAULT_SIDECAR_PROBE_TIMEOUT_MS = 2000
+const MAX_SIDECAR_HEALTH_BYTES = 65536
 
-function probeSidecar(config, sidecarState, quiet = false) {
-  const targetBase = (config.llmLinguaUrl || SIDECAR_URL).replace(/\/+$/, '')
-  const mod = targetBase.startsWith('https:') ? https : http
-  let req
+export function formatSidecarStartHint({ platform = process.platform, arch = process.arch, port = SIDECAR_PORT } = {}) {
+  const mlxFlag = platform === 'darwin' && arch === 'arm64' ? ' --with mlx' : ''
+  return `uv run --with fastapi --with uvicorn --with llmlingua${mlxFlag} uvicorn server:app --host 127.0.0.1 --port ${port} --app-dir sidecar`
+}
+
+function shouldProbeSidecar(config, sidecarState) {
+  return Boolean(config.stages?.includes('llmlingua') && (config.llmLinguaUrl || sidecarState.autoProbe))
+}
+
+async function refreshSidecarState(config, sidecarState) {
+  if (!shouldProbeSidecar(config, sidecarState)) return sidecarState.available
+  if (sidecarState.inFlight) return sidecarState.inFlight
+  const ttlMs = (Number.isFinite(config.sidecarProbeTtlMs) && config.sidecarProbeTtlMs >= 0)
+    ? config.sidecarProbeTtlMs
+    : DEFAULT_SIDECAR_PROBE_TTL_MS
+  if (sidecarState.checkedAt > 0 && (Date.now() - sidecarState.checkedAt) < ttlMs) {
+    return sidecarState.available
+  }
+  return probeSidecar(config, sidecarState, { quiet: true })
+}
+
+export function probeSidecar(config, sidecarState, opts = false) {
+  if (sidecarState.inFlight) return sidecarState.inFlight
+
+  const quiet = typeof opts === 'boolean' ? opts : Boolean(opts?.quiet)
+  const timeoutMs = (typeof opts === 'object' && opts !== null && Number.isFinite(opts.timeoutMs) && opts.timeoutMs > 0)
+    ? opts.timeoutMs
+    : (Number.isFinite(config.sidecarProbeTimeoutMs) && config.sidecarProbeTimeoutMs > 0
+      ? config.sidecarProbeTimeoutMs
+      : DEFAULT_SIDECAR_PROBE_TIMEOUT_MS)
+  const maxBytes = (typeof opts === 'object' && opts !== null && Number.isFinite(opts.maxBytes) && opts.maxBytes > 0)
+    ? opts.maxBytes
+    : MAX_SIDECAR_HEALTH_BYTES
+  const platform = (typeof opts === 'object' && opts !== null && opts.platform) || process.platform
+  const arch = (typeof opts === 'object' && opts !== null && opts.arch) || process.arch
+
+  const targetBase = String(config.llmLinguaUrl || SIDECAR_URL).trim().replace(/\/+$/, '')
+
+  let healthUrl
   try {
-    req = mod.get(`${targetBase}/health`, { timeout: 2000 }, (res) => {
-      if (res.statusCode === 200) {
-        sidecarState.available = true
-        if (!config.llmLinguaUrl) config.llmLinguaUrl = SIDECAR_URL
-        if (!quiet) console.error(`[tamp] llmlingua sidecar: ok (${config.llmLinguaUrl})`)
-      } else {
-        sidecarState.available = false
-      }
-      res.resume()
-    })
+    if (!isLoopbackUrl(targetBase)) {
+      sidecarState.available = false
+      sidecarState.checkedAt = Date.now()
+      return Promise.resolve(false)
+    }
+    healthUrl = new URL(`${targetBase}/health`)
+    if (!isLoopbackUrl(healthUrl.href)) {
+      sidecarState.available = false
+      sidecarState.checkedAt = Date.now()
+      return Promise.resolve(false)
+    }
   } catch {
     sidecarState.available = false
-    return
+    sidecarState.checkedAt = Date.now()
+    return Promise.resolve(false)
   }
-  req.on('error', () => {
-    sidecarState.available = false
-    if (quiet) return
-    console.error('[tamp] \u26a0 llmlingua stage enabled but sidecar not running \u2014 text blocks won\u2019t compress')
-    console.error('[tamp]   start with: uv run --with fastapi --with uvicorn --with llmlingua --with mlx uvicorn server:app --host 127.0.0.1 --port 8788 --app-dir sidecar')
+
+  const mod = healthUrl.protocol === 'https:' ? https : http
+
+  let settled = false
+  let promise
+  promise = new Promise((resolve) => {
+    let req = null
+    let resRef = null
+    let timer = null
+
+    const finish = (available, { unreachable = false } = {}) => {
+      if (settled) return
+      settled = true
+      if (timer) {
+        clearTimeout(timer)
+        timer = null
+      }
+      sidecarState.available = available
+      sidecarState.checkedAt = Date.now()
+      if (sidecarState.inFlight === promise) sidecarState.inFlight = null
+
+      if (available) {
+        if (!config.llmLinguaUrl && !Object.isFrozen(config)) config.llmLinguaUrl = SIDECAR_URL
+        if (!quiet) console.error(`[tamp] llmlingua sidecar: ok (${config.llmLinguaUrl || SIDECAR_URL})`)
+      } else if (unreachable && !quiet) {
+        console.error('[tamp] \u26a0 llmlingua stage enabled but sidecar not running \u2014 text blocks won\u2019t compress')
+        console.error(`[tamp]   start with: ${formatSidecarStartHint({ platform, arch })}`)
+      }
+      resolve(available)
+    }
+
+    timer = setTimeout(() => {
+      try { resRef?.destroy() } catch {}
+      try { req?.destroy() } catch {}
+      finish(false, { unreachable: true })
+    }, timeoutMs)
+    if (typeof timer.unref === 'function') timer.unref()
+
+    try {
+      req = mod.get(healthUrl, { timeout: timeoutMs, agent: false }, (res) => {
+        resRef = res
+        if (res.statusCode !== 200) {
+          res.resume()
+          finish(false)
+          return
+        }
+
+        const chunks = []
+        let total = 0
+        let exceeded = false
+
+        res.on('data', (chunk) => {
+          if (settled || exceeded) return
+          total += chunk.length
+          if (total > maxBytes) {
+            exceeded = true
+            res.destroy()
+            finish(false)
+            return
+          }
+          chunks.push(chunk)
+        })
+
+        res.on('end', () => {
+          if (settled || exceeded) return
+          const raw = Buffer.concat(chunks).toString('utf8').trim()
+          if (!raw) {
+            finish(true)
+            return
+          }
+          let parsed
+          try {
+            parsed = JSON.parse(raw)
+          } catch {
+            finish(true)
+            return
+          }
+          if (parsed && typeof parsed === 'object' && !Array.isArray(parsed) &&
+              Object.hasOwn(parsed, 'model_loaded') && typeof parsed.model_loaded === 'boolean') {
+            finish(parsed.model_loaded === true)
+            return
+          }
+          finish(true)
+        })
+
+        res.on('error', () => {
+          finish(false)
+        })
+
+        res.on('close', () => {
+          if (!settled) finish(false)
+        })
+      })
+    } catch {
+      finish(false, { unreachable: true })
+      return
+    }
+
+    req.on('error', () => {
+      finish(false, { unreachable: true })
+    })
+
+    req.on('timeout', () => {
+      req.destroy()
+      finish(false, { unreachable: true })
+    })
   })
-  req.on('timeout', () => { req.destroy() })
+
+  if (!settled) sidecarState.inFlight = promise
+  return promise
 }
 
 const isMain = !process.argv[1]?.includes('node_modules') && process.argv[1] === new URL(import.meta.url).pathname
 
 if (isMain) {
-  const { config, server, sidecarState } = createProxy()
+  const { config, server, sidecarState } = createProxy({ sidecarAutoProbe: true, _deferSidecarProbe: true })
   server.listen(config.port, config.host, () => {
     console.error(`[tamp] proxy listening on http://${config.host}:${config.port}`)
     console.error(`[tamp] upstream: ${config.upstream}`)

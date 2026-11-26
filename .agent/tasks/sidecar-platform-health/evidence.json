@@ -1,0 +1,147 @@
+{
+  "task_id": "sidecar-platform-health",
+  "overall_status": "PASS",
+  "acceptance_criteria": [
+    {
+      "id": "AC1",
+      "text": "Platform-gated --with mlx in bin/tamp.js uv sidecar spawn (darwin + arm64 only) via exported helper preserving --host 127.0.0.1.",
+      "status": "PASS",
+      "proof": [
+        {
+          "type": "file",
+          "path": "bin/tamp.js",
+          "summary": "Exports buildSidecarUvArgs(port, { platform, arch }) gating --with mlx strictly to darwin+arm64 and used by startSidecar()."
+        },
+        {
+          "type": "command",
+          "path": ".agent/tasks/sidecar-platform-health/raw/test-unit.txt",
+          "command": "node --test test/cli-hardening.test.js test/proxy-hardening.test.js test/docs.test.js test/sidecar-platform-health.test.js",
+          "exit_code": 0,
+          "summary": "49/49 tests passed including AC1 matrix across darwin/arm64, darwin/x64, linux/x64, linux/arm64, win32/x64."
+        }
+      ],
+      "gaps": []
+    },
+    {
+      "id": "AC2",
+      "text": "Platform-gated --with mlx in index.js manual start hint (darwin + arm64 only) preserving --host 127.0.0.1 and test/docs.test.js compliance.",
+      "status": "PASS",
+      "proof": [
+        {
+          "type": "file",
+          "path": "index.js",
+          "summary": "Exports formatSidecarStartHint({ platform, arch, port }) emitting --with mlx only on darwin+arm64 and keeping --host 127.0.0.1."
+        },
+        {
+          "type": "command",
+          "path": ".agent/tasks/sidecar-platform-health/raw/test-unit.txt",
+          "command": "node --test test/cli-hardening.test.js test/proxy-hardening.test.js test/docs.test.js test/sidecar-platform-health.test.js",
+          "exit_code": 0,
+          "summary": "AC2 tests and test/docs.test.js all passed."
+        },
+        {
+          "type": "command",
+          "path": ".agent/tasks/sidecar-platform-health/raw/lint.txt",
+          "command": "grep -n \"0\\.0\\.0\\.0\" bin/tamp.js index.js",
+          "exit_code": 1,
+          "summary": "Zero occurrences of 0.0.0.0 in bin/tamp.js or index.js."
+        }
+      ],
+      "gaps": []
+    },
+    {
+      "id": "AC3",
+      "text": "startSidecar() honors configured TAMP_LLMLINGUA_URL from env or config file with isLoopbackUrl SSRF guard, trailing-slash normalization, and resolved URL display.",
+      "status": "PASS",
+      "proof": [
+        {
+          "type": "file",
+          "path": "bin/tamp.js",
+          "summary": "startSidecar({ env, configPath }) resolves TAMP_LLMLINGUA_URL (env > config file), validates via isLoopbackUrl fail-closed, normalizes URL, and passes resolved URL to onSidecarReady without mutating process.env."
+        },
+        {
+          "type": "command",
+          "path": ".agent/tasks/sidecar-platform-health/raw/test-unit.txt",
+          "command": "node --test test/cli-hardening.test.js test/proxy-hardening.test.js test/docs.test.js test/sidecar-platform-health.test.js",
+          "exit_code": 0,
+          "summary": "AC3 unit tests (env, config file, precedence, trailing slash, non-loopback fail-closed, resolveNonInteractiveConfig) passed."
+        }
+      ],
+      "gaps": []
+    },
+    {
+      "id": "AC4",
+      "text": "probeSidecar() returns non-rejecting Promise<boolean>, enforces isLoopbackUrl, checks boolean model_loaded if present, bounds body/timeout, and preserves standalone auto-discovery.",
+      "status": "PASS",
+      "proof": [
+        {
+          "type": "file",
+          "path": "index.js",
+          "summary": "Exports probeSidecar(config, sidecarState, opts) returning Promise<boolean> with isLoopbackUrl guard, 65536B body cap, bounded timeout, and model_loaded handling."
+        },
+        {
+          "type": "command",
+          "path": ".agent/tasks/sidecar-platform-health/raw/test-unit.txt",
+          "command": "node --test test/cli-hardening.test.js test/proxy-hardening.test.js test/docs.test.js test/sidecar-platform-health.test.js",
+          "exit_code": 0,
+          "summary": "AC4 local HTTP stub tests (model_loaded false/true, absent model_loaded, non-200, non-loopback, timeout, connection refused) all passed."
+        }
+      ],
+      "gaps": []
+    },
+    {
+      "id": "AC5",
+      "text": "/health and /health?text refresh sidecarState via probeSidecar when stale with per-proxy TTL debouncing, concurrent in-flight coalescing, bidirectional transitions, and isolation.",
+      "status": "PASS",
+      "proof": [
+        {
+          "type": "file",
+          "path": "index.js",
+          "summary": "refreshSidecarState(config, sidecarState) debounces within sidecarProbeTtlMs (default 5000ms), coalesces concurrent probes via sidecarState.inFlight, and preserves per-proxy isolation."
+        },
+        {
+          "type": "command",
+          "path": ".agent/tasks/sidecar-platform-health/raw/test-unit.txt",
+          "command": "node --test test/cli-hardening.test.js test/proxy-hardening.test.js test/docs.test.js test/sidecar-platform-health.test.js",
+          "exit_code": 0,
+          "summary": "AC5 tests (false->true->false transitions, TTL debounce count, concurrent coalescing, non-llmlingua n/a, per-proxy isolation) and test/proxy-hardening.test.js all passed."
+        }
+      ],
+      "gaps": []
+    },
+    {
+      "id": "AC6",
+      "text": "Full regression pass (npm test + node smoke.js) and targeted automated tests for AC1-AC5.",
+      "status": "PASS",
+      "proof": [
+        {
+          "type": "command",
+          "path": ".agent/tasks/sidecar-platform-health/raw/build.txt",
+          "command": "node --check bin/tamp.js index.js test/sidecar-platform-health.test.js",
+          "exit_code": 0,
+          "summary": "Syntax check passed."
+        },
+        {
+          "type": "command",
+          "path": ".agent/tasks/sidecar-platform-health/raw/test-integration.txt",
+          "command": "npm test && node smoke.js",
+          "exit_code": 0,
+          "summary": "908/908 tests passed (207 suites, 0 fail), bench/retrieval-eval.js PASS (MEAN NDCG@10 0.931, 100% definition survival), and node smoke.js passed 6/6 checks."
+        }
+      ],
+      "gaps": []
+    }
+  ],
+  "changed_files": [
+    "bin/tamp.js",
+    "index.js",
+    "test/sidecar-platform-health.test.js"
+  ],
+  "commands_for_fresh_verifier": [
+    "node --check bin/tamp.js index.js test/sidecar-platform-health.test.js",
+    "node --test test/cli-hardening.test.js test/proxy-hardening.test.js test/docs.test.js test/sidecar-platform-health.test.js",
+    "npm test",
+    "node smoke.js"
+  ],
+  "known_gaps": []
+}

@@ -1,0 +1,9 @@
+# Lint / static checks (no lint script configured in package.json)
+$ node --check bin/tamp.js index.js test/sidecar-platform-health.test.js
+CHECK_EXIT_CODE=0
+$ grep -n "0\.0\.0\.0" bin/tamp.js index.js
+GREP_0000_EXIT_CODE=1 (1 = no matches, expected)
+$ git diff --stat bin/tamp.js index.js
+ bin/tamp.js |  38 +++++++++---
+ index.js    | 201 ++++++++++++++++++++++++++++++++++++++++++++++++++++--------
+ 2 files changed, 205 insertions(+), 34 deletions(-)

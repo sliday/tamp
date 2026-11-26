@@ -1,0 +1,111 @@
+{
+  "task_id": "sidecar-platform-health",
+  "overall_verdict": "PASS",
+  "criteria": [
+    {
+      "id": "AC1",
+      "text": "Platform-gated --with mlx in bin/tamp.js uv spawn (darwin + arm64 only) exposed via pure helper preserving base args and 127.0.0.1 bind.",
+      "status": "PASS",
+      "reason": "Verified in bin/tamp.js (buildSidecarUvArgs lines 49-56, used in startSidecar line 83) and rerun of test/sidecar-platform-health.test.js covering darwin/arm64, darwin/x64, linux/x64, linux/arm64, and win32/x64.",
+      "evidence": [
+        "bin/tamp.js:49-56",
+        "bin/tamp.js:83",
+        "test/sidecar-platform-health.test.js:70-96"
+      ]
+    },
+    {
+      "id": "AC2",
+      "text": "Platform-gated --with mlx in index.js manual start hint (darwin + arm64 only) preserving --host 127.0.0.1 and test/docs.test.js compliance.",
+      "status": "PASS",
+      "reason": "Verified in index.js (formatSidecarStartHint lines 513-516, used in probeSidecar line 595), zero occurrences of 0.0.0.0 in bin/tamp.js and index.js, and passing test/docs.test.js and AC2 tests in test/sidecar-platform-health.test.js.",
+      "evidence": [
+        "index.js:513-516",
+        "index.js:595",
+        "test/sidecar-platform-health.test.js:98-151",
+        "test/docs.test.js"
+      ]
+    },
+    {
+      "id": "AC3",
+      "text": "startSidecar() honors configured TAMP_LLMLINGUA_URL from env or config file with env precedence, trailing-slash normalization, isLoopbackUrl fail-closed guard, default fallback when unset, and resolved URL threading in non-interactive and interactive modes.",
+      "status": "PASS",
+      "reason": "Verified in bin/tamp.js (startSidecar lines 58-70, resolveNonInteractiveConfig lines 182-192, onSidecarReady lines 613-615), bin/ui/SidecarLoader.js (lines 14-18), and passing AC3 tests plus test/cli-hardening.test.js.",
+      "evidence": [
+        "bin/tamp.js:58-70",
+        "bin/tamp.js:182-192",
+        "bin/tamp.js:613-615",
+        "bin/ui/SidecarLoader.js:14-18",
+        "test/sidecar-platform-health.test.js:153-263",
+        "test/cli-hardening.test.js"
+      ]
+    },
+    {
+      "id": "AC4",
+      "text": "probeSidecar() returns non-rejecting Promise<boolean>, enforces isLoopbackUrl, checks boolean model_loaded on HTTP 200 if present (backwards-compatible otherwise), bounds body size and timeout, and preserves standalone auto-discovery.",
+      "status": "PASS",
+      "reason": "Verified in index.js (probeSidecar lines 534-679, 65536-byte cap, default 2000ms timeout, isLoopbackUrl guard, boolean model_loaded handling, SIDECAR_URL auto-discovery at line 591) and passing AC4 stub server tests in test/sidecar-platform-health.test.js.",
+      "evidence": [
+        "index.js:534-679",
+        "test/sidecar-platform-health.test.js:265-363"
+      ]
+    },
+    {
+      "id": "AC5",
+      "text": "Live, bounded/debounced sidecar refresh on /health and /health?text when llmlingua is active, with per-proxy TTL debouncing, concurrent in-flight coalescing, bidirectional state transitions, n/a when llmlingua inactive, and per-proxy isolation.",
+      "status": "PASS",
+      "reason": "Verified in index.js (createProxy lines 74-85, /health handler lines 250-299, shouldProbeSidecar/refreshSidecarState lines 518-532, isMain line 684) and passing AC5 tests in test/sidecar-platform-health.test.js plus test/proxy-hardening.test.js.",
+      "evidence": [
+        "index.js:74-85",
+        "index.js:250-299",
+        "index.js:518-532",
+        "index.js:684",
+        "test/sidecar-platform-health.test.js:365-556",
+        "test/proxy-hardening.test.js"
+      ]
+    },
+    {
+      "id": "AC6",
+      "text": "Regression-free test coverage: npm test (all test/*.test.js + bench/retrieval-eval.js), node smoke.js, and targeted local-stub tests for AC1-AC5 pass.",
+      "status": "PASS",
+      "reason": "Reran syntax check, targeted tests (49/49 pass), npm test (908/908 tests pass across 207 suites + bench/retrieval-eval.js PASS with MEAN NDCG@10 0.931 and 100.0% definition survival), and node smoke.js (6/6 checks passed), all exit code 0.",
+      "evidence": [
+        "test/sidecar-platform-health.test.js",
+        "smoke.js"
+      ]
+    }
+  ],
+  "commands_run": [
+    {
+      "command": "git status --short && git diff --stat && git diff bin/tamp.js index.js",
+      "exit_code": 0,
+      "summary": "Confirmed minimal scoped changes in bin/tamp.js, index.js, and test/sidecar-platform-health.test.js."
+    },
+    {
+      "command": "node --check bin/tamp.js index.js test/sidecar-platform-health.test.js && ! grep -n \"0\\.0\\.0\\.0\" bin/tamp.js index.js",
+      "exit_code": 0,
+      "summary": "All three files passed syntax validation and contained zero 0.0.0.0 references."
+    },
+    {
+      "command": "node --test test/cli-hardening.test.js test/proxy-hardening.test.js test/docs.test.js test/sidecar-platform-health.test.js",
+      "exit_code": 0,
+      "summary": "49/49 tests passed across 14 suites (0 failures)."
+    },
+    {
+      "command": "npm test && node smoke.js",
+      "exit_code": 0,
+      "summary": "908/908 unit/integration tests passed across 207 suites, bench/retrieval-eval.js PASS (MEAN NDCG@10 0.931, 100.0% definition survival), and node smoke.js passed all 6 checks."
+    }
+  ],
+  "artifacts_used": [
+    ".agent/tasks/sidecar-platform-health/spec.md",
+    ".agent/tasks/sidecar-platform-health/evidence.md",
+    ".agent/tasks/sidecar-platform-health/evidence.json",
+    "bin/tamp.js",
+    "index.js",
+    "test/sidecar-platform-health.test.js",
+    "config.js",
+    "compress.js",
+    "bin/ui/App.js",
+    "bin/ui/SidecarLoader.js"
+  ]
+}
