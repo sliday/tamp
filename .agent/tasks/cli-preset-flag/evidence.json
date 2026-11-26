@@ -1,0 +1,123 @@
+{
+  "task_id": "cli-preset-flag",
+  "overall_status": "PASS",
+  "acceptance_criteria": [
+    {
+      "id": "AC1",
+      "text": "config.js loadConfig(env, options) supports options.presetOverride with strict 7-tier precedence (TAMP_STAGES > levelOverride > presetOverride > TAMP_LEVEL > TAMP_COMPRESSION_PRESET > config-file level > DEFAULT_LEVEL), levelSource='preset-flag', accurate cfg.preset/cfg.level (null for recommended), and fresh cfg.stages copy (14 stages excluding llmlingua for recommended).",
+      "status": "PASS",
+      "proof": [
+        "config.js: loadConfig(env, options) resolves options.presetOverride at tier 3 with levelSource='preset-flag', presetName=presetFlagRaw, level=typeof preset.level === 'number' ? preset.level : null, and stages=[...preset.stages].",
+        "test/config.test.js: 'loadConfig — options.presetOverride precedence & safety' verifies all 4 presets, fresh copy identity, 14 recommended stages without llmlingua, and full 7-tier precedence.",
+        ".agent/tasks/cli-preset-flag/raw/test-unit.txt"
+      ],
+      "gaps": []
+    },
+    {
+      "id": "AC2",
+      "text": "config.js options.presetOverride uses typeof raw === 'string' && Object.hasOwn(COMPRESSION_PRESETS, raw), treats undefined/null/'' as unset without warning, warns naming --preset and falls through cleanly without clobbering cfg.preset on invalid/non-string/prototype-chain values, and preserves existing TAMP_LEVEL/TAMP_COMPRESSION_PRESET behavior.",
+      "status": "PASS",
+      "proof": [
+        "config.js: checks undefined/null/'' before validating typeof presetFlagRaw === 'string' && Object.hasOwn(COMPRESSION_PRESETS, presetFlagRaw), warns to process.stderr naming --preset, and falls through without mutating presetName.",
+        "test/config.test.js: verifies silent unset fallthrough, stderr warnings and clean fallthrough for bogus/non-string/prototype-chain keys, and zero regressions on existing Phase C and loadConfig tests.",
+        ".agent/tasks/cli-preset-flag/raw/test-unit.txt"
+      ],
+      "gaps": []
+    },
+    {
+      "id": "AC3",
+      "text": "metadata.js resolveLevel(input) guards LEVEL_ALIASES lookups with Object.hasOwn(LEVEL_ALIASES, input) so prototype-chain keys return strictly null while preserving the 1-9 prefix-preserving ladder.",
+      "status": "PASS",
+      "proof": [
+        "metadata.js: resolveLevel() changed from 'input in LEVEL_ALIASES' to 'Object.hasOwn(LEVEL_ALIASES, input)'.",
+        "test/metadata.test.js: 'returns null for prototype-chain keys (Object.hasOwn guard)' asserts strict null for toString, constructor, valueOf, hasOwnProperty, and __proto__, and all COMPRESSION_LEVELS invariants pass.",
+        ".agent/tasks/cli-preset-flag/raw/test-unit.txt"
+      ],
+      "gaps": []
+    },
+    {
+      "id": "AC4",
+      "text": "bin/tamp.js parses --preset NAME / --preset=NAME against Object.hasOwn(COMPRESSION_PRESETS, name), exports pure helpers parsePresetArgv/parseCliFlags, and exits 2 with clear stderr errors on missing/empty/unknown/prototype-key --preset or mutually exclusive --level + --preset.",
+      "status": "PASS",
+      "proof": [
+        "bin/tamp.js: exports parsePresetArgv(argv) and parseCliFlags(argv); main() writes parsedFlags.error to stderr and exits 2.",
+        "test/cli-hardening.test.js: unit tests for parsePresetArgv/parseCliFlags plus subprocess tests invoking node bin/tamp.js confirming exit code 2 and stderr messages for all invalid and conflict cases.",
+        ".agent/tasks/cli-preset-flag/raw/test-unit.txt",
+        ".agent/tasks/cli-preset-flag/raw/test-integration.txt"
+      ],
+      "gaps": []
+    },
+    {
+      "id": "AC5",
+      "text": "bin/tamp.js resolveNonInteractiveConfig accepts argvPreset=null, sets loadOpts.presetOverride without mutating process.env, skips sidecar startup for --preset recommended, and produces recommended preset config through createProxy(overrides, loadOpts).",
+      "status": "PASS",
+      "proof": [
+        "bin/tamp.js: resolveNonInteractiveConfig sets loadOpts.presetOverride = argvPreset when argvPreset !== null; main() passes argvPreset in non-interactive mode.",
+        "test/cli-hardening.test.js: 'resolves --preset recommended non-interactively without starting sidecar or mutating process.env' verifies probe, selectedStages (14 stages, no llmlingua), zero sidecar calls, createProxy config, and untouched process.env.",
+        ".agent/tasks/cli-preset-flag/raw/test-unit.txt",
+        ".agent/tasks/cli-preset-flag/raw/lint.txt"
+      ],
+      "gaps": []
+    },
+    {
+      "id": "AC6",
+      "text": "bin/tamp.js passes argvPreset to App without mutating process.env, and bin/ui/App.js exports resolveInteractiveSeed mapping anchored presets to envLevel (argvLevel ?? preset.level), recommended to envStages (envStages ?? new Set(preset.stages)), and absent/invalid values unchanged.",
+      "status": "PASS",
+      "proof": [
+        "bin/tamp.js: renders App with argvPreset prop.",
+        "bin/ui/App.js: exports resolveInteractiveSeed({ argvLevel, argvPreset, envStages }) and applies its result to LevelPicker.",
+        "test/cli-hardening.test.js: 'resolveInteractiveSeed maps anchored presets to envLevel and recommended to envStages Set' covers all anchored presets, recommended with/without existing envStages, and absent/invalid/prototype-key inputs.",
+        "test/tui-state-telemetry.test.js: all 18 tests pass including zero process.env.TAMP_* assignment guard.",
+        ".agent/tasks/cli-preset-flag/raw/test-unit.txt"
+      ],
+      "gaps": []
+    },
+    {
+      "id": "AC7",
+      "text": "bin/tamp.js tamp help (--help, -h) documents --preset NAME under Options with valid preset names (conservative, balanced, aggressive, recommended).",
+      "status": "PASS",
+      "proof": [
+        "bin/tamp.js: added '  --preset NAME    Compression preset (conservative, balanced, aggressive, recommended)' under Options in help output.",
+        "test/cli-hardening.test.js: 'subprocess: tamp help / --help / -h exits 0 and documents --preset NAME' passes.",
+        ".agent/tasks/cli-preset-flag/raw/test-integration.txt"
+      ],
+      "gaps": []
+    },
+    {
+      "id": "AC8",
+      "text": "Deterministic unit and subprocess CLI tests cover AC1-AC7 across test/config.test.js, test/metadata.test.js, and test/cli-hardening.test.js, and npm test + node smoke.js pass with zero regressions.",
+      "status": "PASS",
+      "proof": [
+        "node --check config.js && node --check metadata.js && node --check bin/tamp.js && node --check bin/ui/App.js: exit 0.",
+        "node --test test/config.test.js test/metadata.test.js test/cli-hardening.test.js test/tui-state-telemetry.test.js: 118/118 pass, 0 fail.",
+        "npm test: 943/943 tests pass across 213 suites, 0 fail + bench/retrieval-eval.js PASS.",
+        "node smoke.js: exit 0, All checks passed!",
+        ".agent/tasks/cli-preset-flag/raw/build.txt",
+        ".agent/tasks/cli-preset-flag/raw/lint.txt",
+        ".agent/tasks/cli-preset-flag/raw/test-unit.txt",
+        ".agent/tasks/cli-preset-flag/raw/test-integration.txt"
+      ],
+      "gaps": []
+    }
+  ],
+  "changed_files": [
+    "metadata.js",
+    "config.js",
+    "bin/tamp.js",
+    "bin/ui/App.js",
+    "test/metadata.test.js",
+    "test/config.test.js",
+    "test/cli-hardening.test.js"
+  ],
+  "commands_for_fresh_verifier": [
+    "node --check config.js",
+    "node --check metadata.js",
+    "node --check bin/tamp.js",
+    "node --check bin/ui/App.js",
+    "node --test test/config.test.js test/metadata.test.js test/cli-hardening.test.js test/tui-state-telemetry.test.js",
+    "npm test",
+    "node smoke.js",
+    "git diff --stat"
+  ],
+  "known_gaps": []
+}

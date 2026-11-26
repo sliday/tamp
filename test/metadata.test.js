@@ -231,6 +231,12 @@ describe('resolveLevel', () => {
     assert.equal(resolveLevel([]), null)
   })
 
+  it('returns null for prototype-chain keys (Object.hasOwn guard)', () => {
+    for (const key of ['toString', 'constructor', 'valueOf', 'hasOwnProperty', '__proto__']) {
+      assert.strictEqual(resolveLevel(key), null, `resolveLevel(${JSON.stringify(key)}) must return null`)
+    }
+  })
+
   it('LEVEL_ALIASES maps to canonical level numbers', () => {
     assert.equal(LEVEL_ALIASES.conservative, 4)
     assert.equal(LEVEL_ALIASES.balanced, 5)

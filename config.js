@@ -105,10 +105,11 @@ export function loadConfig(env = process.env, options = {}) {
   // --- Stage/level resolution with explicit precedence ---
   // 1. TAMP_STAGES (explicit stage list)     — power-user override
   // 2. --level CLI flag (options.levelOverride)
-  // 3. TAMP_LEVEL env
-  // 4. TAMP_COMPRESSION_PRESET env
-  // 5. config-file `level` field
-  // 6. DEFAULT_LEVEL (5)
+  // 3. --preset CLI flag (options.presetOverride)
+  // 4. TAMP_LEVEL env
+  // 5. TAMP_COMPRESSION_PRESET env
+  // 6. config-file `level` field
+  // 7. DEFAULT_LEVEL (5)
 
   const explicitStagesStr = get('TAMP_STAGES')
   const explicitStages = explicitStagesStr
@@ -125,7 +126,8 @@ export function loadConfig(env = process.env, options = {}) {
   const presetExplicit = typeof presetNameRaw === 'string' && presetNameRaw.length > 0
 
   const fileLevelRaw = fileVars.level
-  const levelFlagRaw = options.levelOverride
+  const levelFlagRaw = options?.levelOverride
+  const presetFlagRaw = options?.presetOverride
   const levelEnvRaw = get('TAMP_LEVEL')
 
   let stages = null
@@ -138,31 +140,53 @@ export function loadConfig(env = process.env, options = {}) {
     level = null
     levelSource = 'stages-env'
   } else {
-    // Try level inputs in precedence order: CLI flag > env
-    const candidates = [
-      { raw: levelFlagRaw, source: 'level-flag' },
-      { raw: levelEnvRaw,  source: 'level-env' },
-    ]
-    let chosen = null
-    for (const c of candidates) {
-      if (c.raw === undefined || c.raw === null || c.raw === '') continue
-      const { value, valid } = coerceLevelInput(c.raw)
+    // 2. --level CLI flag
+    if (levelFlagRaw !== undefined && levelFlagRaw !== null && levelFlagRaw !== '') {
+      const { value, valid } = coerceLevelInput(levelFlagRaw)
       if (valid) {
-        chosen = { value, source: c.source }
-        break
+        level = levelInputToInt(value)
+        stages = stagesForLevel(level)
+        levelSource = 'level-flag'
       } else {
-        const label = c.source === 'level-flag' ? '--level' : 'TAMP_LEVEL'
         process.stderr.write(
-          `[tamp] invalid ${label}=${JSON.stringify(c.raw)} — expected 1..9 or one of: ${Object.keys(LEVEL_ALIASES).join(', ')}. Ignoring.\n`
+          `[tamp] invalid --level=${JSON.stringify(levelFlagRaw)} — expected 1..9 or one of: ${Object.keys(LEVEL_ALIASES).join(', ')}. Ignoring.\n`
         )
       }
     }
 
-    if (chosen) {
-      level = levelInputToInt(chosen.value)
-      stages = stagesForLevel(level)
-      levelSource = chosen.source
-    } else if (presetExplicit) {
+    // 3. --preset CLI flag
+    if (stages === null && presetFlagRaw !== undefined && presetFlagRaw !== null && presetFlagRaw !== '') {
+      if (typeof presetFlagRaw === 'string' && Object.hasOwn(COMPRESSION_PRESETS, presetFlagRaw)) {
+        const preset = COMPRESSION_PRESETS[presetFlagRaw]
+        stages = [...preset.stages]
+        level = typeof preset.level === 'number' ? preset.level : null
+        levelSource = 'preset-flag'
+        presetName = presetFlagRaw
+      } else {
+        let formatted
+        try { formatted = JSON.stringify(presetFlagRaw) ?? String(presetFlagRaw) } catch { formatted = String(presetFlagRaw) }
+        process.stderr.write(
+          `[tamp] invalid --preset=${formatted} — expected one of: ${Object.keys(COMPRESSION_PRESETS).join(', ')}. Ignoring.\n`
+        )
+      }
+    }
+
+    // 4. TAMP_LEVEL env
+    if (stages === null && levelEnvRaw !== undefined && levelEnvRaw !== null && levelEnvRaw !== '') {
+      const { value, valid } = coerceLevelInput(levelEnvRaw)
+      if (valid) {
+        level = levelInputToInt(value)
+        stages = stagesForLevel(level)
+        levelSource = 'level-env'
+      } else {
+        process.stderr.write(
+          `[tamp] invalid TAMP_LEVEL=${JSON.stringify(levelEnvRaw)} — expected 1..9 or one of: ${Object.keys(LEVEL_ALIASES).join(', ')}. Ignoring.\n`
+        )
+      }
+    }
+
+    // 5. TAMP_COMPRESSION_PRESET env
+    if (stages === null && presetExplicit) {
       // Object.hasOwn guard: a bare `COMPRESSION_PRESETS[presetNameRaw]` lets
       // __proto__/constructor/toString return truthy prototype objects that
       // pass the `if (preset)` check and then crash on `...preset.stages`.
@@ -181,7 +205,10 @@ export function loadConfig(env = process.env, options = {}) {
         levelSource = 'default'
         presetName = 'balanced'
       }
-    } else if (fileLevelRaw !== undefined && fileLevelRaw !== '') {
+    }
+
+    // 6. config-file `level` field
+    if (stages === null && fileLevelRaw !== undefined && fileLevelRaw !== '') {
       const { value, valid } = coerceLevelInput(fileLevelRaw)
       if (valid) {
         level = levelInputToInt(value)
@@ -195,7 +222,10 @@ export function loadConfig(env = process.env, options = {}) {
         stages = stagesForLevel(DEFAULT_LEVEL)
         levelSource = 'default'
       }
-    } else {
+    }
+
+    // 7. DEFAULT_LEVEL (5)
+    if (stages === null) {
       level = DEFAULT_LEVEL
       stages = stagesForLevel(DEFAULT_LEVEL)
       levelSource = 'default'

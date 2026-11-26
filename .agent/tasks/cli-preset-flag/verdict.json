@@ -1,0 +1,71 @@
+{
+  "task_id": "cli-preset-flag",
+  "overall_verdict": "PASS",
+  "criteria": [
+    {
+      "id": "AC1",
+      "status": "PASS",
+      "reason": "Verified in config.js (lines 130-233) that loadConfig(env, options) enforces the exact 7-tier precedence (TAMP_STAGES > options.levelOverride > options.presetOverride > TAMP_LEVEL > TAMP_COMPRESSION_PRESET > config-file level > DEFAULT_LEVEL), sets levelSource='preset-flag', overrides cfg.preset, sets cfg.level to 4/5/8 or null for recommended, and copies preset.stages into a fresh array (14 stages without llmlingua for recommended); verified passing in test/config.test.js."
+    },
+    {
+      "id": "AC2",
+      "status": "PASS",
+      "reason": "Verified in config.js (lines 158-172) that options.presetOverride silently skips undefined/null/'', validates with typeof presetFlagRaw === 'string' && Object.hasOwn(COMPRESSION_PRESETS, presetFlagRaw), warns to process.stderr naming --preset and the invalid value without crashing on unknown/non-string/prototype-chain values, falls through cleanly without clobbering cfg.preset, and preserves existing TAMP_LEVEL/TAMP_COMPRESSION_PRESET behavior; verified passing in test/config.test.js."
+    },
+    {
+      "id": "AC3",
+      "status": "PASS",
+      "reason": "Verified in metadata.js (line 224) that resolveLevel(input) guards alias lookup with Object.hasOwn(LEVEL_ALIASES, input) (the sole 1-line diff in metadata.js), returning strictly null for toString, constructor, valueOf, hasOwnProperty, and __proto__ while keeping the 1-9 COMPRESSION_LEVELS ladder prefix-preserving; verified passing in test/metadata.test.js."
+    },
+    {
+      "id": "AC4",
+      "status": "PASS",
+      "reason": "Verified in bin/tamp.js (lines 214-303) that pure exported helpers parsePresetArgv(argv) and parseCliFlags(argv) parse --preset NAME and --preset=NAME via Object.hasOwn(COMPRESSION_PRESETS, raw) without calling process.exit, and main() prints stderr errors and exits with code 2 on missing, empty, unknown, or prototype-chain --preset values and on mutually exclusive --level + --preset in any order/form; verified by unit and subprocess tests in test/cli-hardening.test.js."
+    },
+    {
+      "id": "AC5",
+      "status": "PASS",
+      "reason": "Verified in bin/tamp.js (lines 170-198, 672-687) that resolveNonInteractiveConfig accepts argvPreset=null, sets loadOpts.presetOverride without mutating process.env, skips sidecar startup when argvPreset='recommended' (14 stages, no llmlingua), and produces preset='recommended', level=null, levelSource='preset-flag' via createProxy(overrides, loadOpts); verified passing in test/cli-hardening.test.js."
+    },
+    {
+      "id": "AC6",
+      "status": "PASS",
+      "reason": "Verified in bin/tamp.js (lines 766-775) and bin/ui/App.js (lines 13-30, 167-170) that argvPreset is passed to App without mutating process.env and resolveInteractiveSeed maps anchored presets (conservative=4, balanced=5, aggressive=8) to envLevel=argvLevel ?? preset.level, maps recommended (level=null) to envStages=envStages ?? new Set(preset.stages) preserving TAMP_STAGES precedence, and passes absent/invalid/prototype-key inputs through unchanged; verified passing in test/cli-hardening.test.js and test/tui-state-telemetry.test.js."
+    },
+    {
+      "id": "AC7",
+      "status": "PASS",
+      "reason": "Verified via direct execution of 'node bin/tamp.js --help' (exit 0) and subprocess tests for help/--help/-h in test/cli-hardening.test.js that Options documents '--preset NAME    Compression preset (conservative, balanced, aggressive, recommended)'."
+    },
+    {
+      "id": "AC8",
+      "status": "PASS",
+      "reason": "Verified syntax check (node --check exit 0), targeted test suite (118/118 pass across test/config.test.js, test/metadata.test.js, test/cli-hardening.test.js, test/tui-state-telemetry.test.js), full test suite ('npm test': 943/943 pass across 213 suites + bench/retrieval-eval.js PASS, exit 0), and integration smoke suite ('node smoke.js': All checks passed!, exit 0), with git diff strictly scoped to the 7 intended files and zero new dependencies."
+    }
+  ],
+  "commands_run": [
+    "git status --short && git diff --stat",
+    "git diff",
+    "node --check metadata.js config.js bin/tamp.js bin/ui/App.js test/metadata.test.js test/config.test.js test/cli-hardening.test.js",
+    "node --test test/config.test.js test/metadata.test.js test/cli-hardening.test.js test/tui-state-telemetry.test.js",
+    "node bin/tamp.js --help",
+    "node smoke.js",
+    "node --test test/compress-hardening.test.js",
+    "node --test test/quality-gates.test.js",
+    "node bench/retrieval-eval.js",
+    "npm test"
+  ],
+  "artifacts_used": [
+    ".agent/tasks/cli-preset-flag/spec.md",
+    ".agent/tasks/cli-preset-flag/evidence.md",
+    ".agent/tasks/cli-preset-flag/evidence.json",
+    ".agent/tasks/cli-preset-flag/raw/test-integration.txt",
+    "config.js",
+    "metadata.js",
+    "bin/tamp.js",
+    "bin/ui/App.js",
+    "test/config.test.js",
+    "test/metadata.test.js",
+    "test/cli-hardening.test.js"
+  ]
+}

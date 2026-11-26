@@ -5,7 +5,7 @@ import { spawn, execFileSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
 import { homedir } from 'node:os'
-import { DEFAULT_STAGES, EXTRA_STAGES, STAGE_DESCRIPTIONS, STAGE_HINTS, VERSION, isLossy, DEFAULT_LEVEL } from '../metadata.js'
+import { DEFAULT_STAGES, EXTRA_STAGES, STAGE_DESCRIPTIONS, STAGE_HINTS, VERSION, isLossy, DEFAULT_LEVEL, COMPRESSION_PRESETS, LEVEL_ALIASES } from '../metadata.js'
 import { CONFIG_PATH, CONFIG_TEMPLATE, loadConfig, loadConfigFile } from '../config.js'
 import { isLoopbackUrl } from '../compress.js'
 import {
@@ -170,11 +170,14 @@ export function formatStatusLines(health, port, version = VERSION, healthy = hea
 export async function resolveNonInteractiveConfig({
   env = process.env,
   argvLevel = null,
+  argvPreset = null,
   startSidecarFn = startSidecar,
   onSidecarReady,
   onSidecarUnavailable,
 } = {}) {
-  const loadOpts = argvLevel !== null ? { levelOverride: argvLevel } : {}
+  const loadOpts = {}
+  if (argvLevel !== null) loadOpts.levelOverride = argvLevel
+  if (argvPreset !== null) loadOpts.presetOverride = argvPreset
   const probe = loadConfig(env, loadOpts)
   let selectedStages = [...probe.stages]
   const overrides = {}
@@ -203,42 +206,101 @@ function isEntrypoint() {
   }
 }
 
-// --- Global --level flag parsing ---
-// Supports '--level N', '--level=N'. Accepts integers 1..9 or alias strings
-// (conservative, balanced, aggressive, max). Invalid values: print a friendly
-// error and exit(2). Threaded into loadConfig via options.levelOverride so the
-// precedence rules (stages-env > level-flag > level-env > preset-env > file > default)
-// live entirely in config.js.
-function parseLevelArgv(argv) {
-  const aliases = new Set(['conservative', 'balanced', 'aggressive', 'max'])
-  let raw = null
+// --- Global --level / --preset flag parsing ---
+// Pure helpers return structured { level/preset, error } without calling
+// process.exit so unit tests can exercise every path deterministically.
+// Threaded into loadConfig via options.levelOverride / options.presetOverride
+// so the precedence rules live entirely in config.js.
+export function parsePresetArgv(argv = []) {
+  const validPresets = Object.keys(COMPRESSION_PRESETS).join(', ')
+  let found = false
+  let raw
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i]
-    if (a === '--level') { raw = argv[i + 1]; break }
-    if (a.startsWith('--level=')) { raw = a.slice('--level='.length); break }
+    if (a === '--preset') {
+      found = true
+      raw = i + 1 < argv.length ? argv[i + 1] : undefined
+      break
+    }
+    if (a.startsWith('--preset=')) {
+      found = true
+      raw = a.slice('--preset='.length)
+      break
+    }
   }
-  if (raw === null || raw === undefined) return null
+  if (!found) return { preset: null, error: null }
+  if (raw === undefined || raw === '') {
+    return { preset: null, error: `[tamp] --preset requires a value (one of: ${validPresets})` }
+  }
+  if (typeof raw === 'string' && Object.hasOwn(COMPRESSION_PRESETS, raw)) {
+    return { preset: raw, error: null }
+  }
+  return { preset: null, error: `[tamp] invalid --preset=${raw} — expected one of: ${validPresets}` }
+}
+
+function parseLevelFlag(argv = []) {
+  const validAliases = Object.keys(LEVEL_ALIASES).join(', ')
+  let found = false
+  let raw
+  for (let i = 0; i < argv.length; i++) {
+    const a = argv[i]
+    if (a === '--level') {
+      found = true
+      raw = i + 1 < argv.length ? argv[i + 1] : undefined
+      break
+    }
+    if (a.startsWith('--level=')) {
+      found = true
+      raw = a.slice('--level='.length)
+      break
+    }
+  }
+  if (!found || raw === undefined) return { level: null, error: null }
   if (raw === '') {
-    console.error(`[tamp] --level requires a value (1..9 or one of: conservative, balanced, aggressive, max)`)
-    process.exit(2)
+    return { level: null, error: `[tamp] --level requires a value (1..9 or one of: ${validAliases})` }
   }
   if (/^-?\d+$/.test(raw)) {
     const n = parseInt(raw, 10)
     if (n < 1 || n > 9) {
-      console.error(`[tamp] --level must be 1..9 (got ${raw})`)
-      process.exit(2)
+      return { level: null, error: `[tamp] --level must be 1..9 (got ${raw})` }
     }
-    return n
+    return { level: n, error: null }
   }
-  if (aliases.has(raw)) return raw
-  console.error(`[tamp] invalid --level=${raw} — expected 1..9 or one of: conservative, balanced, aggressive, max`)
-  process.exit(2)
+  if (Object.hasOwn(LEVEL_ALIASES, raw)) return { level: raw, error: null }
+  return { level: null, error: `[tamp] invalid --level=${raw} — expected 1..9 or one of: ${validAliases}` }
+}
+
+export function parseCliFlags(argv = []) {
+  const hasLevel = argv.some(a => a === '--level' || a.startsWith('--level='))
+  const hasPreset = argv.some(a => a === '--preset' || a.startsWith('--preset='))
+  if (hasLevel && hasPreset) {
+    return {
+      level: null,
+      preset: null,
+      error: '[tamp] --level and --preset cannot be used together — choose one',
+    }
+  }
+  const levelRes = parseLevelFlag(argv)
+  if (levelRes.error) {
+    return { level: null, preset: null, error: levelRes.error }
+  }
+  const presetRes = parsePresetArgv(argv)
+  if (presetRes.error) {
+    return { level: null, preset: null, error: presetRes.error }
+  }
+  return { level: levelRes.level, preset: presetRes.preset, error: null }
 }
 
 async function main() {
 // --- Subcommands ---
 const subcommand = process.argv[2]
-const argvLevel = parseLevelArgv(process.argv.slice(2))
+const parsedFlags = parseCliFlags(process.argv.slice(2))
+if (parsedFlags.error) {
+  console.error(parsedFlags.error)
+  process.exit(2)
+}
+const argvLevel = parsedFlags.level
+const argvPreset = parsedFlags.preset
 
 if (subcommand === 'init') {
   const dir = dirname(CONFIG_PATH)
@@ -545,6 +607,7 @@ if (subcommand === 'help' || subcommand === '--help' || subcommand === '-h' || p
   console.log('')
   console.log('Options:')
   console.log('  --level N        Compression level 1..9 (or: conservative, balanced, aggressive, max)')
+  console.log('  --preset NAME    Compression preset (conservative, balanced, aggressive, recommended)')
   console.log(`\nConfig: ${CONFIG_PATH}`)
   process.exit(0)
 }
@@ -609,6 +672,7 @@ if (skipPrompt) {
   const { overrides, loadOpts } = await resolveNonInteractiveConfig({
     env: process.env,
     argvLevel,
+    argvPreset,
     startSidecarFn: startSidecar,
     onSidecarReady: (url) => {
       console.error(`  ${c.green}\u2713${c.reset} LLMLingua-2 ready on ${c.bold}${url}${c.reset}`)
@@ -703,6 +767,7 @@ if (skipPrompt) {
     version: VERSION,
     envStages,
     argvLevel,
+    argvPreset,
     startSidecar,
     createProxy,
     getSidecarProc,

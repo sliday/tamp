@@ -1,0 +1,6 @@
+=== Build & Syntax Check ===
+Runtime: Node.js v22.17.0 (plain ESM JavaScript — no build step)
+
+Command: node --check config.js && node --check metadata.js && node --check bin/tamp.js && node --check bin/ui/App.js
+Exit code: 0
+Output: node --check: OK (all 4 modified modules parsed cleanly with zero syntax errors)

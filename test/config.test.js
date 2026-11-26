@@ -4,7 +4,7 @@ import { writeFileSync, mkdirSync, unlinkSync, rmdirSync } from 'node:fs'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { loadConfig, loadConfigFile, CONFIG_TEMPLATE } from '../config.js'
-import { DEFAULT_STAGES, VERSION, COMPRESSION_LEVELS, DEFAULT_LEVEL } from '../metadata.js'
+import { DEFAULT_STAGES, VERSION, COMPRESSION_LEVELS, COMPRESSION_PRESETS, DEFAULT_LEVEL } from '../metadata.js'
 
 describe('loadConfig', () => {
   it('returns defaults when no env vars set', () => {
@@ -417,5 +417,146 @@ describe('loadConfig — stale eviction & upstreamTimeout non-negative int parsi
     assert.ok(CONFIG_TEMPLATE.includes('TAMP_STALE_IMAGE_KEEP_RECENT'))
     assert.ok(CONFIG_TEMPLATE.includes('TAMP_STALE_INPUT_KEEP_RECENT'))
     assert.ok(CONFIG_TEMPLATE.includes('TAMP_STALE_BATCH_SIZE'))
+  })
+})
+
+describe('loadConfig — options.presetOverride precedence & safety', () => {
+  function captureStderr(fn) {
+    const orig = process.stderr.write
+    let out = ''
+    process.stderr.write = (s) => { out += s; return true }
+    try { return { result: fn(), stderr: out } } finally { process.stderr.write = orig }
+  }
+
+  it('resolves every valid presetOverride with accurate preset, level, levelSource, and fresh stages copy', () => {
+    const expectedLevels = {
+      conservative: 4,
+      balanced: 5,
+      aggressive: 8,
+      recommended: null,
+    }
+    for (const [name, expectedLevel] of Object.entries(expectedLevels)) {
+      const { result: cfg, stderr } = captureStderr(() => loadConfig({}, { presetOverride: name }))
+      assert.equal(stderr, '', `no stderr warning expected for valid preset ${name}`)
+      assert.equal(cfg.levelSource, 'preset-flag')
+      assert.equal(cfg.preset, name)
+      assert.equal(cfg.level, expectedLevel)
+      assert.deepEqual(cfg.stages, COMPRESSION_PRESETS[name].stages)
+      assert.notEqual(cfg.stages, COMPRESSION_PRESETS[name].stages, 'cfg.stages must be a fresh copy')
+    }
+    const rec = loadConfig({}, { presetOverride: 'recommended' })
+    assert.equal(rec.stages.length, 14)
+    assert.equal(rec.stages.includes('llmlingua'), false)
+  })
+
+  it('enforces full 7-tier precedence: TAMP_STAGES > levelOverride > presetOverride > TAMP_LEVEL > TAMP_COMPRESSION_PRESET > config-file > default', () => {
+    // 1. TAMP_STAGES beats presetOverride
+    const s1 = loadConfig({ TAMP_STAGES: 'minify' }, { presetOverride: 'recommended' })
+    assert.equal(s1.levelSource, 'stages-env')
+    assert.equal(s1.level, null)
+    assert.deepEqual(s1.stages, ['minify'])
+
+    // 2. levelOverride beats presetOverride
+    const s2 = loadConfig({}, { levelOverride: 3, presetOverride: 'recommended' })
+    assert.equal(s2.levelSource, 'level-flag')
+    assert.equal(s2.level, 3)
+
+    // 3. presetOverride beats TAMP_LEVEL and TAMP_COMPRESSION_PRESET (and overrides cfg.preset)
+    const s3 = loadConfig(
+      { TAMP_LEVEL: '7', TAMP_COMPRESSION_PRESET: 'conservative' },
+      { presetOverride: 'recommended' },
+    )
+    assert.equal(s3.levelSource, 'preset-flag')
+    assert.equal(s3.preset, 'recommended')
+    assert.equal(s3.level, null)
+    assert.deepEqual(s3.stages, COMPRESSION_PRESETS.recommended.stages)
+
+    // 3b. presetOverride beats config-file `level`
+    const tmpDir = join(tmpdir(), 'tamp-preset-cfg-' + Date.now())
+    const tmpFile = join(tmpDir, 'config')
+    mkdirSync(tmpDir, { recursive: true })
+    writeFileSync(tmpFile, 'level=7\n')
+    const saved = {
+      TAMP_CONFIG: process.env.TAMP_CONFIG,
+      TAMP_STAGES: process.env.TAMP_STAGES,
+      TAMP_LEVEL: process.env.TAMP_LEVEL,
+      TAMP_COMPRESSION_PRESET: process.env.TAMP_COMPRESSION_PRESET,
+    }
+    process.env.TAMP_CONFIG = tmpFile
+    delete process.env.TAMP_STAGES
+    delete process.env.TAMP_LEVEL
+    delete process.env.TAMP_COMPRESSION_PRESET
+    try {
+      const fromPreset = loadConfig(process.env, { presetOverride: 'conservative' })
+      assert.equal(fromPreset.levelSource, 'preset-flag')
+      assert.equal(fromPreset.preset, 'conservative')
+      assert.equal(fromPreset.level, 4)
+
+      const { result: fallbackToFile, stderr } = captureStderr(() =>
+        loadConfig(process.env, { presetOverride: 'bogus' }),
+      )
+      assert.match(stderr, /--preset/)
+      assert.match(stderr, /bogus/)
+      assert.equal(fallbackToFile.levelSource, 'config-file')
+      assert.equal(fallbackToFile.level, 7)
+      assert.equal(fallbackToFile.preset, 'balanced')
+    } finally {
+      for (const [k, v] of Object.entries(saved)) {
+        if (v === undefined) delete process.env[k]
+        else process.env[k] = v
+      }
+      try { unlinkSync(tmpFile) } catch {}
+      try { rmdirSync(tmpDir) } catch {}
+    }
+  })
+
+  it('treats undefined, null, and empty string presetOverride as unset without warning', () => {
+    for (const unset of [undefined, null, '']) {
+      const { result: cfg, stderr } = captureStderr(() =>
+        loadConfig({ TAMP_COMPRESSION_PRESET: 'conservative' }, { presetOverride: unset }),
+      )
+      assert.equal(stderr, '', `unset presetOverride=${JSON.stringify(unset)} must not warn`)
+      assert.equal(cfg.levelSource, 'preset-env')
+      assert.equal(cfg.preset, 'conservative')
+      assert.equal(cfg.level, 4)
+    }
+  })
+
+  it('warns and falls through cleanly on invalid, non-string, and prototype-chain presetOverride values', () => {
+    const badValues = [
+      'bogus',
+      'constructor',
+      'toString',
+      'valueOf',
+      'hasOwnProperty',
+      '__proto__',
+      123,
+      true,
+      {},
+    ]
+    for (const bad of badValues) {
+      // Falls through to TAMP_LEVEL
+      const r1 = captureStderr(() => loadConfig({ TAMP_LEVEL: '6' }, { presetOverride: bad }))
+      assert.match(r1.stderr, /--preset/)
+      assert.equal(r1.result.levelSource, 'level-env')
+      assert.equal(r1.result.level, 6)
+      assert.equal(r1.result.preset, 'balanced')
+
+      // Falls through to TAMP_COMPRESSION_PRESET without clobbering cfg.preset
+      const r2 = captureStderr(() =>
+        loadConfig({ TAMP_COMPRESSION_PRESET: 'conservative' }, { presetOverride: bad }),
+      )
+      assert.match(r2.stderr, /--preset/)
+      assert.equal(r2.result.levelSource, 'preset-env')
+      assert.equal(r2.result.preset, 'conservative')
+      assert.equal(r2.result.level, 4)
+
+      // Falls through to default
+      const r3 = captureStderr(() => loadConfig({}, { presetOverride: bad }))
+      assert.match(r3.stderr, /--preset/)
+      assert.equal(r3.result.levelSource, 'default')
+      assert.equal(r3.result.level, DEFAULT_LEVEL)
+      assert.equal(r3.result.preset, 'balanced')
+    }
   })
 })

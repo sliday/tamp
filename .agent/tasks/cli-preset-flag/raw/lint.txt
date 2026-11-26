@@ -1,0 +1,32 @@
+=== Lint & Static Constraint Checks ===
+Note: No lint script is defined in package.json; static verification uses node --check, git diff scoping, and grep guards.
+
+1. Syntax check:
+$ node --check config.js && node --check metadata.js && node --check bin/tamp.js && node --check bin/ui/App.js
+Exit code: 0 (OK)
+
+2. git status --short:
+ M bin/tamp.js
+ M bin/ui/App.js
+ M config.js
+ M metadata.js
+ M test/cli-hardening.test.js
+ M test/config.test.js
+ M test/metadata.test.js
+?? .agent/tasks/cli-preset-flag/
+
+3. git diff --stat:
+ bin/tamp.js                | 111 ++++++++++++++++++++++------
+ bin/ui/App.js              |  25 ++++++-
+ config.js                  |  80 ++++++++++++++-------
+ metadata.js                |   2 +-
+ test/cli-hardening.test.js | 175 ++++++++++++++++++++++++++++++++++++++++++++-
+ test/config.test.js        | 143 +++++++++++++++++++++++++++++++++++-
+ test/metadata.test.js      |   6 ++
+ 7 files changed, 489 insertions(+), 53 deletions(-)
+
+4. Static constraint checks:
+- Zero new external dependencies (`git diff package.json | wc -l` => 0)
+- Zero `process.env.TAMP_*` mutations in `bin/tamp.js` or `bin/ui/App.js` (`grep -n "process\.env\.TAMP_[A-Z_]*\s*=" bin/tamp.js bin/ui/App.js` => no matches)
+- Plain ESM JavaScript only (no TypeScript, no build artifacts)
+- `compress.js` untouched; secret redaction ordering untouched; 1-9 ladder prefix-preserving invariant verified by `test/metadata.test.js`

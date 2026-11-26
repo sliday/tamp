@@ -1,7 +1,7 @@
 # Tamp Feature Atlas
 
 Comprehensive map of all states, modes, entrypoints, stages, and surfaces in `@sliday/tamp` (`v0.9.1`).
-Last updated: 2026-11-26 (Cycle 3).
+Last updated: 2026-11-26 (Cycle 4).
 
 ---
 
@@ -9,7 +9,7 @@ Last updated: 2026-11-26 (Cycle 3).
 
 | Subcommand / Mode | Flags & Inputs | States / Transitions |
 |---|---|---|
-| Default (`tamp`) | TTY vs non-TTY, `-y`, `--no-interactive`, `--force`, `--level N\|alias` | Non-TTY / `-y` → headless proxy; TTY → Ink TUI (`App.js`) |
+| Default (`tamp`) | TTY vs non-TTY, `-y`, `--no-interactive`, `--force`, `--level N\|alias`, `--preset NAME` (mutually exclusive with `--level`) | Non-TTY / `-y` → headless proxy; TTY → Ink TUI (`App.js`); invalid `--level`/`--preset` or conflict exits `2` |
 | `init` | `CONFIG_PATH` (`~/.config/tamp/config`) | Creates template if missing; prints existing config if present |
 | `settings` / `config` | `--help`, TTY required | Interactive Ink `LevelPicker` → writes `level=` or `TAMP_STAGES=` via `writeConfigField` |
 | `status` | `loadConfig().port` | Queries `/health` via `fetchHealth`; prints version, active stages, requests, tokens saved, sidecar, `cacheHitRate`; exits `0` (running) / `1` (stopped) |
@@ -21,11 +21,12 @@ Last updated: 2026-11-26 (Cycle 3).
 
 ### Config Precedence (`config.js`)
 1. `TAMP_STAGES` (env or config file) — power-user explicit stage list
-2. `--level` CLI flag (`1..9` or `conservative`, `balanced`, `aggressive`, `max`)
-3. `TAMP_LEVEL` env
-4. `TAMP_COMPRESSION_PRESET` (`conservative`, `balanced`, `aggressive`, `recommended`)
-5. Config-file `level=`
-6. `DEFAULT_LEVEL` (`5` / `balanced`)
+2. `--level` CLI flag (`options.levelOverride`: `1..9` or `conservative`, `balanced`, `aggressive`, `max`)
+3. `--preset` CLI flag (`options.presetOverride`: `conservative`, `balanced`, `aggressive`, `recommended`)
+4. `TAMP_LEVEL` env
+5. `TAMP_COMPRESSION_PRESET` (`conservative`, `balanced`, `aggressive`, `recommended`)
+6. Config-file `level=`
+7. `DEFAULT_LEVEL` (`5` / `balanced`)
 
 ---
 
@@ -33,7 +34,7 @@ Last updated: 2026-11-26 (Cycle 3).
 
 | Component | States / Modes | Notes |
 |---|---|---|
-| `App.js` | Phases: `pick` → (`loading` if `llmlingua`) → `running` | Passes explicit `(overrides, loadOpts)` to `createProxy` (zero `process.env.TAMP_*` mutation); binds `proxyConfig.host` (`127.0.0.1` default); kills sidecar on bind errors; bounds `events` to `MAX_EVENTS = 200`; wires live `usage` via `onUsage`; installs shutdown hooks |
+| `App.js` | Phases: `pick` → (`loading` if `llmlingua`) → `running` | Seeds `LevelPicker` from `argvLevel`/`argvPreset`/`envStages` (`resolveInteractiveSeed`); passes explicit `(overrides, loadOpts)` to `createProxy` (zero `process.env.TAMP_*` mutation); binds `proxyConfig.host` (`127.0.0.1` default); kills sidecar on bind errors; bounds `events` to `MAX_EVENTS = 200`; wires live `usage` via `onUsage`; installs shutdown hooks |
 | `LevelPicker.js` | 1–9 slider (`←`/`→`/`h`/`l`/`1-9`), `A` → advanced `StagePicker`, `Enter` confirm, `Esc` cancel | Shows `LOSSLESS` (L1–L4) vs `LOSSY` (L5–L9) badge and cumulative stage chips |
 | `StagePicker.js` | MultiSelect over all 20 stages (`DEFAULT_STAGES` + `EXTRA_STAGES`) | Enforces `>= 1` stage selected |
 | `SidecarLoader.js` | `loading` → `success` (600ms) or `warning` (1200ms fallback without `llmlingua`) | Spawns `startSidecar()` |
