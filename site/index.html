@@ -18,16 +18,25 @@
             --tamp-cream: #F5E6C8;
             --tamp-dark: #1a1208;
             --db-noise: 0.114;
-            /* semantic tokens (polish pass) */
+            /* semantic tokens — light-mode AA defaults (overridden for dark themes below) */
             --tamp-accent: var(--db-accent, var(--tamp-espresso));
-            --tamp-success: #8ce99a;  /* AA-safe on dark + tinted-green bg (~8:1) */
-            --tamp-danger: #ff8787;   /* AA-safe on dark (~7:1) */
-            --tamp-muted: rgba(255,255,255,0.82);  /* replaces ambiguous muted-text */
-            --tamp-code-bg: rgba(0,0,0,0.3);
-            --tamp-hairline: rgba(255,255,255,0.08);
-            --tamp-hairline-strong: rgba(255,255,255,0.15);
-            --tamp-chip-bg: rgba(255,255,255,0.06);
-            --tamp-chip-border: rgba(255,255,255,0.12);
+            --tamp-on-accent: #fdf6e3;
+            --tamp-fg: var(--db-color-text, #073642);
+            --tamp-muted: var(--db-color-text-secondary, #46565c);
+            --tamp-success: #1b7a3d;
+            --tamp-danger: #c92a2a;
+            --tamp-warning: #9a6700;
+            --tamp-code-bg: #1d2021;
+            --tamp-code-fg: #ebdbb2;
+            --tamp-inline-code-bg: rgba(7, 54, 66, 0.08);
+            --tamp-pill-bg: rgba(7, 54, 66, 0.08);
+            --tamp-tab-bar-bg: rgba(7, 54, 66, 0.07);
+            --tamp-tab-hover-bg: rgba(7, 54, 66, 0.08);
+            --tamp-tab-active-bg: #fdf6e3;
+            --tamp-hairline: rgba(7, 54, 66, 0.12);
+            --tamp-hairline-strong: rgba(7, 54, 66, 0.24);
+            --tamp-chip-bg: rgba(7, 54, 66, 0.06);
+            --tamp-chip-border: rgba(7, 54, 66, 0.16);
             --tamp-radius-sm: 3px;
             --tamp-radius-md: 6px;
             --tamp-radius-lg: 8px;
@@ -36,6 +45,39 @@
             --db-font-prose: 'IBM Plex Sans', system-ui, -apple-system, sans-serif;
             --db-font-ui: 'IBM Plex Sans', system-ui, -apple-system, sans-serif;
             --db-font-mono: 'IBM Plex Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+        }
+        [data-theme="dark"],
+        [data-theme$="-dark"],
+        [data-theme="ink"],
+        [data-theme="ember"],
+        [data-theme="dracula"],
+        [data-theme="nord"],
+        [data-theme="monokai"],
+        [data-theme="gruvbox"],
+        [data-theme="night-owl"],
+        [data-theme="material"],
+        [data-theme="monospace"],
+        [data-theme="synthwave"],
+        [data-theme="shades-of-purple"],
+        [data-theme="horizon"] {
+            --tamp-accent: var(--db-accent, #d79921);
+            --tamp-on-accent: #1a1208;
+            --tamp-fg: var(--db-color-text, rgba(255,255,255,0.95));
+            --tamp-muted: rgba(253, 246, 227, 0.82);
+            --tamp-success: #8ce99a;  /* AA-safe on dark (~10:1) */
+            --tamp-danger: #ff8787;   /* AA-safe on dark (~7.5:1) */
+            --tamp-warning: #fbbf24;  /* AA-safe on dark (~10:1) */
+            --tamp-code-bg: rgba(0, 0, 0, 0.35);
+            --tamp-code-fg: #ebdbb2;
+            --tamp-inline-code-bg: rgba(0, 0, 0, 0.28);
+            --tamp-pill-bg: rgba(0, 0, 0, 0.35);
+            --tamp-tab-bar-bg: rgba(0, 0, 0, 0.22);
+            --tamp-tab-hover-bg: rgba(255, 255, 255, 0.06);
+            --tamp-tab-active-bg: var(--db-surface-raised, rgba(255, 255, 255, 0.10));
+            --tamp-hairline: rgba(255, 255, 255, 0.08);
+            --tamp-hairline-strong: rgba(255, 255, 255, 0.18);
+            --tamp-chip-bg: rgba(255, 255, 255, 0.06);
+            --tamp-chip-border: rgba(255, 255, 255, 0.14);
         }
         body, .db-body, .db-caption, .db-label { font-family: var(--db-font-ui); }
         .db-h1, .db-h2, .db-h3, .db-h4, h1, h2, h3, h4 { font-family: var(--db-font-heading); }
@@ -131,10 +173,10 @@
         }
         .hero-headline em {
             font-style: normal;
-            color: var(--db-accent, var(--tamp-espresso));
+            color: var(--tamp-accent);
         }
         .hero-headline__rest {
-            color: rgba(255,255,255,0.95);  /* near-full foreground, not muted */
+            color: var(--tamp-fg);
         }
         .hero-sub {
             font-size: 1.1rem;
@@ -142,7 +184,7 @@
             margin-top: 0.75rem;
             line-height: 1.5;
         }
-        .hero-sub strong { color: rgba(255,255,255,0.98); font-weight: 600; }
+        .hero-sub strong { color: var(--tamp-fg); font-weight: 600; }
         .hero-compat {
             margin-top: 1rem;
             display: flex;
@@ -159,6 +201,7 @@
         .hero-compat .db-chip {
             font-size: 0.78rem;
             padding: 2px 10px;
+            color: var(--tamp-fg);
         }
         section { padding: clamp(3rem, 8vh, 6rem) 1.5rem; }
         .section-inner { max-width: 960px; margin: 0 auto; }
@@ -169,10 +212,10 @@
             font-family: var(--db-font-mono); font-size: 0.95rem; line-height: 1.8;
             overflow-x: auto; border-radius: 8px; background: #1d2021; color: #ebdbb2;
         }
-        .install-card pre .prompt { opacity: 0.5; }
-        .install-card pre .cmd { color: var(--db-accent, var(--tamp-espresso)); font-weight: 600; }
+        .install-card pre .prompt { opacity: 0.65; }
+        .install-card pre .cmd { color: #fabd2f; font-weight: 600; }
 
-        .stat-big { font-size: clamp(2rem, 6vw, 4rem); font-weight: 700; color: var(--db-accent, var(--tamp-espresso)); }
+        .stat-big { font-size: clamp(2rem, 6vw, 4rem); font-weight: 700; color: var(--tamp-accent); }
 
         .tamp-chart-wrap { max-width: 720px; margin: 0 auto; }
         .tamp-chart-wrap .db-chart { height: 280px; align-items: flex-end; gap: var(--db-space-3); padding: 0 var(--db-space-2); }
@@ -191,14 +234,14 @@
         .stage-list li {
             display: flex; align-items: baseline; gap: 0.75rem;
             padding: 0.6rem 0;
-            border-bottom: 1px solid var(--db-border, rgba(255,255,255,0.06));
+            border-bottom: 1px solid var(--db-border, var(--tamp-hairline));
         }
         .stage-list li:last-child { border-bottom: none; }
-        .stage-name { font-family: monospace; font-weight: 600; min-width: 110px; color: var(--db-color-accent, var(--tamp-espresso)); }
-        .stage-type { font-size: 0.7rem; padding: 1px 6px; border-radius: 3px; text-transform: uppercase; letter-spacing: 0.05em; }
-        .stage-type--lossless { background: rgba(0,0,0,0.35); color: var(--tamp-success); }
-        .stage-type--lossy { background: rgba(0,0,0,0.35); color: var(--tamp-danger); }
-        .stage-type--opt { background: rgba(0,0,0,0.35); color: var(--tamp-muted); }
+        .stage-name { font-family: monospace; font-weight: 600; min-width: 110px; color: var(--tamp-accent); }
+        .stage-type { font-size: 0.7rem; padding: 1px 6px; border-radius: 3px; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600; }
+        .stage-type--lossless { background: var(--tamp-pill-bg); color: var(--tamp-success); }
+        .stage-type--lossy { background: var(--tamp-pill-bg); color: var(--tamp-danger); }
+        .stage-type--opt { background: var(--tamp-pill-bg); color: var(--tamp-muted); }
         .stage-list li { flex-wrap: wrap; }
         .stage-list .db-caption { flex: 1 1 220px; min-width: 0; }
         .stage-savings {
@@ -207,7 +250,7 @@
             font-weight: 700;
             font-size: 0.8rem;
             color: var(--tamp-success);
-            background: rgba(0,0,0,0.35);
+            background: var(--tamp-pill-bg);
             border-radius: var(--tamp-radius-sm);
             padding: 2px 8px;
             white-space: nowrap;
@@ -219,7 +262,7 @@
             letter-spacing: 0.08em;
             text-transform: uppercase;
             background: var(--tamp-accent);
-            color: #1a1208;
+            color: var(--tamp-on-accent);
             padding: 1px 5px;
             border-radius: var(--tamp-radius-sm);
             margin-left: 2px;
@@ -260,7 +303,7 @@
         .release-chip:hover { background: rgba(139, 105, 20, 0.15); border-color: var(--tamp-accent); transform: translateY(-1px); }
         .release-chip__tag {
             background: var(--tamp-accent);
-            color: #1a1208;
+            color: var(--tamp-on-accent);
             font-family: var(--db-font-mono);
             font-size: 0.7rem;
             font-weight: 700;
@@ -283,7 +326,7 @@
             gap: 4px;
             margin: 2rem 0 0;
             padding: 4px;
-            background: rgba(0,0,0,0.2);
+            background: var(--tamp-tab-bar-bg);
             border-radius: 8px;
         }
         .setup-tabs__tab {
@@ -301,10 +344,10 @@
             transition: background 0.15s, color 0.15s, border-color 0.15s;
             white-space: nowrap;
         }
-        .setup-tabs__tab:hover { background: rgba(255,255,255,0.05); color: rgba(255,255,255,0.95); }
+        .setup-tabs__tab:hover { background: var(--tamp-tab-hover-bg); color: var(--tamp-fg); }
         .setup-tabs__tab.is-active {
-            background: var(--db-surface-raised, rgba(255,255,255,0.08));
-            color: rgba(255,255,255,0.98);
+            background: var(--tamp-tab-active-bg);
+            color: var(--tamp-fg);
             border-color: var(--tamp-hairline-strong);
         }
         .setup-tabs__tab:focus-visible { outline: 2px solid var(--tamp-accent); outline-offset: 2px; }
@@ -318,7 +361,7 @@
             line-height: 1.55;
         }
         .setup-panel__code {
-            background: rgba(0,0,0,0.35);
+            background: var(--tamp-code-bg);
             padding: 1.25rem 1.5rem;
             border-radius: 6px;
             overflow-x: auto;
@@ -326,7 +369,7 @@
             font-size: 0.875rem;
             line-height: 1.6;
             margin: 0;
-            color: #ebdbb2;
+            color: var(--tamp-code-fg);
         }
         @media (max-width: 680px) {
             .setup-tabs { overflow-x: auto; flex-wrap: nowrap; }
@@ -340,9 +383,9 @@
             position: absolute;
             top: 0.5rem;
             right: 0.5rem;
-            background: rgba(255,255,255,0.06);
-            border: 1px solid rgba(255,255,255,0.12);
-            color: inherit;
+            background: rgba(255,255,255,0.08);
+            border: 1px solid rgba(255,255,255,0.18);
+            color: #ebdbb2;
             font: inherit;
             font-size: 0.7rem;
             padding: 3px 8px;
@@ -354,12 +397,12 @@
         }
         .code-copy-wrap:hover .code-copy-btn,
         .code-copy-btn:focus-visible { opacity: 1; }
-        .code-copy-btn:hover { background: rgba(255,255,255,0.12); }
+        .code-copy-btn:hover { background: rgba(255,255,255,0.16); }
         .code-copy-btn.copied {
             opacity: 1;
-            background: rgba(81, 207, 102, 0.18);
-            border-color: rgba(81, 207, 102, 0.4);
-            color: #51cf66;
+            background: rgba(81, 207, 102, 0.22);
+            border-color: rgba(81, 207, 102, 0.5);
+            color: #8ce99a;
         }
         @media (hover: none) { .code-copy-btn { display: none; } }
         /* preset cards: one default, two peers */
@@ -390,7 +433,7 @@
             top: -10px;
             right: 12px;
             background: var(--tamp-accent);
-            color: #1a1208;
+            color: var(--tamp-on-accent);
             font-size: 0.6rem;
             font-weight: 700;
             letter-spacing: 0.08em;
@@ -534,32 +577,32 @@
                     </linearGradient>
                 </defs>
                 <path d="M40,175 C100,172 140,165 180,150 S260,110 320,85 S420,40 500,25 L580,20 L580,180 L40,180 Z" fill="url(#tokenFill)" stroke="none"/>
-                <path d="M40,175 C100,172 140,165 180,150 S260,110 320,85 S420,40 500,25 L580,20" fill="none" stroke="#ff6b6b" stroke-width="2.5" stroke-linecap="round"/>
-                <circle cx="40" cy="175" r="3" fill="#ff6b6b" opacity="0.6"/>
-                <circle cx="200" cy="148" r="3" fill="#ff6b6b" opacity="0.7"/>
-                <circle cx="360" cy="78" r="3" fill="#ff6b6b" opacity="0.8"/>
-                <circle cx="540" cy="22" r="3" fill="#ff6b6b" opacity="1"/>
-                <text x="40" y="195" text-anchor="middle" font-size="8" fill="rgba(255,255,255,0.4)">Turn 1</text>
-                <text x="200" y="195" text-anchor="middle" font-size="8" fill="rgba(255,255,255,0.4)">Turn 10</text>
-                <text x="360" y="195" text-anchor="middle" font-size="8" fill="rgba(255,255,255,0.4)">Turn 20</text>
-                <text x="540" y="195" text-anchor="middle" font-size="8" fill="rgba(255,255,255,0.4)">Turn 30</text>
-                <text x="440" y="38" font-size="10" font-weight="600" fill="#ff6b6b">80K</text>
-                <text x="555" y="14" font-size="11" font-weight="700" fill="#ff6b6b">100K+</text>
+                <path d="M40,175 C100,172 140,165 180,150 S260,110 320,85 S420,40 500,25 L580,20" fill="none" stroke="var(--tamp-danger)" stroke-width="2.5" stroke-linecap="round"/>
+                <circle cx="40" cy="175" r="3" fill="var(--tamp-danger)" opacity="0.6"/>
+                <circle cx="200" cy="148" r="3" fill="var(--tamp-danger)" opacity="0.7"/>
+                <circle cx="360" cy="78" r="3" fill="var(--tamp-danger)" opacity="0.8"/>
+                <circle cx="540" cy="22" r="3" fill="var(--tamp-danger)" opacity="1"/>
+                <text x="40" y="195" text-anchor="middle" font-size="8" fill="var(--tamp-muted)">Turn 1</text>
+                <text x="200" y="195" text-anchor="middle" font-size="8" fill="var(--tamp-muted)">Turn 10</text>
+                <text x="360" y="195" text-anchor="middle" font-size="8" fill="var(--tamp-muted)">Turn 20</text>
+                <text x="540" y="195" text-anchor="middle" font-size="8" fill="var(--tamp-muted)">Turn 30</text>
+                <text x="440" y="38" font-size="10" font-weight="600" fill="var(--tamp-danger)">80K</text>
+                <text x="555" y="14" font-size="11" font-weight="700" fill="var(--tamp-danger)">100K+</text>
             </svg>
         </div>
 
         <div class="grid-3" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem;">
-            <div class="db-card" style="padding: 1.25rem; text-align: center; border-top: 2px solid #ff6b6b;">
-                <p style="font-size: 1.75rem; font-weight: 700; color: #ff6b6b;">200+</p>
-                <p class="db-caption">API calls per session<br><span style="opacity: 0.5;">each sends full history</span></p>
+            <div class="db-card" style="padding: 1.25rem; text-align: center; border-top: 2px solid var(--tamp-danger);">
+                <p style="font-size: 1.75rem; font-weight: 700; color: var(--tamp-danger);">200+</p>
+                <p class="db-caption">API calls per session<br><span style="color: var(--tamp-muted);">each sends full history</span></p>
             </div>
-            <div class="db-card" style="padding: 1.25rem; text-align: center; border-top: 2px solid #ff6b6b;">
-                <p style="font-size: 1.75rem; font-weight: 700; color: #ff6b6b;">60%</p>
-                <p class="db-caption">is tool_result bloat<br><span style="opacity: 0.5;">JSON, files, CLI output</span></p>
+            <div class="db-card" style="padding: 1.25rem; text-align: center; border-top: 2px solid var(--tamp-danger);">
+                <p style="font-size: 1.75rem; font-weight: 700; color: var(--tamp-danger);">60%</p>
+                <p class="db-caption">is tool_result bloat<br><span style="color: var(--tamp-muted);">JSON, files, CLI output</span></p>
             </div>
-            <div class="db-card" style="padding: 1.25rem; text-align: center; border-top: 2px solid #ff6b6b;">
-                <p style="font-size: 1.75rem; font-weight: 700; color: #ff6b6b;">$6&ndash;15</p>
-                <p class="db-caption">per coding session<br><span style="opacity: 0.5;">at $3/Mtok pricing</span></p>
+            <div class="db-card" style="padding: 1.25rem; text-align: center; border-top: 2px solid var(--tamp-danger);">
+                <p style="font-size: 1.75rem; font-weight: 700; color: var(--tamp-danger);">$6&ndash;15</p>
+                <p class="db-caption">per coding session<br><span style="color: var(--tamp-muted);">at $3/Mtok pricing</span></p>
             </div>
         </div>
     </div>
@@ -642,8 +685,8 @@
             </ul>
         </div>
 
-        <div class="db-card" style="padding: 1.25rem; margin-top: 0.75rem; opacity: 0.7;">
-            <p class="db-body" style="font-weight: 600; margin-bottom: 0.5rem;">Opt-in stages <span class="db-caption" style="opacity: 0.5;">(not enabled by default)</span></p>
+        <div class="db-card" style="padding: 1.25rem; margin-top: 0.75rem;">
+            <p class="db-body" style="font-weight: 600; margin-bottom: 0.5rem;">Opt-in stages <span class="db-caption" style="color: var(--tamp-muted);">(not enabled by default)</span></p>
             <ul class="stage-list">
                 <li>
                     <span class="stage-name">strip-comments</span>
@@ -725,7 +768,7 @@
         <div class="db-card db-surface--raised" style="padding: 1.25rem; margin-top: 1.5rem; overflow-x: auto; -webkit-overflow-scrolling: touch;">
             <table class="levels-table" style="min-width: 520px; width: 100%; border-collapse: collapse; font-size: 0.88rem;">
                 <thead>
-                    <tr style="border-bottom: 2px solid rgba(255,255,255,0.1); text-align: left;">
+                    <tr style="border-bottom: 2px solid var(--tamp-hairline-strong); text-align: left;">
                         <th style="padding: 0.6rem 0.75rem;">Level</th>
                         <th style="padding: 0.6rem 0.75rem;">Adds</th>
                         <th style="padding: 0.6rem 0.75rem;">Lossy</th>
@@ -734,31 +777,31 @@
                     </tr>
                 </thead>
                 <tbody>
-                    <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);"><td style="padding: 0.55rem 0.75rem;"><strong>L1</strong></td><td style="padding: 0.55rem 0.75rem;"><code>minify</code></td><td style="padding: 0.55rem 0.75rem; opacity: 0.5;">&mdash;</td><td style="padding: 0.55rem 0.75rem; text-align: right;">~15%</td><td style="padding: 0.55rem 0.75rem; opacity: 0.5;">&mdash;</td></tr>
-                    <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);"><td style="padding: 0.55rem 0.75rem;"><strong>L2</strong></td><td style="padding: 0.55rem 0.75rem;">+ <code>whitespace</code>, <code>strip-lines</code></td><td style="padding: 0.55rem 0.75rem; opacity: 0.5;">&mdash;</td><td style="padding: 0.55rem 0.75rem; text-align: right;">~25%</td><td style="padding: 0.55rem 0.75rem; opacity: 0.5;">&mdash;</td></tr>
-                    <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);"><td style="padding: 0.55rem 0.75rem;"><strong>L3</strong></td><td style="padding: 0.55rem 0.75rem;">+ <code>cmd-strip</code></td><td style="padding: 0.55rem 0.75rem; opacity: 0.5;">&mdash;</td><td style="padding: 0.55rem 0.75rem; text-align: right;">~35%</td><td style="padding: 0.55rem 0.75rem; opacity: 0.5;">&mdash;</td></tr>
-                    <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);"><td style="padding: 0.55rem 0.75rem;"><strong>L4</strong></td><td style="padding: 0.55rem 0.75rem;">+ <code>toon</code>, <code>dedup</code>, <code>diff</code></td><td style="padding: 0.55rem 0.75rem; opacity: 0.5;">&mdash;</td><td style="padding: 0.55rem 0.75rem; text-align: right;">~45%</td><td style="padding: 0.55rem 0.75rem;"><code>conservative</code></td></tr>
-                    <tr style="border-bottom: 1px solid rgba(255,255,255,0.05); background: rgba(139, 105, 20, 0.08);"><td style="padding: 0.55rem 0.75rem;"><strong>L5</strong></td><td style="padding: 0.55rem 0.75rem;">+ <code>llmlingua</code>, <code>read-diff</code>, <code>prune</code></td><td style="padding: 0.55rem 0.75rem; color: #d79921;">yes</td><td style="padding: 0.55rem 0.75rem; text-align: right;"><strong>~53%</strong></td><td style="padding: 0.55rem 0.75rem;"><strong><code>balanced</code></strong> (default)</td></tr>
-                    <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);"><td style="padding: 0.55rem 0.75rem;"><strong>L6</strong></td><td style="padding: 0.55rem 0.75rem;">+ <code>strip-comments</code></td><td style="padding: 0.55rem 0.75rem; color: #d79921;">yes</td><td style="padding: 0.55rem 0.75rem; text-align: right;">~58%</td><td style="padding: 0.55rem 0.75rem; opacity: 0.5;">&mdash;</td></tr>
-                    <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);"><td style="padding: 0.55rem 0.75rem;"><strong>L7</strong></td><td style="padding: 0.55rem 0.75rem;">+ <code>textpress</code>, <code>br-cache</code></td><td style="padding: 0.55rem 0.75rem; color: #d79921;">yes</td><td style="padding: 0.55rem 0.75rem; text-align: right;">~62%</td><td style="padding: 0.55rem 0.75rem; opacity: 0.5;">&mdash;</td></tr>
-                    <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);"><td style="padding: 0.55rem 0.75rem;"><strong>L8</strong></td><td style="padding: 0.55rem 0.75rem;">+ <code>disclosure</code>, <code>bm25-trim</code></td><td style="padding: 0.55rem 0.75rem; color: #d79921;">yes</td><td style="padding: 0.55rem 0.75rem; text-align: right;">~67%</td><td style="padding: 0.55rem 0.75rem;"><code>aggressive</code></td></tr>
-                    <tr><td style="padding: 0.55rem 0.75rem;"><strong>L9</strong></td><td style="padding: 0.55rem 0.75rem;">+ <code>graph</code>, <code>foundation-models</code></td><td style="padding: 0.55rem 0.75rem; color: #d79921;">yes</td><td style="padding: 0.55rem 0.75rem; text-align: right;">~72%</td><td style="padding: 0.55rem 0.75rem;"><code>max</code></td></tr>
+                    <tr style="border-bottom: 1px solid var(--tamp-hairline);"><td style="padding: 0.55rem 0.75rem;"><strong>L1</strong></td><td style="padding: 0.55rem 0.75rem;"><code>minify</code></td><td style="padding: 0.55rem 0.75rem; opacity: 0.65;">&mdash;</td><td style="padding: 0.55rem 0.75rem; text-align: right;">~15%</td><td style="padding: 0.55rem 0.75rem; opacity: 0.65;">&mdash;</td></tr>
+                    <tr style="border-bottom: 1px solid var(--tamp-hairline);"><td style="padding: 0.55rem 0.75rem;"><strong>L2</strong></td><td style="padding: 0.55rem 0.75rem;">+ <code>whitespace</code>, <code>strip-lines</code></td><td style="padding: 0.55rem 0.75rem; opacity: 0.65;">&mdash;</td><td style="padding: 0.55rem 0.75rem; text-align: right;">~25%</td><td style="padding: 0.55rem 0.75rem; opacity: 0.65;">&mdash;</td></tr>
+                    <tr style="border-bottom: 1px solid var(--tamp-hairline);"><td style="padding: 0.55rem 0.75rem;"><strong>L3</strong></td><td style="padding: 0.55rem 0.75rem;">+ <code>cmd-strip</code></td><td style="padding: 0.55rem 0.75rem; opacity: 0.65;">&mdash;</td><td style="padding: 0.55rem 0.75rem; text-align: right;">~35%</td><td style="padding: 0.55rem 0.75rem; opacity: 0.65;">&mdash;</td></tr>
+                    <tr style="border-bottom: 1px solid var(--tamp-hairline);"><td style="padding: 0.55rem 0.75rem;"><strong>L4</strong></td><td style="padding: 0.55rem 0.75rem;">+ <code>toon</code>, <code>dedup</code>, <code>diff</code></td><td style="padding: 0.55rem 0.75rem; opacity: 0.65;">&mdash;</td><td style="padding: 0.55rem 0.75rem; text-align: right;">~45%</td><td style="padding: 0.55rem 0.75rem;"><code>conservative</code></td></tr>
+                    <tr style="border-bottom: 1px solid var(--tamp-hairline); background: rgba(139, 105, 20, 0.1);"><td style="padding: 0.55rem 0.75rem;"><strong>L5</strong></td><td style="padding: 0.55rem 0.75rem;">+ <code>llmlingua</code>, <code>read-diff</code>, <code>prune</code></td><td style="padding: 0.55rem 0.75rem; color: var(--tamp-warning); font-weight: 600;">yes</td><td style="padding: 0.55rem 0.75rem; text-align: right;"><strong>~53%</strong></td><td style="padding: 0.55rem 0.75rem;"><strong><code>balanced</code></strong> (default)</td></tr>
+                    <tr style="border-bottom: 1px solid var(--tamp-hairline);"><td style="padding: 0.55rem 0.75rem;"><strong>L6</strong></td><td style="padding: 0.55rem 0.75rem;">+ <code>strip-comments</code></td><td style="padding: 0.55rem 0.75rem; color: var(--tamp-warning); font-weight: 600;">yes</td><td style="padding: 0.55rem 0.75rem; text-align: right;">~58%</td><td style="padding: 0.55rem 0.75rem; opacity: 0.65;">&mdash;</td></tr>
+                    <tr style="border-bottom: 1px solid var(--tamp-hairline);"><td style="padding: 0.55rem 0.75rem;"><strong>L7</strong></td><td style="padding: 0.55rem 0.75rem;">+ <code>textpress</code>, <code>br-cache</code></td><td style="padding: 0.55rem 0.75rem; color: var(--tamp-warning); font-weight: 600;">yes</td><td style="padding: 0.55rem 0.75rem; text-align: right;">~62%</td><td style="padding: 0.55rem 0.75rem; opacity: 0.65;">&mdash;</td></tr>
+                    <tr style="border-bottom: 1px solid var(--tamp-hairline);"><td style="padding: 0.55rem 0.75rem;"><strong>L8</strong></td><td style="padding: 0.55rem 0.75rem;">+ <code>disclosure</code>, <code>bm25-trim</code></td><td style="padding: 0.55rem 0.75rem; color: var(--tamp-warning); font-weight: 600;">yes</td><td style="padding: 0.55rem 0.75rem; text-align: right;">~67%</td><td style="padding: 0.55rem 0.75rem;"><code>aggressive</code></td></tr>
+                    <tr><td style="padding: 0.55rem 0.75rem;"><strong>L9</strong></td><td style="padding: 0.55rem 0.75rem;">+ <code>graph</code>, <code>foundation-models</code></td><td style="padding: 0.55rem 0.75rem; color: var(--tamp-warning); font-weight: 600;">yes</td><td style="padding: 0.55rem 0.75rem; text-align: right;">~72%</td><td style="padding: 0.55rem 0.75rem;"><code>max</code></td></tr>
                 </tbody>
             </table>
         </div>
 
         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 0.75rem; margin-top: 1.25rem;">
             <div class="db-card" style="padding: 1rem;">
-                <p class="db-caption" style="opacity: 0.7; margin-bottom: 0.35rem; font-size: 0.75rem;">CLI flag</p>
-                <pre style="background: rgba(0,0,0,0.3); padding: 0.6rem 0.75rem; border-radius: 4px; margin: 0; font-size: 0.8rem;">tamp --level 7</pre>
+                <p class="db-caption" style="color: var(--tamp-muted); margin-bottom: 0.35rem; font-size: 0.75rem;">CLI flag</p>
+                <pre style="background: var(--tamp-code-bg); color: var(--tamp-code-fg); padding: 0.6rem 0.75rem; border-radius: 4px; margin: 0; font-size: 0.8rem;">tamp --level 7</pre>
             </div>
             <div class="db-card" style="padding: 1rem;">
-                <p class="db-caption" style="opacity: 0.7; margin-bottom: 0.35rem; font-size: 0.75rem;">Environment</p>
-                <pre style="background: rgba(0,0,0,0.3); padding: 0.6rem 0.75rem; border-radius: 4px; margin: 0; font-size: 0.8rem;">TAMP_LEVEL=7 tamp</pre>
+                <p class="db-caption" style="color: var(--tamp-muted); margin-bottom: 0.35rem; font-size: 0.75rem;">Environment</p>
+                <pre style="background: var(--tamp-code-bg); color: var(--tamp-code-fg); padding: 0.6rem 0.75rem; border-radius: 4px; margin: 0; font-size: 0.8rem;">TAMP_LEVEL=7 tamp</pre>
             </div>
             <div class="db-card" style="padding: 1rem;">
-                <p class="db-caption" style="opacity: 0.7; margin-bottom: 0.35rem; font-size: 0.75rem;">Interactive</p>
-                <pre style="background: rgba(0,0,0,0.3); padding: 0.6rem 0.75rem; border-radius: 4px; margin: 0; font-size: 0.8rem;">tamp settings</pre>
+                <p class="db-caption" style="color: var(--tamp-muted); margin-bottom: 0.35rem; font-size: 0.75rem;">Interactive</p>
+                <pre style="background: var(--tamp-code-bg); color: var(--tamp-code-fg); padding: 0.6rem 0.75rem; border-radius: 4px; margin: 0; font-size: 0.8rem;">tamp settings</pre>
             </div>
         </div>
         <p class="db-caption" style="margin-top: 0.75rem; text-align: center; opacity: 0.5;">
@@ -818,7 +861,7 @@ openai_base_url = "http://localhost:7778/v1"</pre>
             </div>
 
             <div class="setup-panel db-card db-surface--raised" id="setup-cursor" role="tabpanel" data-panel="cursor" hidden>
-                <p class="setup-panel__desc">Settings &rarr; Models &rarr; Override OpenAI Base URL. <strong style="color: #d79921;">Caveat:</strong> bundled <code>cursor-*</code>, <code>composer-*</code>, <code>claude-*</code>, <code>gpt-*</code> models route through <code>api2.cursor.sh</code> and cannot be intercepted. Tamp works with BYOK on external model names via a public tunnel.</p>
+                <p class="setup-panel__desc">Settings &rarr; Models &rarr; Override OpenAI Base URL. <strong style="color: var(--tamp-warning);">Caveat:</strong> bundled <code>cursor-*</code>, <code>composer-*</code>, <code>claude-*</code>, <code>gpt-*</code> models route through <code>api2.cursor.sh</code> and cannot be intercepted. Tamp works with BYOK on external model names via a public tunnel.</p>
                 <div class="code-copy-wrap">
                     <button class="code-copy-btn" type="button" aria-label="Copy code to clipboard">copy</button>
                     <pre class="setup-panel__code">http://localhost:7778/v1
@@ -864,7 +907,7 @@ aider   # or any OpenAI-compatible CLI</pre>
             </div>
 
             <div class="setup-panel db-card db-surface--raised" id="setup-kimi" role="tabpanel" data-panel="kimi" hidden>
-                <p class="setup-panel__desc">Edit <code>~/.kimi-code/config.toml</code>. Tamp routes both Kimi Code OAuth (private <code>api.kimi.com/coding/v1</code>) and Moonshot API-key traffic (<code>api.moonshot.cn/v1</code>). <strong style="color: #d79921;">Caveat:</strong> Kimi keys its OAuth token to the provider <code>base_url</code>. Changing it gives <code>No token for "kimi-code-env-…". Run /login to authenticate.</code> and every running agent fails until you re-login. API-key Moonshot setups are unaffected.</p>
+                <p class="setup-panel__desc">Edit <code>~/.kimi-code/config.toml</code>. Tamp routes both Kimi Code OAuth (private <code>api.kimi.com/coding/v1</code>) and Moonshot API-key traffic (<code>api.moonshot.cn/v1</code>). <strong style="color: var(--tamp-warning);">Caveat:</strong> Kimi keys its OAuth token to the provider <code>base_url</code>. Changing it gives <code>No token for "kimi-code-env-…". Run /login to authenticate.</code> and every running agent fails until you re-login. API-key Moonshot setups are unaffected.</p>
                 <div class="code-copy-wrap">
                     <button class="code-copy-btn" type="button" aria-label="Copy code to clipboard">copy</button>
                     <pre class="setup-panel__code"># Kimi Code subscription (OAuth) — run /login after editing
@@ -909,22 +952,22 @@ base_url = "http://localhost:7778/moonshot/v1"</pre>
         <div class="db-card" style="padding: 1.5rem; margin-top: 2rem;">
             <p class="db-body" style="font-weight: 600; margin-bottom: 0.75rem;">Setup in 2 minutes</p>
             <ol style="margin: 0; padding-left: 1.25rem; line-height: 2;">
-                <li class="db-caption">Run <code style="background: rgba(0,0,0,0.2); padding: 2px 6px; border-radius: 3px;">npm i -g @sliday/tamp && tamp -y</code> on your server</li>
-                <li class="db-caption">Add a provider in your OpenClaw config pointing to <code style="background: rgba(0,0,0,0.2); padding: 2px 6px; border-radius: 3px;">http://localhost:7778</code></li>
+                <li class="db-caption">Run <code style="background: var(--tamp-inline-code-bg); padding: 2px 6px; border-radius: 3px;">npm i -g @sliday/tamp && tamp -y</code> on your server</li>
+                <li class="db-caption">Add a provider in your OpenClaw config pointing to <code style="background: var(--tamp-inline-code-bg); padding: 2px 6px; border-radius: 3px;">http://localhost:7778</code></li>
                 <li class="db-caption">Set it as primary model &mdash; done. All requests now flow through Tamp.</li>
             </ol>
         </div>
 
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 1rem;" class="grid-2">
             <div class="db-card" style="padding: 1.25rem; text-align: center;">
-                <p class="db-caption" style="opacity: 0.5;">Chat sessions (Telegram, short turns)</p>
+                <p class="db-caption" style="color: var(--tamp-muted);">Chat sessions (Telegram, short turns)</p>
                 <p style="font-size: 1.75rem; font-weight: 700; margin-top: 0.5rem;">3&ndash;5%</p>
-                <p class="db-caption" style="opacity: 0.5;">mostly text, few tool calls</p>
+                <p class="db-caption" style="color: var(--tamp-muted);">mostly text, few tool calls</p>
             </div>
             <div class="db-card" style="padding: 1.25rem; text-align: center;">
-                <p class="db-caption" style="opacity: 0.5;">Coding sessions (file reads, JSON)</p>
-                <p style="font-size: 1.75rem; font-weight: 700; color: #51cf66; margin-top: 0.5rem;">30&ndash;50%</p>
-                <p class="db-caption" style="opacity: 0.5;">heavy tool_result compression</p>
+                <p class="db-caption" style="color: var(--tamp-muted);">Coding sessions (file reads, JSON)</p>
+                <p style="font-size: 1.75rem; font-weight: 700; color: var(--tamp-success); margin-top: 0.5rem;">30&ndash;50%</p>
+                <p class="db-caption" style="color: var(--tamp-muted);">heavy tool_result compression</p>
             </div>
         </div>
 
@@ -1088,7 +1131,7 @@ base_url = "http://localhost:7778/moonshot/v1"</pre>
         <div style="margin-top: 2rem; overflow-x: auto;">
             <table style="width: 100%; max-width: 720px; margin: 0 auto; border-collapse: collapse; font-size: 0.85rem; font-family: var(--db-font-ui, inherit);">
                 <thead>
-                    <tr style="border-bottom: 2px solid var(--db-border, rgba(255,255,255,0.15)); text-align: left;">
+                    <tr style="border-bottom: 2px solid var(--db-border, var(--tamp-hairline-strong)); text-align: left;">
                         <th style="padding: 8px 12px;">Model</th>
                         <th style="padding: 8px 12px; text-align: right;">In/Out $/MTok</th>
                         <th style="padding: 8px 12px; text-align: right;">Saved/session</th>
@@ -1097,26 +1140,26 @@ base_url = "http://localhost:7778/moonshot/v1"</pre>
                     </tr>
                 </thead>
                 <tbody>
-                    <tr style="border-bottom: 1px solid var(--db-border, rgba(255,255,255,0.08));">
+                    <tr style="border-bottom: 1px solid var(--db-border, var(--tamp-hairline));">
                         <td style="padding: 8px 12px;">Sonnet 4.6</td>
                         <td style="padding: 8px 12px; text-align: right; font-family: monospace;">$3/$15</td>
                         <td style="padding: 8px 12px; text-align: right; font-family: monospace;">$0.68</td>
                         <td style="padding: 8px 12px; text-align: right; font-family: monospace;">$75</td>
-                        <td style="padding: 8px 12px; text-align: right; color: #51cf66; font-weight: 600;">$9,000</td>
+                        <td style="padding: 8px 12px; text-align: right; color: var(--tamp-success); font-weight: 600;">$9,000</td>
                     </tr>
-                    <tr style="border-bottom: 1px solid var(--db-border, rgba(255,255,255,0.08));">
+                    <tr style="border-bottom: 1px solid var(--db-border, var(--tamp-hairline));">
                         <td style="padding: 8px 12px;">Opus 4.6</td>
                         <td style="padding: 8px 12px; text-align: right; font-family: monospace;">$15/$75</td>
                         <td style="padding: 8px 12px; text-align: right; font-family: monospace;">$3.39</td>
                         <td style="padding: 8px 12px; text-align: right; font-family: monospace;">$373</td>
-                        <td style="padding: 8px 12px; text-align: right; color: #51cf66; font-weight: 600;">$44,700</td>
+                        <td style="padding: 8px 12px; text-align: right; color: var(--tamp-success); font-weight: 600;">$44,700</td>
                     </tr>
                     <tr>
                         <td style="padding: 8px 12px;">Opus 4.6 <span class="db-caption">(extended)</span></td>
                         <td style="padding: 8px 12px; text-align: right; font-family: monospace;">$15/$75</td>
                         <td style="padding: 8px 12px; text-align: right; font-family: monospace;">$3.39</td>
                         <td style="padding: 8px 12px; text-align: right; font-family: monospace;">$373</td>
-                        <td style="padding: 8px 12px; text-align: right; color: #51cf66; font-weight: 600;">$44,700</td>
+                        <td style="padding: 8px 12px; text-align: right; color: var(--tamp-success); font-weight: 600;">$44,700</td>
                     </tr>
                 </tbody>
             </table>
@@ -1159,7 +1202,7 @@ base_url = "http://localhost:7778/moonshot/v1"</pre>
             <div class="db-card" style="padding: 1.5rem; border-left: 2px solid var(--tamp-success);">
                 <p style="font-weight: 600; color: var(--tamp-success); margin-bottom: 0.75rem;">After <span class="before-after__meta">(262 tokens, &minus;48.5%)</span></p>
                 <p class="before-after__body">
-                    &ldquo;Off-by-one error: <code style="background: rgba(0,0,0,0.2); padding: 1px 4px; border-radius: 3px;">i <= arr.length</code> should be <code style="background: rgba(0,0,0,0.2); padding: 1px 4px; border-radius: 3px;">i < arr.length</code>. Array index goes out of bounds on last iteration.&rdquo;
+                    &ldquo;Off-by-one error: <code style="background: var(--tamp-inline-code-bg); padding: 1px 4px; border-radius: 3px;">i <= arr.length</code> should be <code style="background: var(--tamp-inline-code-bg); padding: 1px 4px; border-radius: 3px;">i < arr.length</code>. Array index goes out of bounds on last iteration.&rdquo;
                 </p>
             </div>
         </div>
@@ -1182,7 +1225,7 @@ base_url = "http://localhost:7778/moonshot/v1"</pre>
         <div class="db-card" style="padding: 1.25rem; margin-top: 1rem; overflow-x: auto;">
             <table style="width: 100%; border-collapse: collapse; font-size: 0.8rem; font-family: var(--db-font-ui, inherit);">
                 <thead>
-                    <tr style="border-bottom: 2px solid var(--db-border, rgba(255,255,255,0.15)); text-align: left;">
+                    <tr style="border-bottom: 2px solid var(--db-border, var(--tamp-hairline-strong)); text-align: left;">
                         <th style="padding: 6px 8px;">Scenario</th>
                         <th style="padding: 6px 8px; text-align: right;">Control</th>
                         <th style="padding: 6px 8px; text-align: right;">Treatment</th>
@@ -1190,53 +1233,53 @@ base_url = "http://localhost:7778/moonshot/v1"</pre>
                     </tr>
                 </thead>
                 <tbody>
-                    <tr style="border-bottom: 1px solid var(--db-border, rgba(255,255,255,0.08));">
+                    <tr style="border-bottom: 1px solid var(--db-border, var(--tamp-hairline));">
                         <td style="padding: 6px 8px;">Code Review</td>
                         <td style="padding: 6px 8px; text-align: right; font-family: monospace;">508</td>
                         <td style="padding: 6px 8px; text-align: right; font-family: monospace;">262</td>
-                        <td style="padding: 6px 8px; text-align: right; color: #51cf66; font-weight: 600;">48.5%</td>
+                        <td style="padding: 6px 8px; text-align: right; color: var(--tamp-success); font-weight: 600;">48.5%</td>
                     </tr>
-                    <tr style="border-bottom: 1px solid var(--db-border, rgba(255,255,255,0.08));">
+                    <tr style="border-bottom: 1px solid var(--db-border, var(--tamp-hairline));">
                         <td style="padding: 6px 8px;">Concept Explanation</td>
                         <td style="padding: 6px 8px; text-align: right; font-family: monospace;">569</td>
                         <td style="padding: 6px 8px; text-align: right; font-family: monospace;">327</td>
-                        <td style="padding: 6px 8px; text-align: right; color: #51cf66; font-weight: 600;">42.6%</td>
+                        <td style="padding: 6px 8px; text-align: right; color: var(--tamp-success); font-weight: 600;">42.6%</td>
                     </tr>
-                    <tr style="border-bottom: 1px solid var(--db-border, rgba(255,255,255,0.08));">
+                    <tr style="border-bottom: 1px solid var(--db-border, var(--tamp-hairline));">
                         <td style="padding: 6px 8px;">Factual Correction</td>
                         <td style="padding: 6px 8px; text-align: right; font-family: monospace;">95</td>
                         <td style="padding: 6px 8px; text-align: right; font-family: monospace;">24</td>
-                        <td style="padding: 6px 8px; text-align: right; color: #51cf66; font-weight: 600;">74.7%</td>
+                        <td style="padding: 6px 8px; text-align: right; color: var(--tamp-success); font-weight: 600;">74.7%</td>
                     </tr>
-                    <tr style="border-bottom: 1px solid var(--db-border, rgba(255,255,255,0.08));">
+                    <tr style="border-bottom: 1px solid var(--db-border, var(--tamp-hairline));">
                         <td style="padding: 6px 8px;">Refactor Suggestion</td>
                         <td style="padding: 6px 8px; text-align: right; font-family: monospace;">139</td>
                         <td style="padding: 6px 8px; text-align: right; font-family: monospace;">30</td>
-                        <td style="padding: 6px 8px; text-align: right; color: #51cf66; font-weight: 600;">78.5%</td>
+                        <td style="padding: 6px 8px; text-align: right; color: var(--tamp-success); font-weight: 600;">78.5%</td>
                     </tr>
-                    <tr style="border-bottom: 1px solid var(--db-border, rgba(255,255,255,0.08));">
+                    <tr style="border-bottom: 1px solid var(--db-border, var(--tamp-hairline));">
                         <td style="padding: 6px 8px;">Debug Assistance</td>
                         <td style="padding: 6px 8px; text-align: right; font-family: monospace;">483</td>
                         <td style="padding: 6px 8px; text-align: right; font-family: monospace;">137</td>
-                        <td style="padding: 6px 8px; text-align: right; color: #51cf66; font-weight: 600;">71.6%</td>
+                        <td style="padding: 6px 8px; text-align: right; color: var(--tamp-success); font-weight: 600;">71.6%</td>
                     </tr>
-                    <tr style="border-bottom: 1px solid var(--db-border, rgba(255,255,255,0.08));">
+                    <tr style="border-bottom: 1px solid var(--db-border, var(--tamp-hairline));">
                         <td style="padding: 6px 8px;">API Usage</td>
                         <td style="padding: 6px 8px; text-align: right; font-family: monospace;">609</td>
                         <td style="padding: 6px 8px; text-align: right; font-family: monospace;">246</td>
-                        <td style="padding: 6px 8px; text-align: right; color: #51cf66; font-weight: 600;">59.6%</td>
+                        <td style="padding: 6px 8px; text-align: right; color: var(--tamp-success); font-weight: 600;">59.6%</td>
                     </tr>
-                    <tr style="border-bottom: 1px solid var(--db-border, rgba(255,255,255,0.08));">
+                    <tr style="border-bottom: 1px solid var(--db-border, var(--tamp-hairline));">
                         <td style="padding: 6px 8px;">Git Command</td>
                         <td style="padding: 6px 8px; text-align: right; font-family: monospace;">334</td>
                         <td style="padding: 6px 8px; text-align: right; font-family: monospace;">61</td>
-                        <td style="padding: 6px 8px; text-align: right; color: #51cf66; font-weight: 600;">81.6%</td>
+                        <td style="padding: 6px 8px; text-align: right; color: var(--tamp-success); font-weight: 600;">81.6%</td>
                     </tr>
                     <tr>
                         <td style="padding: 6px 8px;">Code Generation</td>
                         <td style="padding: 6px 8px; text-align: right; font-family: monospace;">922</td>
                         <td style="padding: 6px 8px; text-align: right; font-family: monospace;">151</td>
-                        <td style="padding: 6px 8px; text-align: right; color: #51cf66; font-weight: 600;">83.7%</td>
+                        <td style="padding: 6px 8px; text-align: right; color: var(--tamp-success); font-weight: 600;">83.7%</td>
                     </tr>
                 </tbody>
             </table>
@@ -1278,57 +1321,57 @@ base_url = "http://localhost:7778/moonshot/v1"</pre>
         <div style="overflow-x: auto; -webkit-overflow-scrolling: touch; margin: 1.5rem -1.5rem; padding: 0 1.5rem;">
             <table style="min-width: 500px; width: 100%; border-collapse: collapse; font-size: 0.9rem;">
                 <thead>
-                    <tr style="border-bottom: 2px solid rgba(255,255,255,0.1);">
+                    <tr style="border-bottom: 2px solid var(--tamp-hairline-strong);">
                         <th style="padding: 0.75rem; text-align: left;">Task Type</th>
                         <th style="padding: 0.75rem; text-align: right;">Savings</th>
                         <th style="padding: 0.75rem; text-align: center;">Safe?</th>
                     </tr>
                 </thead>
                 <tbody>
-                    <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
+                    <tr style="border-bottom: 1px solid var(--tamp-hairline);">
                         <td style="padding: 0.75rem;">Env var additions</td>
                         <td style="padding: 0.75rem; text-align: right;">80%</td>
-                        <td style="padding: 0.75rem; text-align: center; color: #4ade80;">✅ Yes</td>
+                        <td style="padding: 0.75rem; text-align: center; color: var(--tamp-success); font-weight: 600;">✅ Yes</td>
                     </tr>
-                    <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
+                    <tr style="border-bottom: 1px solid var(--tamp-hairline);">
                         <td style="padding: 0.75rem;">Typos</td>
                         <td style="padding: 0.75rem; text-align: right;">95%</td>
-                        <td style="padding: 0.75rem; text-align: center; color: #4ade80;">✅ Yes</td>
+                        <td style="padding: 0.75rem; text-align: center; color: var(--tamp-success); font-weight: 600;">✅ Yes</td>
                     </tr>
-                    <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
+                    <tr style="border-bottom: 1px solid var(--tamp-hairline);">
                         <td style="padding: 0.75rem;">Documentation</td>
                         <td style="padding: 0.75rem; text-align: right;">85%</td>
-                        <td style="padding: 0.75rem; text-align: center; color: #4ade80;">✅ Yes</td>
+                        <td style="padding: 0.75rem; text-align: center; color: var(--tamp-success); font-weight: 600;">✅ Yes</td>
                     </tr>
-                    <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
+                    <tr style="border-bottom: 1px solid var(--tamp-hairline);">
                         <td style="padding: 0.75rem;">New features (trivial)</td>
                         <td style="padding: 0.75rem; text-align: right;">70%</td>
-                        <td style="padding: 0.75rem; text-align: center; color: #fbbf24;">⚠️ Conditional</td>
+                        <td style="padding: 0.75rem; text-align: center; color: var(--tamp-warning); font-weight: 600;">⚠️ Conditional</td>
                     </tr>
-                    <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
+                    <tr style="border-bottom: 1px solid var(--tamp-hairline);">
                         <td style="padding: 0.75rem;">Simple refactors</td>
                         <td style="padding: 0.75rem; text-align: right;">65%</td>
-                        <td style="padding: 0.75rem; text-align: center; color: #fbbf24;">⚠️ Conditional</td>
+                        <td style="padding: 0.75rem; text-align: center; color: var(--tamp-warning); font-weight: 600;">⚠️ Conditional</td>
                     </tr>
-                    <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
+                    <tr style="border-bottom: 1px solid var(--tamp-hairline);">
                         <td style="padding: 0.75rem;">Debugging</td>
                         <td style="padding: 0.75rem; text-align: right;">40%</td>
-                        <td style="padding: 0.75rem; text-align: center; color: #f87171;">❌ No</td>
+                        <td style="padding: 0.75rem; text-align: center; color: var(--tamp-danger); font-weight: 600;">❌ No</td>
                     </tr>
-                    <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
+                    <tr style="border-bottom: 1px solid var(--tamp-hairline);">
                         <td style="padding: 0.75rem;">Security fixes</td>
                         <td style="padding: 0.75rem; text-align: right;">50%</td>
-                        <td style="padding: 0.75rem; text-align: center; color: #f87171;">❌ No</td>
+                        <td style="padding: 0.75rem; text-align: center; color: var(--tamp-danger); font-weight: 600;">❌ No</td>
                     </tr>
-                    <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
+                    <tr style="border-bottom: 1px solid var(--tamp-hairline);">
                         <td style="padding: 0.75rem;">Performance</td>
                         <td style="padding: 0.75rem; text-align: right;">45%</td>
-                        <td style="padding: 0.75rem; text-align: center; color: #f87171;">❌ No</td>
+                        <td style="padding: 0.75rem; text-align: center; color: var(--tamp-danger); font-weight: 600;">❌ No</td>
                     </tr>
                     <tr>
                         <td style="padding: 0.75rem;">Architecture</td>
                         <td style="padding: 0.75rem; text-align: right;">35%</td>
-                        <td style="padding: 0.75rem; text-align: center; color: #f87171;">❌ No</td>
+                        <td style="padding: 0.75rem; text-align: center; color: var(--tamp-danger); font-weight: 600;">❌ No</td>
                     </tr>
                 </tbody>
             </table>
@@ -1346,14 +1389,14 @@ base_url = "http://localhost:7778/moonshot/v1"</pre>
             <h4 class="db-h4" style="margin-bottom: 1rem;">Example Failure: Security Fix</h4>
             <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1rem; font-size: 0.85rem;">
                 <div>
-                    <p style="color: #f87171; font-weight: 600; margin-bottom: 0.5rem;">❌ Caveman Mode (56% savings)</p>
-                    <pre style="background: rgba(0,0,0,0.3); padding: 0.75rem; border-radius: 4px; overflow-x: auto; white-space: pre-wrap; word-break: break-word;">SSRF found: llmLinguaUrl unvalidated
+                    <p style="color: var(--tamp-danger); font-weight: 600; margin-bottom: 0.5rem;">❌ Caveman Mode (56% savings)</p>
+                    <pre style="background: var(--tamp-code-bg); color: var(--tamp-code-fg); padding: 0.75rem; border-radius: 4px; overflow-x: auto; white-space: pre-wrap; word-break: break-word;">SSRF found: llmLinguaUrl unvalidated
 Fixed: Added localhost-only hostname check
 Tests: ✓</pre>
                 </div>
                 <div>
-                    <p style="color: #4ade80; font-weight: 600; margin-bottom: 0.5rem;">✅ Normal Mode</p>
-                    <pre style="background: rgba(0,0,0,0.3); padding: 0.75rem; border-radius: 4px; overflow-x: auto; white-space: pre-wrap; word-break: break-word;">Found vulnerability: SSRF via
+                    <p style="color: var(--tamp-success); font-weight: 600; margin-bottom: 0.5rem;">✅ Normal Mode</p>
+                    <pre style="background: var(--tamp-code-bg); color: var(--tamp-code-fg); padding: 0.75rem; border-radius: 4px; overflow-x: auto; white-space: pre-wrap; word-break: break-word;">Found vulnerability: SSRF via
 config.llmLinguaUrl (compress.js:273).
 URL concatenated without validation...
 
@@ -1432,49 +1475,49 @@ Tests: ✓ Commit: d631c4f</pre>
 
         <div class="db-callout" style="--callout-bg: rgba(139, 105, 20, 0.1); --callout-border: var(--tamp-espresso); margin: 2rem 0;">
             <h4 class="db-h4" style="margin-bottom: 0.5rem;">💡 Usage</h4>
-            <pre style="background: rgba(0,0,0,0.3); padding: 1rem; border-radius: 4px; overflow-x: auto; font-size: 0.85rem;"># Environment variable
+            <pre style="background: var(--tamp-code-bg); color: var(--tamp-code-fg); padding: 1rem; border-radius: 4px; overflow-x: auto; font-size: 0.85rem;"># Environment variable
 export TAMP_COMPRESSION_PRESET=balanced
 
 # Config file (~/.config/tamp/config)
-TAMP_COMPRESSION_PRESET=balanced  # conservative | balanced | aggressive</pre>
+TAMP_COMPRESSION_PRESET=balanced  # conservative | balanced | aggressive | recommended</pre>
         </div>
 
         <h3 class="db-h3" style="margin-top: 2.5rem;">Task-Type-Aware Output Compression</h3>
-        <p class="db-body">Tamp injects token-efficient rules into every request based on the user's intent. Safe tasks (env vars, typos, docs) get compressed output; dangerous tasks (security, debugging) get full output. Opt in via <code style="background: rgba(0,0,0,0.3); padding: 0.2rem 0.4rem; border-radius: 3px;">TAMP_OUTPUT_MODE=balanced</code> &mdash; default is <code style="background: rgba(0,0,0,0.3); padding: 0.2rem 0.4rem; border-radius: 3px;">off</code> so existing users see no behavior change.</p>
+        <p class="db-body">Tamp injects token-efficient rules into every request based on the user's intent. Safe tasks (env vars, typos, docs) get compressed output; dangerous tasks (security, debugging) get full output. Opt in via <code style="background: var(--tamp-inline-code-bg); padding: 0.2rem 0.4rem; border-radius: 3px;">TAMP_OUTPUT_MODE=balanced</code> &mdash; default is <code style="background: var(--tamp-inline-code-bg); padding: 0.2rem 0.4rem; border-radius: 3px;">off</code> so existing users see no behavior change.</p>
 
         <div style="overflow-x: auto; -webkit-overflow-scrolling: touch; margin: 1.5rem 0;">
             <table style="min-width: 500px; width: 100%; border-collapse: collapse; font-size: 0.9rem;">
                 <thead>
-                    <tr style="border-bottom: 2px solid rgba(255,255,255,0.1);">
+                    <tr style="border-bottom: 2px solid var(--tamp-hairline-strong);">
                         <th style="padding: 0.75rem; text-align: left;">Mode</th>
                         <th style="padding: 0.75rem; text-align: right;">Safe Tasks</th>
                         <th style="padding: 0.75rem; text-align: right;">Dangerous</th>
                     </tr>
                 </thead>
                 <tbody>
-                    <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
+                    <tr style="border-bottom: 1px solid var(--tamp-hairline);">
                         <td style="padding: 0.75rem;">Conservative</td>
                         <td style="padding: 0.75rem; text-align: right;">40-50%</td>
                         <td style="padding: 0.75rem; text-align: right;">40-50%</td>
                     </tr>
-                    <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
+                    <tr style="border-bottom: 1px solid var(--tamp-hairline);">
                         <td style="padding: 0.75rem;">Balanced</td>
-                        <td style="padding: 0.75rem; text-align: right; color: #4ade80;">65-75%</td>
-                        <td style="padding: 0.75rem; text-align: right; color: #fbbf24;">Full output</td>
+                        <td style="padding: 0.75rem; text-align: right; color: var(--tamp-success); font-weight: 600;">65-75%</td>
+                        <td style="padding: 0.75rem; text-align: right; color: var(--tamp-warning); font-weight: 600;">Full output</td>
                     </tr>
                     <tr>
                         <td style="padding: 0.75rem;">Aggressive</td>
-                        <td style="padding: 0.75rem; text-align: right; color: #4ade80;">75-85%</td>
-                        <td style="padding: 0.75rem; text-align: right; color: #fbbf24;">Partial</td>
+                        <td style="padding: 0.75rem; text-align: right; color: var(--tamp-success); font-weight: 600;">75-85%</td>
+                        <td style="padding: 0.75rem; text-align: right; color: var(--tamp-warning); font-weight: 600;">Partial</td>
                     </tr>
                 </tbody>
             </table>
         </div>
 
         <h3 class="db-h3" style="margin-top: 2.5rem;">CLI: Compress Config Files</h3>
-        <p class="db-body">New <code style="background: rgba(0,0,0,0.3); padding: 0.2rem 0.4rem; border-radius: 3px;">tamp compress-config</code> tool compresses CLAUDE.md and config files by 40-45% using Tamp's compression pipeline.</p>
+        <p class="db-body">New <code style="background: var(--tamp-inline-code-bg); padding: 0.2rem 0.4rem; border-radius: 3px;">tamp compress-config</code> tool compresses CLAUDE.md and config files by 40-45% using Tamp's compression pipeline.</p>
 
-        <pre style="background: rgba(0,0,0,0.3); padding: 1rem; border-radius: 4px; overflow-x: auto; font-size: 0.85rem; margin: 1.5rem 0;"># Dry run (preview savings)
+        <pre style="background: var(--tamp-code-bg); color: var(--tamp-code-fg); padding: 1rem; border-radius: 4px; overflow-x: auto; font-size: 0.85rem; margin: 1.5rem 0;"># Dry run (preview savings)
 tamp compress-config --dry-run ~/.claude/CLAUDE.md
 
 # Compress with backup
@@ -1525,8 +1568,8 @@ tamp compress-config ~/.config/tamp/config ~/.claude/CLAUDE.md</pre>
         <div class="install-card db-card db-surface--raised" style="max-width: 480px; margin: 1.5rem auto 0;">
             <pre style="position: relative;"><span class="prompt">$</span> <span class="cmd">npx @sliday/tamp</span><button onclick="navigator.clipboard.writeText('npx @sliday/tamp').then(()=>{this.textContent='Copied!';setTimeout(()=>this.textContent='Copy',1500)})" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);color:#ebdbb2;padding:4px 10px;border-radius:4px;font-size:0.75rem;cursor:pointer;transition:background 0.15s;">Copy</button></pre>
         </div>
-        <p class="db-caption" style="margin-top: 0.75rem; opacity: 0.5;">
-            Or install the <a href="https://github.com/sliday/tamp-plugin" target="_blank" rel="noopener" style="color: var(--db-terracotta); text-decoration: underline; text-underline-offset: 2px;">Claude Code plugin</a>: <code style="background: rgba(0,0,0,0.15); padding: 2px 6px; border-radius: 3px;">claude plugin marketplace add sliday/claude-plugins && claude plugin install tamp@sliday</code>
+        <p class="db-caption" style="margin-top: 0.75rem; color: var(--tamp-muted);">
+            Or install the <a href="https://github.com/sliday/tamp-plugin" target="_blank" rel="noopener" style="color: var(--db-terracotta); text-decoration: underline; text-underline-offset: 2px;">Claude Code plugin</a>: <code style="background: var(--tamp-inline-code-bg); padding: 2px 6px; border-radius: 3px;">claude plugin marketplace add sliday/claude-plugins && claude plugin install tamp@sliday</code>
         </p>
 
         <div class="trust-badges" style="margin-top: 1.5rem;">
