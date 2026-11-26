@@ -1,0 +1,32 @@
+$ node --check lib/stale-inputs.js
+(exit 0)
+
+$ node --check compress.js
+(exit 0)
+
+$ node --check test/stale-inputs.test.js
+(exit 0)
+
+$ git branch --show-current
+feat/stale-inputs-multiprovider
+
+$ git rev-parse --short HEAD
+33ae649
+
+$ git status --short
+ M compress.js
+ M lib/stale-inputs.js
+ M test/stale-inputs.test.js
+?? .agent/tasks/stale-inputs-multiprovider/
+
+$ git diff --stat
+ compress.js               |   6 +-
+ lib/stale-inputs.js       | 265 +++++++++++++++++++++----
+ test/stale-inputs.test.js | 478 +++++++++++++++++++++++++++++++++++++++++++++-
+ 3 files changed, 706 insertions(+), 43 deletions(-)
+
+# Scope & dependency checks:
+# - Only lib/stale-inputs.js, compress.js, test/stale-inputs.test.js modified.
+# - package.json / package-lock.json untouched (0 new external dependencies).
+# - metadata.js, providers.js, lib/path-extract.js, lib/stale-images.js untouched.
+# - stale-images guard in compress.js (provider.name === 'anthropic') untouched.

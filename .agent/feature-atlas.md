@@ -1,7 +1,7 @@
 # Tamp Feature Atlas
 
 Comprehensive map of all states, modes, entrypoints, stages, and surfaces in `@sliday/tamp` (`v0.9.1`).
-Last updated: 2026-11-26 (Cycle 4).
+Last updated: 2026-11-26 (Cycle 5).
 
 ---
 
@@ -84,7 +84,7 @@ Last updated: 2026-11-26 (Cycle 4).
 
 ### All 20 Compression Stages
 - **Default 10 (`balanced` / L5):** `cmd-strip` (ANSI + 14 command rewriters), `minify` (unsafe-integer guarded), `toon`, `strip-lines`, `whitespace`, `llmlingua` (localhost sidecar, verbatim-critical guarded), `dedup`, `diff`, `read-diff` (multi-provider session LRU), `prune` (npm-internal metadata).
-- **Opt-in 10:** `strip-comments`, `textpress` (Ollama localhost / OpenRouter, verbatim-critical guarded), `foundation-models` (macOS `apfel`, 64 KB guard, verbatim-critical guarded), `graph` (cross-request session dedup), `br-cache` (incremental-tracked Brotli disk store), `disclosure` (>32 KB 3-tier summary, dangerous-task bypass), `bm25-trim` (>64 KB code-block-aware BM25 ranker, dangerous-task bypass), `px-render` (`pxpipe-proxy` PNG image rendering + factsheet, model-gated, dangerous-task bypass), `stale-images` (age-scoped base64 eviction with `batchSize` epoching), `stale-inputs` (age-scoped `tool_use.input` payload pruning with `batchSize` epoching).
+- **Opt-in 10:** `strip-comments`, `textpress` (Ollama localhost / OpenRouter, verbatim-critical guarded), `foundation-models` (macOS `apfel`, 64 KB guard, verbatim-critical guarded), `graph` (cross-request session dedup), `br-cache` (incremental-tracked Brotli disk store), `disclosure` (>32 KB 3-tier summary, dangerous-task bypass), `bm25-trim` (>64 KB code-block-aware BM25 ranker, dangerous-task bypass), `px-render` (`pxpipe-proxy` PNG image rendering + factsheet, model-gated, dangerous-task bypass), `stale-images` (age-scoped base64 eviction with `batchSize` epoching), `stale-inputs` (age-scoped tool-call payload pruning across Anthropic `tool_use`, OpenAI Chat/Kimi/Moonshot `tool_calls`, and OpenAI Responses/Codex `function_call` + `custom_tool_call` with `apply_patch` header retention and `batchSize` epoching).
 
 ### Level Ladder (1–9, Prefix-Preserving) & Presets
 - L1: `minify` → L2: +`whitespace,strip-lines` → L3: +`cmd-strip` → L4 (`conservative`): +`toon,dedup,diff` → L5 (`balanced`, default): +`llmlingua,read-diff,prune` → L6: +`strip-comments` → L7: +`textpress,br-cache` → L8 (`aggressive`): +`disclosure,bm25-trim` → L9 (`max`): +`graph,foundation-models`.

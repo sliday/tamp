@@ -1,0 +1,86 @@
+$ node --test test/stale-inputs.test.js
+▶ stale-inputs — prune payloads from old tool calls
+  ✔ omits the body of an old Write but keeps the path (1.784834ms)
+  ✔ keeps the newest Write intact (0.368125ms)
+  ✔ truncates a long old Bash command but leaves its head readable (0.307084ms)
+  ✔ leaves a short Bash command alone (0.100584ms)
+  ✔ omits both sides of an old Edit (0.110917ms)
+  ✔ never touches AskUserQuestion input (0.07575ms)
+  ✔ does nothing when the stage is off (0.076125ms)
+  ✔ reports how many inputs it pruned (0.165708ms)
+  ✔ is a recognised opt-in lossy stage (4.458667ms)
+  ✔ uses per-tool recovery notices (file tools vs Agent/Workflow/SendMessage) (0.761209ms)
+✔ stale-inputs — prune payloads from old tool calls (9.124458ms)
+▶ stale-inputs — epoch batching (batchSize)
+  ✔ quantizes pruning to multiples of batchSize to preserve prompt cache prefix (0.656916ms)
+✔ stale-inputs — epoch batching (batchSize) (0.698958ms)
+▶ stale-inputs — OpenAI Chat / Kimi / Moonshot (messages[].tool_calls[])
+  ✔ prunes older tool_calls across openai, kimi, and moonshot while preserving headers and newest turns (0.640667ms)
+  ✔ safely skips malformed JSON, non-object JSON, non-string arguments, and preserves unpruned strings byte-for-byte (0.095917ms)
+  ✔ never touches AskUserQuestion in OpenAI Chat tool_calls (case-insensitive) (0.0725ms)
+  ✔ handles mixed assistant messages with both content[] tool_use and tool_calls[] as one turn (0.0795ms)
+  ✔ enforces epoch batching (keepRecent + batchSize) prefix stability on OpenAI Chat (0.404042ms)
+✔ stale-inputs — OpenAI Chat / Kimi / Moonshot (messages[].tool_calls[]) (1.355417ms)
+▶ stale-inputs — OpenAI Responses / Codex CLI (input[])
+  ✔ prunes older function_call and custom_tool_call items via compressRequest (0.403208ms)
+  ✔ groups contiguous parallel function_call / custom_tool_call runs into single turns and never splits them (0.113ms)
+  ✔ supports custom_tool_call with plain JSON object, JSON string, raw string, malformed JSON, and unknown tools (0.150958ms)
+  ✔ safely skips malformed function_call arguments and never touches AskUserQuestion in Responses (0.054709ms)
+  ✔ enforces epoch batching (keepRecent + batchSize) prefix stability on OpenAI Responses (0.736125ms)
+✔ stale-inputs — OpenAI Responses / Codex CLI (input[]) (1.5065ms)
+▶ stale-inputs — Codex apply_patch header retention & tool alias families
+  ✔ retains Update/Add/Delete/Move headers in original order, omits notice-only when headerless, and skips small patches (0.108083ms)
+  ✔ prunes all Write, Edit, Shell, Patch, and Anthropic tool aliases case-insensitively and ignores unknown tools (0.353959ms)
+✔ stale-inputs — Codex apply_patch header retention & tool alias families (0.542542ms)
+▶ stale-inputs — Gemini & unknown body shapes safe no-op
+  ✔ leaves Gemini requests untouched and returns staleInputs: null (60.567666ms)
+  ✔ returns { pruned: 0 } without throwing for unknown or empty body shapes (0.096417ms)
+✔ stale-inputs — Gemini & unknown body shapes safe no-op (60.709375ms)
+ℹ tests 25
+ℹ suites 6
+ℹ pass 25
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 160.585833
+(exit 0)
+
+$ npm test
+> @sliday/tamp@0.9.1 test
+> node --test test/*.test.js && node bench/retrieval-eval.js
+
+ℹ tests 957
+ℹ suites 217
+ℹ pass 957
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2021.8725
+
+bm25-trim retrieval quality  (15 fixtures, offline)
+
+fixture                    NDCG@10 before   after      Recall before   after
+--------------------------------------------------------------------------------
+camel-definition             0.000      0.920           0.0%   100.0%
+snake-definition             0.000      0.920           0.0%   100.0%
+pascal-class                 0.613      0.920          50.0%   100.0%
+acronym-method               0.000      0.920           0.0%   100.0%
+interface-type               0.000      0.920           0.0%   100.0%
+go-func                      0.613      1.000         100.0%   100.0%
+rust-fn                      0.387      0.877          50.0%   100.0%
+nested-method                0.000      0.920           0.0%   100.0%
+const-arrow                  1.000      1.000         100.0%   100.0%
+error-string                 1.000      1.000         100.0%   100.0%
+config-key                   0.000      1.000         100.0%   100.0%
+comment-vs-code              0.000      0.920           0.0%   100.0%
+definition-vs-callsite       0.000      0.651           0.0%   100.0%
+multi-term                   1.000      1.000         100.0%   100.0%
+dotted-path                  0.613      1.000         100.0%   100.0%
+--------------------------------------------------------------------------------
+MEAN                         0.348      0.931          40.0%   100.0%
+
+definition survival at 4096-token budget: 100.0%
+PASS
+(exit 0)

@@ -1,0 +1,117 @@
+{
+  "task_id": "stale-inputs-multiprovider",
+  "overall_status": "PASS",
+  "acceptance_criteria": [
+    {
+      "id": "AC1",
+      "text": "Anthropic parity preserved: existing messages[].content[] tool_use thresholds, recovery notices, truncation format, AskUserQuestion exemption, per-call counter, and existing tests pass unchanged.",
+      "status": "PASS",
+      "proof": [
+        "lib/stale-inputs.js preserves DEFAULT_KEEP_RECENT=2, DEFAULT_BATCH_SIZE=1, LIMIT={words:128,chars:1024}, BASH_LIMIT=1024, BASH_HEAD=512, RECOVERY_FILE, RECOVERY_OMITTED, and AskUserQuestion exemption.",
+        "All 11 existing Anthropic tests in test/stale-inputs.test.js remain unmodified and pass.",
+        ".agent/tasks/stale-inputs-multiprovider/raw/test-unit.txt"
+      ],
+      "gaps": []
+    },
+    {
+      "id": "AC2",
+      "text": "OpenAI Chat / Kimi / Moonshot tool_calls[] support with safe JSON parsing, byte-for-byte preservation of unpruned arguments, and header preservation.",
+      "status": "PASS",
+      "proof": [
+        "lib/stale-inputs.js (hasMessageToolCalls, pruneMessages, pruneJsonArgs) handles assistant messages with non-empty tool_calls[] and mixed content[]+tool_calls[] turns.",
+        "test/stale-inputs.test.js verifies openai, kimi, and moonshot via compressRequest plus malformed JSON, non-object JSON, non-string arguments, and byte-for-byte unpruned preservation.",
+        ".agent/tasks/stale-inputs-multiprovider/raw/test-unit.txt",
+        ".agent/tasks/stale-inputs-multiprovider/raw/test-integration.txt"
+      ],
+      "gaps": []
+    },
+    {
+      "id": "AC3",
+      "text": "OpenAI Responses / Codex CLI input[] support for function_call and custom_tool_call with contiguous parallel turn grouping.",
+      "status": "PASS",
+      "proof": [
+        "lib/stale-inputs.js (isResponsesToolCall, pruneResponsesInput, pruneCustomToolCall, pruneJsonArgs, pruneRawInput) groups contiguous tool calls into single turns and supports object, JSON-string, and raw-string custom_tool_call inputs.",
+        "test/stale-inputs.test.js verifies contiguous grouping across output/reasoning/message separators, function_call, and all custom_tool_call input shapes.",
+        ".agent/tasks/stale-inputs-multiprovider/raw/test-unit.txt",
+        ".agent/tasks/stale-inputs-multiprovider/raw/test-integration.txt"
+      ],
+      "gaps": []
+    },
+    {
+      "id": "AC4",
+      "text": "Codex apply_patch header retention preserving *** Update/Add/Delete File / Move to lines in original order plus recovery notice, and skipping small patches.",
+      "status": "PASS",
+      "proof": [
+        "lib/stale-inputs.js (PATCH_HEADER_RE, prunePatchText) preserves Update File, Add File, Delete File, and Move to headers followed by the exact recovery notice, emits notice-only when headerless, and skips when tooSmall(text).",
+        "test/stale-inputs.test.js verifies multi-file patches, headerless patches, small patches, raw custom_tool_call, JSON custom_tool_call, function_call, and OpenAI tool_calls.",
+        ".agent/tasks/stale-inputs-multiprovider/raw/test-unit.txt"
+      ],
+      "gaps": []
+    },
+    {
+      "id": "AC5",
+      "text": "Explicit case-insensitive tool alias normalization for Write, Edit, Shell, Patch, and Anthropic tools plus AskUserQuestion protection across all provider formats.",
+      "status": "PASS",
+      "proof": [
+        "lib/stale-inputs.js normalizes tool names via name.toLowerCase() with PROTECTED_TOOLS, OMIT_FIELDS Map, EDIT_TOOLS, SHELL_TOOLS, and apply_patch.",
+        "test/stale-inputs.test.js verifies every tool alias family, command-over-cmd precedence, single-sided Edit skip, unknown/prototype tool immunity, and AskUserQuestion protection across Anthropic, OpenAI Chat, and OpenAI Responses.",
+        ".agent/tasks/stale-inputs-multiprovider/raw/test-unit.txt"
+      ],
+      "gaps": []
+    },
+    {
+      "id": "AC6",
+      "text": "Identical keepRecent + batchSize epoch batching across all supported providers preserving prompt-cache prefix byte-stability.",
+      "status": "PASS",
+      "proof": [
+        "lib/stale-inputs.js (computeEvictCount) enforces identical epoch quantization across pruneMessages and pruneResponsesInput.",
+        "test/stale-inputs.test.js verifies keepRecent=2, batchSize=3 epoch stability on Anthropic, OpenAI Chat, and OpenAI Responses.",
+        ".agent/tasks/stale-inputs-multiprovider/raw/test-unit.txt"
+      ],
+      "gaps": []
+    },
+    {
+      "id": "AC7",
+      "text": "compress.js multi-provider dispatch for anthropic, openai, openai-responses, kimi, and moonshot with safe no-op for gemini and unknown body shapes.",
+      "status": "PASS",
+      "proof": [
+        "compress.js dispatches pruneStaleInputs for STALE_INPUTS_PROVIDERS = Set(['anthropic', 'openai', 'openai-responses', 'kimi', 'moonshot']) and leaves stale-images untouched.",
+        "test/stale-inputs.test.js verifies compressRequest across all 5 providers plus gemini safe no-op and pruneStaleInputs on {contents:[...]}, {}, null, undefined.",
+        ".agent/tasks/stale-inputs-multiprovider/raw/test-unit.txt",
+        ".agent/tasks/stale-inputs-multiprovider/raw/test-integration.txt"
+      ],
+      "gaps": []
+    },
+    {
+      "id": "AC8",
+      "text": "Deterministic unit and integration test coverage in test/stale-inputs.test.js, full npm test suite passing, and smoke.js passing.",
+      "status": "PASS",
+      "proof": [
+        "node --test test/stale-inputs.test.js: 25/25 pass across 6 suites.",
+        "npm test: 957/957 pass across 217 suites and bench/retrieval-eval.js PASS.",
+        "node smoke.js: All checks passed!",
+        ".agent/tasks/stale-inputs-multiprovider/raw/build.txt",
+        ".agent/tasks/stale-inputs-multiprovider/raw/lint.txt",
+        ".agent/tasks/stale-inputs-multiprovider/raw/test-unit.txt",
+        ".agent/tasks/stale-inputs-multiprovider/raw/test-integration.txt"
+      ],
+      "gaps": []
+    }
+  ],
+  "changed_files": [
+    "lib/stale-inputs.js",
+    "compress.js",
+    "test/stale-inputs.test.js"
+  ],
+  "commands_for_fresh_verifier": [
+    "node --check lib/stale-inputs.js",
+    "node --check compress.js",
+    "node --check test/stale-inputs.test.js",
+    "node --test test/stale-inputs.test.js",
+    "npm test",
+    "node smoke.js",
+    "git status --short",
+    "git diff --stat"
+  ],
+  "known_gaps": []
+}

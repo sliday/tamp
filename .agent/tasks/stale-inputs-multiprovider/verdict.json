@@ -1,0 +1,66 @@
+{
+  "task_id": "stale-inputs-multiprovider",
+  "overall_verdict": "PASS",
+  "criteria": [
+    {
+      "id": "AC1",
+      "status": "PASS",
+      "reason": "Verified lib/stale-inputs.js preserves DEFAULT_KEEP_RECENT=2, DEFAULT_BATCH_SIZE=1, LIMIT={words:128,chars:1024}, BASH_LIMIT=1024, BASH_HEAD=512, RECOVERY_FILE, RECOVERY_OMITTED, command truncation format, AskUserQuestion exemption, and per-call pruned count. git diff confirms all 11 pre-existing Anthropic tests in test/stale-inputs.test.js are untouched and pass."
+    },
+    {
+      "id": "AC2",
+      "status": "PASS",
+      "reason": "Verified hasMessageToolCalls, pruneMessages, and pruneJsonArgs in lib/stale-inputs.js treat assistant messages with non-empty tool_calls[] (and mixed content[]+tool_calls[] messages as one turn) as call turns, parse tc.function.arguments inside try/catch, safely skip non-string/malformed/null/primitive/array values without mutation, preserve header fields, and only re-serialize when modified. Passing unit and compressRequest tests confirm openai, kimi, and moonshot."
+    },
+    {
+      "id": "AC3",
+      "status": "PASS",
+      "reason": "Verified isResponsesToolCall, pruneResponsesInput, pruneCustomToolCall, pruneJsonArgs, and pruneRawInput in lib/stale-inputs.js group contiguous function_call/custom_tool_call items into single turns separated by any non-tool-call item (output, reasoning, message), safely handle function_call.arguments, and handle plain object, JSON-object string (parsed only when trimmed string starts with '{'), and raw freeform string custom_tool_call.input."
+    },
+    {
+      "id": "AC4",
+      "status": "PASS",
+      "reason": "Verified PATCH_HEADER_RE (/^\\*\\*\\*\\s+(?:Update File|Add File|Delete File|Move to):/) and prunePatchText in lib/stale-inputs.js skip payloads matching tooSmall(text), preserve all four Codex header types in original order followed by the exact recovery notice, emit notice-only when headerless, and work across raw custom_tool_call.input and JSON patch/input fields."
+    },
+    {
+      "id": "AC5",
+      "status": "PASS",
+      "reason": "Verified case-insensitive name.toLowerCase() matching in lib/stale-inputs.js across PROTECTED_TOOLS (askuserquestion across all provider formats), Write family (write, write_file, write_to_file, create_file -> content/file_text), Edit family (edit, edit_file, replace_file_content -> old_string/new_string, old_str/new_str, target_content+replacement_content or replacement_content-only), Shell family (bash, shell, exec_command, run_command, execute_command, local_shell -> command before cmd without fallthrough, plus raw strings), apply_patch, and notebookedit/agent/workflow/sendmessage using a Map so unknown and Object.prototype keys are never touched."
+    },
+    {
+      "id": "AC6",
+      "status": "PASS",
+      "reason": "Verified computeEvictCount in lib/stale-inputs.js applies the identical formula (eligible = turnCount - keepRecent, batch = valid positive integer else 1, evictCount = Math.floor(eligible / batch) * batch, returning { pruned: 0 } with no mutation when <= 0) across both pruneMessages and pruneResponsesInput. Tests verify byte-identical prefix stability within epochs on Anthropic, OpenAI Chat, and OpenAI Responses."
+    },
+    {
+      "id": "AC7",
+      "status": "PASS",
+      "reason": "Verified git diff compress.js adds STALE_INPUTS_PROVIDERS = Set(['anthropic', 'openai', 'openai-responses', 'kimi', 'moonshot']), dispatches pruneStaleInputs for those providers returning { pruned } when pruned > 0 else null, leaves stale-images unchanged (anthropic only), and leaves gemini and unknown body shapes ({contents:[...]}, {}, null, undefined) unmutated with staleInputs: null / { pruned: 0 }."
+    },
+    {
+      "id": "AC8",
+      "status": "PASS",
+      "reason": "Verified 25/25 deterministic tests in test/stale-inputs.test.js pass across 6 suites covering all required providers, tool families, contiguous Responses grouping, Codex apply_patch headers, epoch batching, malformed JSON safety, AskUserQuestion protection, and gemini/unknown no-ops. Full suite passed 957/957 tests (node --test --test-concurrency=2 test/*.test.js; standalone npm test hit only unrelated CPU-contention wall-clock threshold flakes in test/compress-hardening.test.js and test/quality-gates.test.js, which passed 7/7 in 397ms in isolation), bench/retrieval-eval.js passed (PASS, 100% survival), node smoke.js passed all 6 checks, and git status/diff confirmed strict scope to lib/stale-inputs.js, compress.js, and test/stale-inputs.test.js on branch feat/stale-inputs-multiprovider."
+    }
+  ],
+  "commands_run": [
+    "git status --short && git diff --stat",
+    "git branch --show-current && git diff compress.js",
+    "git diff -U3 test/stale-inputs.test.js | head -n 40",
+    "node --check lib/stale-inputs.js compress.js test/stale-inputs.test.js",
+    "node --test test/stale-inputs.test.js",
+    "npm test (3 runs: 954/957, 956/957, 955/957 — only unrelated wall-clock perf assertions in test/compress-hardening.test.js and test/quality-gates.test.js under full parallel CPU load)",
+    "node --test test/compress-hardening.test.js && node bench/retrieval-eval.js",
+    "node --test --test-concurrency=2 test/*.test.js",
+    "node smoke.js"
+  ],
+  "artifacts_used": [
+    ".agent/tasks/stale-inputs-multiprovider/spec.md",
+    ".agent/tasks/stale-inputs-multiprovider/evidence.md",
+    ".agent/tasks/stale-inputs-multiprovider/evidence.json",
+    "lib/stale-inputs.js",
+    "compress.js",
+    "test/stale-inputs.test.js",
+    "LEARNED.md"
+  ]
+}
