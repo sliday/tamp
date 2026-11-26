@@ -10,7 +10,7 @@ Tamp saves **52.6% of tokens** for coding agents like Claude Code, Codex CLI, op
 
 ## What it is
 
-Tamp is a local HTTPS proxy that sits between your coding agent and the upstream LLM API. It compresses request and response payloads using a configurable stage pipeline (cmd-strip, minify, toon, prune, dedup, diff, read-diff, strip-lines, whitespace, llmlingua, plus opt-in strip-comments, textpress, graph, br-cache, disclosure, bm25-trim) and streams back results without the agent noticing.
+Tamp is a local HTTP proxy that sits between your coding agent and the upstream LLM API. It compresses request and response payloads using a 20-stage pipeline (default: `cmd-strip`, `minify`, `toon`, `prune`, `dedup`, `diff`, `read-diff`, `strip-lines`, `whitespace`, `llmlingua`; opt-in: `strip-comments`, `textpress`, `foundation-models`, `graph`, `br-cache`, `disclosure`, `bm25-trim`, `px-render`, `stale-images`, `stale-inputs`), replays compressed & redacted history byte-identically to preserve prompt caches, and streams back results with live cache-hit telemetry without the agent noticing.
 
 - No code changes — point `ANTHROPIC_BASE_URL` (or the equivalent for your agent) at `http://localhost:7778`.
 - Provider-agnostic — works with Anthropic, OpenAI Responses API, Gemini, and more.
@@ -44,7 +44,7 @@ Diagnostic endpoint: `curl http://localhost:7778/caveman-help` returns the curre
 ## Compression presets
 
 ```sh
-# conservative | balanced | aggressive
+# conservative | balanced | aggressive | recommended
 export TAMP_COMPRESSION_PRESET=balanced
 ```
 

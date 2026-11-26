@@ -40,23 +40,34 @@ Gemini CLI ────►          │          ──► Google AI API
 
 Auto-detects API format, compresses tool output, forwards upstream. Error results skipped. JSON minified, arrays encoded columnarly, text/code normalized or semantically compressed.
 
-**Compression Stages** (all enabled by default):
+**Compression Stages** (10 enabled by default in `balanced` / L5):
 
 | Stage | What |
 |-------|------|
-| `cmd-strip` | Strip progress bars and spinners from command output (lossless) |
+| `cmd-strip` | Strip ANSI escapes, spinners, and passing-run noise (`npm`, `pnpm`/`bun`, `pip`, `cargo`, `docker`, `prisma`, `terraform`, `git`, `pytest`, `jest`, `vitest`, `node --test`, `go test`, `wget`/`curl`) |
 | `minify` | Strip JSON whitespace |
 | `toon` | Columnar array encoding |
 | `strip-lines` | Remove line-number prefixes |
 | `whitespace` | Collapse blank lines |
-| `llmlingua` | Neural text compression |
+| `llmlingua` | Neural text compression (prose only; verbatim-critical guard skips paths/JSON/SHAs) |
 | `dedup` | Replace duplicates with refs |
 | `diff` | Replace similar re-reads with diffs |
-| `prune` | Remove low-value metadata |
+| `read-diff` | Session-scoped unified diff for file re-reads across Anthropic, OpenAI Chat, OpenAI Responses (Codex), and Kimi |
+| `prune` | Remove low-value npm/lockfile metadata |
 
-Opt-in stages: `strip-comments`, `textpress` (LLM semantic compression), `graph` (session-scoped dedup — works on any coding agent: Codex, Claude Code, Aider — anywhere the same file is read twice, up to -99% per repeat block), `px-render` (renders dense tool_results as PNG image blocks via [pxpipe](https://github.com/teamchong/pxpipe) — image tokens are priced by pixel area, so 4-64KB grep/code blocks drop ~80% on vision-legible models like Fable 5; see `docs/notes-px-render.md`), `stale-inputs` (prunes payloads from `tool_use.input` in older turns, keeping the call header — measured 18% on realistic requests), `stale-images` (evicts base64 images from older turns, keeping the newest 2 — ~4%)
+**Opt-in stages** (10 extra stages, 20 total):
+- `strip-comments` — Remove code comments (preserves directives, CSS hex colors, JS private fields)
+- `textpress` — LLM semantic compression via Ollama or OpenRouter (guarded by verbatim-critical check)
+- `foundation-models` — Apple Intelligence on-device neural compression (macOS 15+, Apple Silicon, 100% local)
+- `graph` — Session-scoped dedup across requests (works on any coding agent — Codex, Claude Code, Aider — up to -99% per repeat block)
+- `br-cache` — Disk-backed Brotli store (`~/.cache/tamp/br/`) for large tool results (>8 KB), enabling cross-turn rehydration
+- `disclosure` — 3-tier summary for >32 KB tool results with `<tamp-ref:v1:...>` on-demand rehydration (bypassed on dangerous tasks)
+- `bm25-trim` — Query-aware code-block BM25 line ranker for >64 KB tool results (bypassed on dangerous tasks)
+- `px-render` — Renders dense 4–64 KB tool results as PNG image blocks via [pxpipe](https://github.com/teamchong/pxpipe) with a verbatim identifier factsheet (model-gated to vision-legible models like Fable 5; see `docs/notes-px-render.md`)
+- `stale-inputs` — Prunes payloads from `tool_use.input` in older turns while keeping call headers (measured 18% on realistic sessions)
+- `stale-images` — Evicts base64 images from older turns while keeping the newest turns (~4%)
 
-`stale-inputs` and `stale-images` rewrite older turns, which invalidates the prompt cache. Both stay opt-in for that reason; weigh the token saving against cache-read pricing. See `reports/magic-compact-review.md`.
+`stale-inputs` and `stale-images` rewrite older turns, which invalidates the prompt cache. Both stay opt-in for that reason; set `TAMP_STALE_BATCH_SIZE` (e.g. `8`) to evict in quantized epochs instead of every turn, and watch live `cacheHitRate` in `tamp status` / `/health`. See `reports/magic-compact-review.md`.
 
 ### LLMLingua sidecar
 
@@ -254,8 +265,9 @@ The named presets are aliases of levels and still work unchanged:
 | Preset | Level | Savings | Description |
 |--------|-------|---------|-------------|
 | `conservative` | L4 | 45-50% | Lossless only (no neural) |
-| `balanced` (default) | L5 | 52-58% | Recommended, includes LLMLingua |
-| `aggressive` | L8 | 60-68% | Maximum, lossy stages enabled |
+| `balanced` (default) | L5 | 52-58% | Default, includes LLMLingua and `read-diff` |
+| `aggressive` | L8 | 65-72% | Maximum, lossy stages enabled |
+| `recommended` | — | 63-80% | Best measured savings/quality trade-off (`aggressive` minus `llmlingua`; pair with `TAMP_MIN_SIZE=1024`) |
 
 ```bash
 # Use a preset
@@ -296,6 +308,8 @@ Supported on all providers: Anthropic, OpenAI Chat, OpenAI Responses (Codex), Ge
 | `TAMP_UPSTREAM_GEMINI` | `https://generativelanguage.googleapis.com` | Upstream for Gemini (`generateContent`) routes |
 | `TAMP_UPSTREAM_KIMI` | `https://api.kimi.com` | Upstream for Kimi Code routes |
 | `TAMP_UPSTREAM_MOONSHOT` | `https://api.moonshot.cn` | Upstream for Moonshot OpenAI-compatible routes |
+| `TAMP_UPSTREAM_CHATGPT` | `https://chatgpt.com` | Upstream for Codex CLI ChatGPT Plus/Pro OAuth routing |
+| `TAMP_UPSTREAM_TIMEOUT` | `0` | Upstream socket idle timeout in ms (`0` = disabled) |
 | `TAMP_MIN_SIZE` | `200` | Min content size (chars) |
 | `TAMP_MAX_BODY` | `10485760` | Max request body (bytes, 10 MB). Larger bodies pass through uncompressed |
 | `TAMP_LOG` | `true` | Enable logging |
@@ -303,6 +317,9 @@ Supported on all providers: Anthropic, OpenAI Chat, OpenAI Responses (Codex), Ge
 | `TAMP_CACHE_SAFE` | `true` | Compress newest only (prompt-cache safe) |
 | `TAMP_REPLAY` | `true` | Re-send older tool results exactly as Tamp first sent them (savings persist, cache prefix stays stable, secrets stay masked) |
 | `TAMP_REPLAY_MAX_BYTES` | `67108864` | Memory bound for the replay memo (bytes, 64 MiB). Least recently used entries go first |
+| `TAMP_STALE_IMAGE_KEEP_RECENT` | `2` | Number of recent image-bearing turns kept intact by `stale-images` |
+| `TAMP_STALE_INPUT_KEEP_RECENT` | `2` | Number of recent tool-call turns kept intact by `stale-inputs` |
+| `TAMP_STALE_BATCH_SIZE` | `1` | Epoch batch size for `stale-images`/`stale-inputs` (set e.g. `8` to amortize prompt-cache writes) |
 | `TAMP_REDACT` | `true` | Mask secrets in tool output before anything leaves the machine |
 | `TAMP_REDACT_MODE` | `mask` | `mask` (replace with marker) or `remove` (delete value) |
 | `TAMP_LLMLINGUA_URL` | *(none)* | LLMLingua sidecar URL. Set to `http://localhost:8788` to skip the auto-probe (avoids startup race if sidecar is still loading the model) |
@@ -392,16 +409,18 @@ npm install -g --prefix "$(dirname "$(dirname "$(readlink -f "$(command -v tamp)
 
 ## Monitoring
 
-Check session stats any time via the health endpoint via browser or terminal:
+Check session stats and live prompt-cache hit rate any time via `tamp status` or the health endpoint:
 
 ```bash
+tamp status                                 # Live summary incl. cache hit rate
 curl -s 'http://localhost:7778/health?text' # Human-readable
-# Tamp v0.5.9 | 7 stages active | sidecar: n/a
-# Requests: 63 | Blocks: 2
-# Tokens saved: 1136 | Chars: 3482/61528 (5.7%)
-# Est. savings: $0.0034 (Sonnet $3/Mtok) | $0.0170 (Opus $15/Mtok)
+# Tamp v0.9.1 | 10 stages active | sidecar: n/a
+# Requests: 63 | Blocks: 18
+# Tokens saved: 42180 | Chars: 168420/312500 (53.9%)
+# Est. savings: $0.1265 (Sonnet $3/Mtok) | $0.6327 (Opus $15/Mtok)
+# Cache hit rate: 91.4%
 
-curl -s http://localhost:7778/health # JSON (for scripts/dashboards)
+curl -s http://localhost:7778/health # JSON (includes usage, replay, disclosure, redacted, staleImages, staleInputs)
 ```
 
 Inside Claude Code, run `/tamp:status`.
@@ -435,7 +454,7 @@ The real win in v0.8 is **the level knob itself** — a zip-like 1–9 dial that
 
 Tamp runs on `localhost` and forwards to the upstream you configure. Most stages are local-only: `llmlingua` talks to a sidecar on `127.0.0.1`, `foundation-models` stays on-device. The one stage that sends content off-box is `textpress` (opt-in, level 7+), which posts to OpenRouter when `OPENROUTER_API_KEY` is set — leave it off if your tool output is sensitive.
 
-**Secret redaction** is on by default ([#6](https://github.com/sliday/tamp/issues/6)). Before any stage runs — including ones that ship text off-box — Tamp masks high-confidence secrets in tool output: provider-shaped keys (AWS, GitHub, Anthropic/OpenAI, Google, Slack, Stripe), JWTs, PEM private-key blocks, and `UPPER_SNAKE` secret assignments from `.env`/shell (`API_TOKEN=…`, `DATABASE_PASSWORD=…`). Masking keeps structure (`API_TOKEN=‹redacted:secret›`) so the model still reasons about it. Set `TAMP_REDACT=false` to disable, or `TAMP_REDACT_MODE=remove` to delete rather than mask. Detection favors precision over recall: it won't catch every secret, so treat your upstream's data policy as the final boundary.
+**Secret redaction** is on by default ([#6](https://github.com/sliday/tamp/issues/6)). Before any stage runs — including ones that ship text off-box — Tamp masks high-confidence secrets in tool output: provider-shaped keys (AWS, GitHub, Anthropic, OpenAI, OpenRouter, Google, Slack, Stripe, npm, PyPI, HuggingFace, Groq, xAI), JWTs, PEM private-key blocks, and `UPPER_SNAKE` secret assignments from `.env`/shell (`API_TOKEN=…`, `DATABASE_PASSWORD=…`). Masking is idempotent and keeps structure (`API_TOKEN=‹redacted:secret›`) so the model still reasons about it. Set `TAMP_REDACT=false` to disable, or `TAMP_REDACT_MODE=remove` to delete rather than mask. Detection favors precision over recall: it won't catch every secret, so treat your upstream's data policy as the final boundary.
 
 This repo ships an agent harness (built with [harn.app](https://harn.app)): `AGENTS.md` plus PreToolUse / Stop hooks under `scripts/harness/` that block dangerous shell commands and gate completion on `npm test`. See `.claude/settings.json`.
 
