@@ -1,0 +1,56 @@
+{
+  "task_id": "tui-state-and-telemetry",
+  "overall_verdict": "PASS",
+  "criteria": [
+    {
+      "id": "AC1",
+      "status": "PASS",
+      "reason": "Verified bin/ui/App.js contains zero process.env.TAMP_* writes and routes level/custom-stage selections plus sidecarUrl/sidecarFailed through buildInteractiveProxyArgs(selection, { sidecarUrl, sidecarFailed, onCompress, onUsage }) into createProxy(overrides, loadOpts). Confirmed all 6 AC1 tests in test/tui-state-telemetry.test.js pass, validating config.level, config.levelSource === 'level-flag', filtered overrides.stages on llmlingua fallback, overrides.level = null for custom stages, and overrides.llmLinguaUrl propagation."
+    },
+    {
+      "id": "AC2",
+      "status": "PASS",
+      "reason": "Verified bin/ui/App.js server.on('error') delegates to handleServerError, which executes try { getSidecarProc?.()?.kill() } catch {} before exit() and exitProcess(1) on both EADDRINUSE and non-EADDRINUSE errors, with try/catch protection around diagnoseBindConflict and exit. Preserves server.listen(proxyConfig.port, proxyConfig.host, ...). Confirmed all 3 AC2 tests in test/tui-state-telemetry.test.js and App.js host binding test in test/cli-hardening.test.js pass."
+    },
+    {
+      "id": "AC3",
+      "status": "PASS",
+      "reason": "Verified bin/ui/App.js exports MAX_EVENTS = 200 and pure appendBoundedEvent used in onCompress to drop oldest entries while preserving order, and bin/ui/Dashboard.js removes Ink <Static> in favor of rendering a bounded tail (MAX_VISIBLE_EVENTS = 20) in a regular <Box flexDirection=\"column\"> while preserving redactUrl(meta.url). Confirmed both AC3 tests in test/tui-state-telemetry.test.js and both URL redaction tests in test/cli-hardening.test.js pass."
+    },
+    {
+      "id": "AC4",
+      "status": "PASS",
+      "reason": "Verified index.js invokes try { config.onUsage?.(usageTotals.snapshot(), u) } catch {} immediately after usageTotals.record(u) inside createUsageTap's onUsage handler without altering behavior when config.onUsage is omitted. Confirmed all 5 end-to-end tests in test/proxy-usage.test.js pass, including delivery of (snapshot, usage) and non-fatal isolation of throwing onUsage callbacks."
+    },
+    {
+      "id": "AC5",
+      "status": "PASS",
+      "reason": "Verified bin/ui/App.js tracks live usage state (initialized to null), updates it from onUsage, and passes usage to Dashboard; bin/ui/Dashboard.js forwards level: config.level to Banner and renders finite usage.cacheHitRate as 'cache XX.X%' in StatsBar (both with compressionCount > 0 and alongside 'Waiting for requests...' when compressionCount === 0, omitting it when absent/non-finite). Confirmed all 7 AC5 tests in test/tui-state-telemetry.test.js and all 13 tests in test/banner.test.js pass."
+    },
+    {
+      "id": "AC6",
+      "status": "PASS",
+      "reason": "Verified deterministic, TTY-free unit and integration coverage in test/tui-state-telemetry.test.js (18 tests) and test/proxy-usage.test.js (5 tests) with zero new dependencies and minimal diff restricted to the 5 expected files. Independently re-ran syntax checks (exit 0), targeted tests (43/43 and 5/5 pass), full npm test (931/931 pass across 211 suites + bench/retrieval-eval.js PASS), and node smoke.js (6/6 checks passed)."
+    }
+  ],
+  "commands_run": [
+    "git status --short && git diff --stat",
+    "git diff bin/ui/App.js bin/ui/Dashboard.js index.js",
+    "node --check bin/ui/App.js bin/ui/Dashboard.js index.js test/tui-state-telemetry.test.js test/proxy-usage.test.js",
+    "node --test test/tui-state-telemetry.test.js test/cli-hardening.test.js test/banner.test.js",
+    "node --test test/proxy-usage.test.js",
+    "npm test",
+    "node smoke.js"
+  ],
+  "artifacts_used": [
+    ".agent/tasks/tui-state-and-telemetry/spec.md",
+    ".agent/tasks/tui-state-and-telemetry/evidence.md",
+    ".agent/tasks/tui-state-and-telemetry/evidence.json",
+    "bin/ui/App.js",
+    "bin/ui/Dashboard.js",
+    "bin/ui/Banner.js",
+    "index.js",
+    "test/proxy-usage.test.js",
+    "test/tui-state-telemetry.test.js"
+  ]
+}

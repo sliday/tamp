@@ -1,0 +1,39 @@
+# Targeted Unit Tests
+$ node --test test/tui-state-telemetry.test.js test/cli-hardening.test.js test/banner.test.js
+▶ Banner — output mode line (6/6 pass)
+▶ Banner — stages discoverability (5/5 pass)
+▶ Banner — setup labels (2/2 pass)
+▶ App.js host binding hardening (1/1 pass)
+▶ Dashboard.js URL redaction (2/2 pass)
+▶ bin/tamp.js non-interactive stage resolution (5/5 pass)
+▶ bin/tamp.js status formatting and lifecycle guards (3/3 pass)
+▶ sidecar/server.py hardening (1/1 pass)
+▶ AC1: App.js proxy arg building and zero process.env mutation (6/6 pass)
+▶ AC2: Sidecar cleanup on server bind error (3/3 pass)
+▶ AC3: Bounded events array and Dashboard rendering past MAX_EVENTS (2/2 pass)
+▶ AC5: Dashboard Banner level propagation and StatsBar live cache hit rate (7/7 pass)
+ℹ tests 43
+ℹ suites 12
+ℹ pass 43
+ℹ fail 0
+ℹ duration_ms 173.257792
+EXIT_CODE=0
+
+# Full Test Suite + Retrieval Eval
+$ npm test
+npm notice run @sliday/tamp@0.9.1 test
+npm notice run node --test test/*.test.js && node bench/retrieval-eval.js
+ℹ tests 931
+ℹ suites 211
+ℹ pass 931
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 8497.124917
+
+bm25-trim retrieval quality  (15 fixtures, offline)
+MEAN                         0.348      0.931          40.0%   100.0%
+definition survival at 4096-token budget: 100.0%
+PASS
+EXIT_CODE=0
