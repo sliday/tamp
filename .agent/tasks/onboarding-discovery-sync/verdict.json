@@ -1,0 +1,64 @@
+{
+  "task_id": "onboarding-discovery-sync",
+  "overall_verdict": "PASS",
+  "criteria": [
+    {
+      "id": "AC1",
+      "status": "PASS",
+      "reason": "Verified setup.sh and site/setup.sh are byte-identical (4058 bytes, cmp -s exit 0), executable (-rwxr-xr-x, test -x exit 0), and pass bash -n (exit 0)."
+    },
+    {
+      "id": "AC2",
+      "status": "PASS",
+      "reason": "Verified lines 63-64 of both setup.sh and site/setup.sh set ANTHROPIC_BASE_URL to http://localhost:$PORT and OPENAI_API_BASE to http://localhost:$PORT/v1."
+    },
+    {
+      "id": "AC3",
+      "status": "PASS",
+      "reason": "Verified line 30 of both setup.sh and site/setup.sh upgrades existing installs via npm install -g @sliday/tamp@latest --silent 2>/dev/null with zero occurrences of npm update -g and fresh-install line 33 untouched."
+    },
+    {
+      "id": "AC4",
+      "status": "PASS",
+      "reason": "Verified lines 68-78 of both setup.sh and site/setup.sh replace 'skip all this' with 'Claude Code plugin: auto-starts Tamp; still requires' / 'ANTHROPIC_BASE_URL in ~/.claude/settings.json', preserve both claude plugin commands, and align all 11 Done box lines to 61 visible characters."
+    },
+    {
+      "id": "AC5",
+      "status": "PASS",
+      "reason": "Verified site/index.md line 29 uses 'tamp # or: tamp -y' with zero occurrences of 'tamp start', and lines 37-38 document export ANTHROPIC_BASE_URL=\"http://localhost:7778\" alongside export OPENAI_API_BASE=\"http://localhost:7778/v1\"."
+    },
+    {
+      "id": "AC6",
+      "status": "PASS",
+      "reason": "Verified site/index.html line 1680 includes 'recommended' in WebMCP get_config_example inputSchema.properties.preset.enum (['conservative','balanced','aggressive','recommended']), matching COMPRESSION_PRESETS in metadata.js, and sets TAMP_MIN_SIZE='1024' for recommended."
+    },
+    {
+      "id": "AC7",
+      "status": "PASS",
+      "reason": "Verified site/index.html line 1435 updates copy to 4 presets / 20 stage names (0 occurrences of '10 stage names', matching ALL_STAGES.length === 20 in metadata.js), lines 1449-1460 keep the Default badge on Balanced with sublabel 'Everyday default', lines 1475-1484 add the Recommended preset card (63–80%, aggressive minus llmlingua, TAMP_COMPRESSION_PRESET=recommended, TAMP_MIN_SIZE=1024), and git diff confirms zero theme token edits or hardcoded color literals."
+    },
+    {
+      "id": "AC8",
+      "status": "PASS",
+      "reason": "Verified test/docs.test.js lines 39-70 assert all four required regression groups, node --test test/docs.test.js passes 6/6, and npm test passes 911/911 tests across 207 suites plus bench/retrieval-eval.js PASS (100.0%)."
+    }
+  ],
+  "commands_run": [
+    "bash -n setup.sh && bash -n site/setup.sh && cmp -s setup.sh site/setup.sh && test -x setup.sh && test -x site/setup.sh && ls -la setup.sh site/setup.sh && git status --short && git diff --stat",
+    "node --test test/docs.test.js",
+    "npm test",
+    "git diff && node -e '<Done box alignment + stage/start string counts>'",
+    "git diff site/index.html site/index.md"
+  ],
+  "artifacts_used": [
+    ".agent/tasks/onboarding-discovery-sync/spec.md",
+    ".agent/tasks/onboarding-discovery-sync/evidence.md",
+    ".agent/tasks/onboarding-discovery-sync/evidence.json",
+    "setup.sh",
+    "site/setup.sh",
+    "site/index.md",
+    "site/index.html",
+    "test/docs.test.js",
+    "metadata.js"
+  ]
+}

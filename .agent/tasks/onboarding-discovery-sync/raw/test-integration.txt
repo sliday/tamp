@@ -1,0 +1,31 @@
+# Integration tests included in full `npm test` run (node --test test/*.test.js && node bench/retrieval-eval.js)
+▶ bm25-trim — integration with compressRequest
+✔ bm25-trim — integration with compressRequest (190.298042ms)
+▶ resolveUpstream (index.js integration)
+✔ resolveUpstream (index.js integration) (0.944125ms)
+▶ openai-responses function_call_output round-trip (integration)
+✔ openai-responses function_call_output round-trip (integration) (260.344625ms)
+▶ client abort during request body (integration)
+✔ client abort during request body (integration) (734.752375ms)
+▶ decompress -> recompress request integrity (integration)
+✔ decompress -> recompress request integrity (integration) (137.200167ms)
+▶ large-body passthrough (integration)
+✔ large-body passthrough (integration) (22.98325ms)
+▶ proxy streaming + upstream errors (integration)
+✔ proxy streaming + upstream errors (integration) (52.149208ms)
+▶ proxy usage telemetry and replay, end to end
+✔ proxy usage telemetry and replay, end to end (908.564292ms)
+▶ proxy integration
+✔ proxy integration (1006.972583ms)
+▶ cmd-strip stage integration (compressText)
+✔ cmd-strip stage integration (compressText) (222.67375ms)
+  ✔ jest: does not strip PASS lines when a non-first FAIL line is present (1.829792ms)
+  ✔ go-test: strips === RUN and --- PASS: lines on all-pass runs and keeps ok summary (0.166208ms)
+ℹ tests 911
+ℹ suites 207
+ℹ pass 911
+ℹ fail 0
+ℹ duration_ms 2609.535083
+definition survival at 4096-token budget: 100.0%
+PASS
+EXIT=0

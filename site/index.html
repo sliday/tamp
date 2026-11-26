@@ -1432,9 +1432,9 @@ Tests: ✓ Commit: d631c4f</pre>
         </p>
 
         <h3 class="db-h3" style="margin-top: 2rem;">Compression Presets</h3>
-        <p class="db-body">Three intensity levels simplify configuration—no need to memorize 10 stage names:</p>
+        <p class="db-body">Four presets simplify configuration—no need to memorize 20 stage names:</p>
 
-        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1rem; margin: 1.5rem 0;">
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 1rem; margin: 1.5rem 0;">
             <div class="db-card db-surface--raised preset-card" style="padding: 1.5rem;">
                 <h4 class="db-h4" style="margin-bottom: 0.5rem;">🛡️ Conservative</h4>
                 <span class="preset-savings">45–50%</span>
@@ -1450,7 +1450,7 @@ Tests: ✓ Commit: d631c4f</pre>
                 <span class="preset-card__badge">Default</span>
                 <h4 class="db-h4" style="margin-bottom: 0.5rem;">⚖️ Balanced</h4>
                 <span class="preset-savings">52–58%</span>
-                <span class="preset-savings-label">Recommended</span>
+                <span class="preset-savings-label">Everyday default</span>
                 <ul class="db-body" style="font-size: 0.85rem; padding-left: 1.25rem; margin: 0.75rem 0 0;">
                     <li>All conservative stages</li>
                     <li>LLMLingua neural compression</li>
@@ -1469,6 +1469,17 @@ Tests: ✓ Commit: d631c4f</pre>
                     <li>Textpress LLM compression</li>
                     <li>Br-cache disk store</li>
                     <li>Disclosure + bm25-trim (safe tasks)</li>
+                </ul>
+            </div>
+
+            <div class="db-card db-surface--raised preset-card" style="padding: 1.5rem;">
+                <h4 class="db-h4" style="margin-bottom: 0.5rem;">⭐ Recommended</h4>
+                <span class="preset-savings">63–80%</span>
+                <span class="preset-savings-label">Best measured trade-off</span>
+                <ul class="db-body" style="font-size: 0.85rem; padding-left: 1.25rem; margin: 0.75rem 0 0;">
+                    <li>Aggressive stages minus <code style="background: var(--tamp-inline-code-bg); padding: 0.1rem 0.3rem; border-radius: 3px;">llmlingua</code></li>
+                    <li><code style="background: var(--tamp-inline-code-bg); padding: 0.1rem 0.3rem; border-radius: 3px; overflow-wrap: anywhere;">TAMP_COMPRESSION_PRESET=recommended</code></li>
+                    <li>Pair with <code style="background: var(--tamp-inline-code-bg); padding: 0.1rem 0.3rem; border-radius: 3px;">TAMP_MIN_SIZE=1024</code></li>
                 </ul>
             </div>
         </div>
@@ -1666,16 +1677,18 @@ tamp compress-config ~/.config/tamp/config ~/.claude/CLAUDE.md</pre>
           description: 'Return an example environment configuration for pointing a coding agent at a local Tamp proxy.',
           inputSchema: {
             type: 'object',
-            properties: { preset: { type: 'string', enum: ['conservative','balanced','aggressive'], description: 'Compression preset' } },
+            properties: { preset: { type: 'string', enum: ['conservative','balanced','aggressive','recommended'], description: 'Compression preset' } },
             additionalProperties: false
           },
           execute: function(args){
             var preset = (args && args.preset) || 'balanced';
+            var env = {
+              ANTHROPIC_BASE_URL: 'http://localhost:7778',
+              TAMP_COMPRESSION_PRESET: preset
+            };
+            if (preset === 'recommended') { env.TAMP_MIN_SIZE = '1024'; }
             return {
-              env: {
-                ANTHROPIC_BASE_URL: 'http://localhost:7778',
-                TAMP_COMPRESSION_PRESET: preset
-              },
+              env: env,
               note: 'Works with Claude Code, Codex CLI, Cursor, Cline, Continue, Aider. See https://github.com/sliday/tamp#wire-it-up-in-30-seconds for per-agent instructions.'
             };
           }

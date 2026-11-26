@@ -27,7 +27,7 @@ step "Installing Tamp"
 if command -v tamp >/dev/null 2>&1; then
   CURRENT=$(tamp --version 2>/dev/null || echo "unknown")
   warn "Tamp already installed (${DIM}${CURRENT}${RESET}), updating..."
-  npm update -g @sliday/tamp --silent 2>/dev/null
+  npm install -g @sliday/tamp@latest --silent 2>/dev/null
   ok "Updated"
 else
   npm install -g @sliday/tamp --silent 2>/dev/null
@@ -61,18 +61,19 @@ add_var() {
 }
 
 add_var "ANTHROPIC_BASE_URL" "http://localhost:$PORT" "Claude Code"
-add_var "OPENAI_API_BASE" "http://localhost:$PORT" "Aider, Cursor, Cline"
+add_var "OPENAI_API_BASE" "http://localhost:$PORT/v1" "Aider, Cursor, Cline"
 
 # --- Done ---
 echo ""
-echo -e "  ${GREEN}${BOLD}┌─────────────────────────────────────────────────────┐${RESET}"
-echo -e "  ${GREEN}${BOLD}│${RESET}  ${GREEN}✓ Done!${RESET} Restart your shell, then:                  ${GREEN}${BOLD}│${RESET}"
-echo -e "  ${GREEN}${BOLD}│${RESET}                                                     ${GREEN}${BOLD}│${RESET}"
-echo -e "  ${GREEN}${BOLD}│${RESET}  ${CYAN}${BOLD}tamp${RESET}                 ${DIM}# start proxy (interactive)${RESET}    ${GREEN}${BOLD}│${RESET}"
-echo -e "  ${GREEN}${BOLD}│${RESET}  ${CYAN}${BOLD}tamp -y${RESET}              ${DIM}# start proxy (non-interactive)${RESET}${GREEN}${BOLD}│${RESET}"
-echo -e "  ${GREEN}${BOLD}│${RESET}                                                     ${GREEN}${BOLD}│${RESET}"
-echo -e "  ${GREEN}${BOLD}│${RESET}  ${BOLD}Claude Code users:${RESET} skip all this and use the plugin ${GREEN}${BOLD}│${RESET}"
-echo -e "  ${GREEN}${BOLD}│${RESET}  ${DIM}claude plugin marketplace add sliday/claude-plugins${RESET} ${GREEN}${BOLD}│${RESET}"
-echo -e "  ${GREEN}${BOLD}│${RESET}  ${DIM}claude plugin install tamp@sliday${RESET}                   ${GREEN}${BOLD}│${RESET}"
-echo -e "  ${GREEN}${BOLD}└─────────────────────────────────────────────────────┘${RESET}"
+echo -e "  ${GREEN}${BOLD}┌─────────────────────────────────────────────────────────┐${RESET}"
+echo -e "  ${GREEN}${BOLD}│${RESET}  ${GREEN}✓ Done!${RESET} Restart your shell, then:                      ${GREEN}${BOLD}│${RESET}"
+echo -e "  ${GREEN}${BOLD}│${RESET}                                                         ${GREEN}${BOLD}│${RESET}"
+echo -e "  ${GREEN}${BOLD}│${RESET}  ${CYAN}${BOLD}tamp${RESET}                 ${DIM}# start proxy (interactive)${RESET}       ${GREEN}${BOLD}│${RESET}"
+echo -e "  ${GREEN}${BOLD}│${RESET}  ${CYAN}${BOLD}tamp -y${RESET}              ${DIM}# start proxy (non-interactive)${RESET}   ${GREEN}${BOLD}│${RESET}"
+echo -e "  ${GREEN}${BOLD}│${RESET}                                                         ${GREEN}${BOLD}│${RESET}"
+echo -e "  ${GREEN}${BOLD}│${RESET}  ${BOLD}Claude Code plugin:${RESET} auto-starts Tamp; still requires   ${GREEN}${BOLD}│${RESET}"
+echo -e "  ${GREEN}${BOLD}│${RESET}  ANTHROPIC_BASE_URL in ~/.claude/settings.json          ${GREEN}${BOLD}│${RESET}"
+echo -e "  ${GREEN}${BOLD}│${RESET}  ${DIM}claude plugin marketplace add sliday/claude-plugins${RESET}    ${GREEN}${BOLD}│${RESET}"
+echo -e "  ${GREEN}${BOLD}│${RESET}  ${DIM}claude plugin install tamp@sliday${RESET}                      ${GREEN}${BOLD}│${RESET}"
+echo -e "  ${GREEN}${BOLD}└─────────────────────────────────────────────────────────┘${RESET}"
 echo ""
