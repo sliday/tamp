@@ -6,7 +6,8 @@ import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
 import { homedir } from 'node:os'
 import { DEFAULT_STAGES, EXTRA_STAGES, STAGE_DESCRIPTIONS, STAGE_HINTS, VERSION, isLossy, DEFAULT_LEVEL } from '../metadata.js'
-import { CONFIG_PATH, CONFIG_TEMPLATE, loadConfig } from '../config.js'
+import { CONFIG_PATH, CONFIG_TEMPLATE, loadConfig, loadConfigFile } from '../config.js'
+import { isLoopbackUrl } from '../compress.js'
 import {
   checkPort,
   fetchHealth,
@@ -45,7 +46,29 @@ function waitForSidecar(proc, port, timeout = 30000) {
   })
 }
 
-export async function startSidecar() {
+export function buildSidecarUvArgs(port = 8788, { platform = process.platform, arch = process.arch } = {}) {
+  const args = ['run', '--with', 'fastapi', '--with', 'uvicorn', '--with', 'llmlingua']
+  if (platform === 'darwin' && arch === 'arm64') {
+    args.push('--with', 'mlx')
+  }
+  args.push('uvicorn', 'server:app', '--host', '127.0.0.1', '--port', String(port))
+  return args
+}
+
+export async function startSidecar({ env = process.env, configPath } = {}) {
+  const filePath = configPath ?? (env === process.env ? process.env.TAMP_CONFIG : env.TAMP_CONFIG)
+  const fileVars = (env === process.env || configPath || env.TAMP_CONFIG)
+    ? loadConfigFile(filePath)
+    : {}
+  const rawConfiguredUrl = env.TAMP_LLMLINGUA_URL !== undefined
+    ? env.TAMP_LLMLINGUA_URL
+    : fileVars.TAMP_LLMLINGUA_URL
+  const configuredUrl = typeof rawConfiguredUrl === 'string' ? rawConfiguredUrl.trim() : ''
+  if (configuredUrl) {
+    if (!isLoopbackUrl(configuredUrl)) return null
+    return configuredUrl.replace(/\/+$/, '')
+  }
+
   const sidecarPort = 8788
   const sidecarDir = join(root, 'sidecar')
   const serverPy = join(sidecarDir, 'server.py')
@@ -57,10 +80,7 @@ export async function startSidecar() {
 
   if (hasCommand('uv')) {
     try {
-      const proc = spawn('uv', [
-        'run', '--with', 'fastapi', '--with', 'uvicorn', '--with', 'llmlingua', '--with', 'mlx',
-        'uvicorn', 'server:app', '--host', '127.0.0.1', '--port', String(sidecarPort),
-      ], { cwd: sidecarDir, stdio: ['ignore', 'pipe', 'pipe'] })
+      const proc = spawn('uv', buildSidecarUvArgs(sidecarPort), { cwd: sidecarDir, stdio: ['ignore', 'pipe', 'pipe'] })
       const url = await waitForSidecar(proc, sidecarPort)
       if (url) { sidecarProc = proc; return url }
       proc.kill()
@@ -160,7 +180,7 @@ export async function resolveNonInteractiveConfig({
   const overrides = {}
 
   if (selectedStages.includes('llmlingua')) {
-    const sidecarUrl = await startSidecarFn()
+    const sidecarUrl = await startSidecarFn({ env })
     if (sidecarUrl) {
       overrides.llmLinguaUrl = sidecarUrl
       onSidecarReady?.(sidecarUrl)
@@ -590,8 +610,8 @@ if (skipPrompt) {
     env: process.env,
     argvLevel,
     startSidecarFn: startSidecar,
-    onSidecarReady: () => {
-      console.error(`  ${c.green}\u2713${c.reset} LLMLingua-2 ready on :${c.bold}8788${c.reset}`)
+    onSidecarReady: (url) => {
+      console.error(`  ${c.green}\u2713${c.reset} LLMLingua-2 ready on ${c.bold}${url}${c.reset}`)
     },
     onSidecarUnavailable: () => {
       console.error(`  ${c.yellow}!${c.reset} LLMLingua-2 not available`)

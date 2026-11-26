@@ -1,0 +1,3 @@
+# Build check (plain Node.js ESM — no build step)
+$ node --check bin/tamp.js index.js test/sidecar-platform-health.test.js
+EXIT_CODE=0
