@@ -568,11 +568,11 @@
 <div class="section-inner"><div class="db-separator"></div></div>
 
 <!-- ============================================================
-     3. HOW IT WORKS — 17 stages + flow
+     3. HOW IT WORKS — 20 stages + flow
      ============================================================ -->
 <section id="how-it-works">
     <div class="section-inner">
-        <h2 class="db-h2" style="text-align: center;">17 stages. Zero config.</h2>
+        <h2 class="db-h2" style="text-align: center;">20 stages. Zero config.</h2>
         <p class="db-body" style="text-align: center; opacity: 0.7; margin-top: 0.5rem;">
             Tamp sits between your agent and the API. It classifies each tool result and applies the right compression &mdash; automatically.
         </p>
@@ -590,7 +590,7 @@
                 <li>
                     <span class="stage-name">cmd-strip<span class="stage-new">new</span></span>
                     <span class="stage-type stage-type--lossless">lossless</span>
-                    <span class="db-caption">Strip progress bars and spinners from npm, pip, cargo, docker, git, pytest output.</span>
+                    <span class="db-caption">Strip ANSI codes, spinners, and passing-run noise from npm, pnpm/bun, pip, cargo, docker, git, pytest, jest, vitest, node --test, go test, prisma, terraform, wget/curl.</span>
                 </li>
                 <li>
                     <span class="stage-name">minify</span>
@@ -621,7 +621,7 @@
                 <li>
                     <span class="stage-name">read-diff<span class="stage-new">new</span></span>
                     <span class="stage-type stage-type--lossless">lossless</span>
-                    <span class="db-caption">Agent re-reads a file? Emit a unified diff vs the prior copy. Session-scoped cache.</span>
+                    <span class="db-caption">Agent re-reads a file? Emit a unified diff vs the prior copy. Session-scoped cache across Claude Code, Codex CLI, Cursor, Aider, Cline, and Kimi.</span>
                 </li>
                 <li>
                     <span class="stage-name">strip-lines</span>
@@ -674,9 +674,32 @@
                     <span class="db-caption">3-tier summary for tool_result bodies &gt;32KB. Emits a <code>&lt;tamp-ref:v1:HASH:BYTES&gt;</code> marker; model quotes it back to rehydrate. Aggressive only, skipped on dangerous tasks.</span>
                 </li>
                 <li>
-                    <span class="stage-name">bm25-trim<span class="stage-new">new</span></span>
+                    <span class="stage-name">bm25-trim</span>
                     <span class="stage-type stage-type--lossy">lossy</span>
-                    <span class="db-caption">Pure-JS BM25 ranker. Bodies &gt;64KB get lines scored against the last user message; drops low-score lines at a 4096-token budget. Aggressive only, skipped on dangerous tasks.</span>
+                    <span class="db-caption">Pure-JS BM25 ranker with code-block awareness. Bodies &gt;64KB get lines scored against the last user message; drops low-score lines at a 4096-token budget. Aggressive only, skipped on dangerous tasks.</span>
+                </li>
+                <li>
+                    <span class="stage-name">foundation-models</span>
+                    <span class="stage-type stage-type--opt">opt-in</span>
+                    <span class="db-caption">Apple Intelligence on-device neural compression (macOS 15+, Apple Silicon, 100% local, verbatim-critical guard).</span>
+                </li>
+                <li>
+                    <span class="stage-name">px-render<span class="stage-new">new</span></span>
+                    <span class="stage-type stage-type--lossy">lossy</span>
+                    <span class="db-caption">Render dense 4&ndash;64KB tool results as PNG image blocks via <code>pxpipe-proxy</code> with a verbatim identifier factsheet. Model-gated to vision-legible models.</span>
+                    <span class="stage-savings">~80% dense</span>
+                </li>
+                <li>
+                    <span class="stage-name">stale-inputs<span class="stage-new">new</span></span>
+                    <span class="stage-type stage-type--lossy">lossy</span>
+                    <span class="db-caption">Prune bulky payloads from older <code>tool_use.input</code> calls while keeping call headers and recent turns. Supports epoch batching (<code>TAMP_STALE_BATCH_SIZE</code>).</span>
+                    <span class="stage-savings">-18% sessions</span>
+                </li>
+                <li>
+                    <span class="stage-name">stale-images<span class="stage-new">new</span></span>
+                    <span class="stage-type stage-type--lossy">lossy</span>
+                    <span class="db-caption">Evict base64 images from older turns while keeping recent screenshots intact. Supports epoch batching (<code>TAMP_STALE_BATCH_SIZE</code>).</span>
+                    <span class="stage-savings">-4% sessions</span>
                 </li>
             </ul>
         </div>
@@ -696,7 +719,7 @@
     <div class="section-inner">
         <h2 class="db-h2" style="text-align: center;">One knob. Nine stops.</h2>
         <p class="db-body" style="text-align: center; opacity: 0.7; margin-top: 0.5rem; max-width: 640px; margin-left: auto; margin-right: auto;">
-            Pick a compression level like you pick a zip level. Each step adds stages on top of the previous &mdash; no need to memorize 17 names.
+            Pick a compression level like you pick a zip level. Each step adds stages on top of the previous &mdash; no need to memorize 20 names.
         </p>
 
         <div class="db-card db-surface--raised" style="padding: 1.25rem; margin-top: 1.5rem; overflow-x: auto; -webkit-overflow-scrolling: touch;">
