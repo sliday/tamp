@@ -16,6 +16,8 @@ import { summarize, rehydrateReferences } from './lib/disclosure.js'
 import { trimLinesByRelevance } from './lib/bm25.js'
 import { pxRenderTargets, pxModelAllowed } from './lib/px-render.js'
 
+const STALE_INPUTS_PROVIDERS = new Set(['anthropic', 'openai', 'openai-responses', 'kimi', 'moonshot'])
+
 const cache = new Map()
 const MAX_CACHE = 500
 
@@ -1021,9 +1023,9 @@ export async function compressRequest(body, config, provider) {
     if (r.evicted > 0) staleImages = r
   }
 
-  // stale-inputs: drop payloads from older tool_use blocks (opt-in, lossy).
+  // stale-inputs: drop payloads from older tool calls (opt-in, lossy).
   let staleInputs = null
-  if (config.stages.includes('stale-inputs') && provider.name === 'anthropic') {
+  if (config.stages.includes('stale-inputs') && STALE_INPUTS_PROVIDERS.has(provider.name)) {
     const r = pruneStaleInputs(body, { keepRecent: config.staleInputKeepRecent, batchSize: config.staleBatchSize })
     if (r.pruned > 0) staleInputs = r
   }

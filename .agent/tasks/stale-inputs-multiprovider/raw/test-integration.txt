@@ -1,0 +1,39 @@
+$ node smoke.js
+
+tamp smoke test (proxy :54816 -> echo :54815)
+
+Test 1: JSON minification
+  PASS compressed (minify or toon)
+  PASS shorter than original
+  PASS shorter than or equal to minified
+  method: toon
+  savings: 234 -> 164 chars (-29.9%)
+
+Test 2: TOON encoding for tabular data
+  PASS TOON is shorter than minified
+  PASS TOON is shorter than original
+  savings: 480 -> 187 chars (-61.0%)
+
+Test 3: Cache-safe mode (only latest message compressed)
+  PASS historical tool_result unchanged (cache-safe)
+  PASS latest tool_result compressed
+
+Test 4: Error results skipped
+  PASS error content unchanged
+
+Test 5: Non-JSON text passthrough
+  PASS text content unchanged
+
+Test 6: GET passthrough
+  PASS status 200
+  PASS response body passed through
+
+────────────────────────────────────────
+All checks passed!
+(exit 0)
+
+# Multi-provider compressRequest integration tests (from node --test test/stale-inputs.test.js):
+# ✔ anthropic (11 original tests unchanged, including Write/Edit/Bash/AskUserQuestion/NotebookEdit/Agent/Workflow/SendMessage and batchSize epoching)
+# ✔ openai, kimi, moonshot (messages[].tool_calls[] pruning, header preservation, AskUserQuestion exemption, batchSize epoching)
+# ✔ openai-responses (input[] function_call & custom_tool_call pruning, Codex apply_patch header retention, batchSize epoching)
+# ✔ gemini (safe no-op: staleInputs === null, body unchanged)

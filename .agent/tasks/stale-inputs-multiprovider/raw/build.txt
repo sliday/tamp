@@ -1,0 +1,13 @@
+$ node -v
+v22.17.0
+
+# Plain Node.js ESM project (no build step; syntax checked with node --check)
+
+$ node --check lib/stale-inputs.js
+(exit 0)
+
+$ node --check compress.js
+(exit 0)
+
+$ node --check test/stale-inputs.test.js
+(exit 0)
