@@ -1,7 +1,7 @@
 # Tamp Feature Atlas
 
 Comprehensive map of all states, modes, entrypoints, stages, and surfaces in `@sliday/tamp` (`v0.9.1`).
-Last updated: 2026-11-26 (Cycle 5).
+Last updated: 2026-11-27 (Cycle 6).
 
 ---
 

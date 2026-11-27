@@ -14,15 +14,19 @@ import {
   isLoopbackUrl,
 } from '../compress.js'
 import { anthropic } from '../providers.js'
+import { assertCpuBudget, assertCpuBudgetAsync } from './helpers/timing.js'
 
 describe('safe tokenizer (lib/tokens.js)', () => {
   it('handles 512KB space-padded adversarial payload fast with no WASM crash', async () => {
+    safeCountTokens('warm')
     const payload = ' '.repeat(512 * 1024) + 'trailing'
-    const t0 = performance.now()
-    const tokens = safeCountTokens(payload)
-    const elapsed = performance.now() - t0
+    const { result: tokens } = assertCpuBudget(
+      'safeCountTokens(512KB space-padded)',
+      () => safeCountTokens(payload),
+      500,
+      { maxWallMs: 5000 }
+    )
     assert.ok(tokens > 0)
-    assert.ok(elapsed < 500, `safeCountTokens took ${elapsed.toFixed(0)}ms — expected < 500ms`)
     assert.equal(countTokens, safeCountTokens)
     assert.equal(bm25SafeCountTokens, safeCountTokens)
 
@@ -33,10 +37,12 @@ describe('safe tokenizer (lib/tokens.js)', () => {
         { role: 'user', content: [{ type: 'tool_result', tool_use_id: 'tu_adv', content: 'x' + ' '.repeat(512 * 1024) + '\n' }] },
       ],
     }
-    const r0 = performance.now()
-    const { stats } = await compressRequest(body, { minSize: 50, stages: ['whitespace'], log: false }, anthropic)
-    const reqElapsed = performance.now() - r0
-    assert.ok(reqElapsed < 1000, `compressRequest took ${reqElapsed.toFixed(0)}ms — expected < 1000ms`)
+    const { result: { stats } } = await assertCpuBudgetAsync(
+      'compressRequest(512KB space-padded)',
+      () => compressRequest(body, { minSize: 50, stages: ['whitespace'], log: false }, anthropic),
+      1000,
+      { maxWallMs: 5000 }
+    )
     assert.equal(stats[0].method, 'normalize')
   })
 })

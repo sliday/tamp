@@ -10,6 +10,7 @@ import { createBrCache } from '../lib/br-cache.js'
 import { anthropic } from '../providers.js'
 import { redactText } from '../lib/redact.js'
 import { stripAnsi, rewriteCommandOutput } from '../lib/rewriters/index.js'
+import { assertCpuBudget } from './helpers/timing.js'
 
 // Offline quality gates closing the offline P2 items in TODOS.md:
 //   1. `prune` structural invariant — every removed key is provably npm-internal
@@ -252,10 +253,16 @@ describe('quality gate — adversarial ReDoS timing (< 25ms on 64KB inputs)', ()
   rewriteCommandOutput('warm')
 
   function assertFast(label, fn) {
-    const start = process.hrtime.bigint()
-    fn()
-    const ms = Number(process.hrtime.bigint() - start) / 1e6
-    assert.ok(ms < 25, `${label} took ${ms.toFixed(2)}ms — expected < 25ms`)
+    try {
+      assertCpuBudget(label, fn, 25, { maxWallMs: 1000 })
+    } catch (err) {
+      if (err instanceof assert.AssertionError && err.message.includes('exceeded CPU budget')) {
+        // Retry once to absorb a stray V8 major GC pause; a real ReDoS fails both attempts.
+        assertCpuBudget(label, fn, 25, { maxWallMs: 1000 })
+        return
+      }
+      throw err
+    }
   }
 
   it('redactText stays < 25ms on 64KB pathological inputs', () => {

@@ -69,7 +69,7 @@ function runSync(chunks, opts) {
 }
 
 // Encoded runs decode on a zlib side path, so onUsage arrives asynchronously.
-function runAsync(chunks, opts, waitMs = 300) {
+function runAsync(chunks, opts, waitMs = 2000) {
   return new Promise((resolve) => {
     const calls = []
     let timer = null

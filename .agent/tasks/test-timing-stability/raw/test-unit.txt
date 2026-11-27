@@ -1,0 +1,99 @@
+# Unit & Full Test Suite Results — test-timing-stability
+
+## 1. Targeted unit tests for new helper: `node --test test/timing-helper.test.js`
+Exit code: 0
+▶ test/helpers/timing.js
+  ✔ measureCpuMs returns result and measurable non-negative cpuMs/wallMs for sync CPU work (10.968041ms)
+  ✔ measureCpuMsAsync tracks wallMs across async idle delay while cpuMs stays small (81.627334ms)
+  ✔ assertCpuBudget returns { result, cpuMs, wallMs } on pass (0.220792ms)
+  ✔ assertCpuBudget throws AssertionError with label, cpuMs, and wallMs on CPU breach (14.0135ms)
+  ✔ assertCpuBudget throws AssertionError with label, cpuMs, and wallMs on wall-clock backstop breach (34.224625ms)
+  ✔ assertCpuBudgetAsync passes when async sleep exceeds maxCpuMs but stays under CPU and wall budgets (80.216042ms)
+  ✔ assertCpuBudgetAsync applies default maxWallMs formula and reports diagnostics on CPU breach (14.716334ms)
+  ✔ assertCpuBudgetAsync throws AssertionError with label, cpuMs, and wallMs on wall-clock backstop breach (42.8345ms)
+✔ test/helpers/timing.js (279.6465ms)
+ℹ tests 8
+ℹ suites 1
+ℹ pass 8
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 324.525125
+
+## 2. Full default-concurrency `npm test` — Run 1 of 3
+$ npm test
+npm notice run @sliday/tamp@0.9.1 test
+npm notice run node --test test/*.test.js && node bench/retrieval-eval.js
+Exit code: 0
+ℹ tests 965
+ℹ suites 218
+ℹ pass 965
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 4711.289666
+
+bm25-trim retrieval quality  (15 fixtures, offline)
+
+fixture                    NDCG@10 before   after      Recall before   after
+--------------------------------------------------------------------------------
+camel-definition             0.000      0.920           0.0%   100.0%
+snake-definition             0.000      0.920           0.0%   100.0%
+pascal-class                 0.613      0.920          50.0%   100.0%
+acronym-method               0.000      0.920           0.0%   100.0%
+interface-type               0.000      0.920           0.0%   100.0%
+go-func                      0.613      1.000         100.0%   100.0%
+rust-fn                      0.387      0.877          50.0%   100.0%
+nested-method                0.000      0.920           0.0%   100.0%
+const-arrow                  1.000      1.000         100.0%   100.0%
+error-string                 1.000      1.000         100.0%   100.0%
+config-key                   0.000      1.000           0.0%   100.0%
+comment-vs-code              0.000      0.920           0.0%   100.0%
+definition-vs-callsite       0.000      0.651           0.0%   100.0%
+multi-term                   1.000      1.000         100.0%   100.0%
+dotted-path                  0.613      1.000         100.0%   100.0%
+--------------------------------------------------------------------------------
+MEAN                         0.348      0.931          40.0%   100.0%
+
+definition survival at 4096-token budget: 100.0%
+PASS
+
+## 3. Full default-concurrency `npm test` — Run 2 of 3
+$ npm test
+npm notice run @sliday/tamp@0.9.1 test
+npm notice run node --test test/*.test.js && node bench/retrieval-eval.js
+Exit code: 0
+ℹ tests 965
+ℹ suites 218
+ℹ pass 965
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 3880.387125
+
+bm25-trim retrieval quality  (15 fixtures, offline)
+MEAN                         0.348      0.931          40.0%   100.0%
+definition survival at 4096-token budget: 100.0%
+PASS
+
+## 4. Full default-concurrency `npm test` — Run 3 of 3
+$ npm test
+npm notice run @sliday/tamp@0.9.1 test
+npm notice run node --test test/*.test.js && node bench/retrieval-eval.js
+Exit code: 0
+ℹ tests 965
+ℹ suites 218
+ℹ pass 965
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 3110.164209
+
+bm25-trim retrieval quality  (15 fixtures, offline)
+MEAN                         0.348      0.931          40.0%   100.0%
+definition survival at 4096-token budget: 100.0%
+PASS

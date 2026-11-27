@@ -1,0 +1,76 @@
+{
+  "task_id": "test-timing-stability",
+  "overall_verdict": "PASS",
+  "criteria": [
+    {
+      "id": "AC1",
+      "status": "PASS",
+      "reason": "git status --short and git diff --stat show 8 modified files and 2 new files strictly under test/ (plus .agent/tasks/test-timing-stability/ workflow artifacts), with zero production diffs and zero package.json/package-lock.json edits. All 10 files are plain Node.js ESM .js files and passed node --check."
+    },
+    {
+      "id": "AC2",
+      "status": "PASS",
+      "reason": "test/helpers/timing.js exports measureCpuMs, measureCpuMsAsync, assertCpuBudget, and assertCpuBudgetAsync using process.cpuUsage(startCpu) ((user + system) / 1000) and process.hrtime.bigint(), computing default maxWallMs = opts.maxWallMs ?? Math.max(maxCpuMs * 10, 2000), returning { result, cpuMs, wallMs } on pass, and throwing node:assert/strict AssertionError containing label, measured/max cpuMs, and measured/max wallMs on either breach."
+    },
+    {
+      "id": "AC3",
+      "status": "PASS",
+      "reason": "test/compress-hardening.test.js calls safeCountTokens('warm') before measuring, asserts safeCountTokens(payload) via assertCpuBudget(..., 500, { maxWallMs: 5000 }) and compressRequest(...) via assertCpuBudgetAsync(..., 1000, { maxWallMs: 5000 }), and preserves all functional assertions (tokens > 0, countTokens === safeCountTokens, bm25SafeCountTokens === safeCountTokens, stats[0].method === 'normalize')."
+    },
+    {
+      "id": "AC4",
+      "status": "PASS",
+      "reason": "test/quality-gates.test.js preserves warmups for redactText, stripAnsi, and rewriteCommandOutput and all 13 64KB pathological cases, and implements assertFast using assertCpuBudget(label, fn, 25, { maxWallMs: 1000 }) with at most one CPU-budget-only retry per spec resolution #3."
+    },
+    {
+      "id": "AC5",
+      "status": "PASS",
+      "reason": "All four files migrated raw hrtime checks to assertCpuBudget with default maxWallMs while preserving strict CPU thresholds: test/redact.test.js (250ms), test/compress.test.js (300ms for normalizeWhitespace, 400ms for stripComments), test/detect.test.js (250ms for isTOON), and test/code-chunks.test.js (500ms for buildStructure on 8000 nested lines, keeping assert.equal(parent.length, 8000))."
+    },
+    {
+      "id": "AC6",
+      "status": "PASS",
+      "reason": "test/proxy-usage.test.js creates a clientDestroyed promise with a 5000ms bounded timeout, resolves it after req.destroy() and clearTimeout(destroyTimer) in res.once('data', ...), clears destroyTimer in finally, and awaits clientDestroyed before the wait(300) -> settled = written -> wait(300) -> assert.equal(written, settled) window."
+    },
+    {
+      "id": "AC7",
+      "status": "PASS",
+      "reason": "test/usage-tap.test.js raises runAsync default waitMs from 300 to 2000 while keeping immediate resolution (~20ms) in done() when onUsage fires and leaving explicit negative-test waitMs arguments (50, 100, 200) untouched; verified ~21-34ms positive test timings during npm test."
+    },
+    {
+      "id": "AC8",
+      "status": "PASS",
+      "reason": "test/timing-helper.test.js passes 8/8 standalone (node --test test/timing-helper.test.js) and is discovered and executed during npm test, verifying measureCpuMs, measureCpuMsAsync, assertCpuBudget (pass, CPU breach, wall breach), and assertCpuBudgetAsync (async idle pass where wallMs > maxCpuMs, default maxWallMs formula, CPU breach, wall breach)."
+    },
+    {
+      "id": "AC9",
+      "status": "PASS",
+      "reason": "Default-concurrency npm test passed 3 consecutive times with exit code 0 (965/965 tests pass, 218 suites, 0 fail, bench/retrieval-eval.js PASS on all 3 runs; test durations 8463ms, 1891ms, 8397ms) and node smoke.js exited 0 with all 6 checks passing."
+    }
+  ],
+  "commands_run": [
+    "git status --short && echo \"---DIFF-STAT---\" && git diff --stat",
+    "git diff",
+    "node --check test/helpers/timing.js test/timing-helper.test.js test/compress-hardening.test.js test/quality-gates.test.js test/redact.test.js test/compress.test.js test/detect.test.js test/code-chunks.test.js test/proxy-usage.test.js test/usage-tap.test.js",
+    "node --test test/timing-helper.test.js",
+    "npm test (Run 1)",
+    "npm test (Run 2)",
+    "npm test (Run 3)",
+    "node smoke.js"
+  ],
+  "artifacts_used": [
+    ".agent/tasks/test-timing-stability/spec.md",
+    ".agent/tasks/test-timing-stability/evidence.md",
+    ".agent/tasks/test-timing-stability/evidence.json",
+    "test/helpers/timing.js",
+    "test/timing-helper.test.js",
+    "test/compress-hardening.test.js",
+    "test/quality-gates.test.js",
+    "test/redact.test.js",
+    "test/compress.test.js",
+    "test/detect.test.js",
+    "test/code-chunks.test.js",
+    "test/proxy-usage.test.js",
+    "test/usage-tap.test.js"
+  ]
+}

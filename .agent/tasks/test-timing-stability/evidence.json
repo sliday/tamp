@@ -1,0 +1,125 @@
+{
+  "task_id": "test-timing-stability",
+  "overall_status": "PASS",
+  "acceptance_criteria": [
+    {
+      "id": "AC1",
+      "text": "Test-only scope, zero production diff, zero new dependencies, plain Node.js ESM JavaScript only",
+      "status": "PASS",
+      "proof": [
+        ".agent/tasks/test-timing-stability/raw/lint.txt (git status --short and git diff --stat show changes strictly under test/)",
+        ".agent/tasks/test-timing-stability/raw/build.txt (node --check passes on all 10 new/modified ESM files)"
+      ],
+      "gaps": []
+    },
+    {
+      "id": "AC2",
+      "text": "test/helpers/timing.js exports measureCpuMs, measureCpuMsAsync, assertCpuBudget, assertCpuBudgetAsync with CPU + wall-clock backstop semantics and full AssertionError diagnostics",
+      "status": "PASS",
+      "proof": [
+        "test/helpers/timing.js",
+        ".agent/tasks/test-timing-stability/raw/test-unit.txt (test/timing-helper.test.js 8/8 pass)"
+      ],
+      "gaps": []
+    },
+    {
+      "id": "AC3",
+      "text": "test/compress-hardening.test.js warms safeCountTokens('warm') before measurement and asserts <500ms CPU / 5000ms wall for safeCountTokens and <1000ms CPU / 5000ms wall for compressRequest",
+      "status": "PASS",
+      "proof": [
+        "test/compress-hardening.test.js",
+        ".agent/tasks/test-timing-stability/raw/test-unit.txt (3/3 consecutive npm test runs pass)"
+      ],
+      "gaps": []
+    },
+    {
+      "id": "AC4",
+      "text": "test/quality-gates.test.js assertFast uses assertCpuBudget (<25ms CPU, 1000ms wall backstop, single CPU-only GC retry) while keeping warmups and all 13 64KB cases",
+      "status": "PASS",
+      "proof": [
+        "test/quality-gates.test.js",
+        ".agent/tasks/test-timing-stability/raw/test-unit.txt (3/3 consecutive npm test runs pass)"
+      ],
+      "gaps": []
+    },
+    {
+      "id": "AC5",
+      "text": "ReDoS/complexity guards in test/redact.test.js (250ms), test/compress.test.js (300ms, 400ms), test/detect.test.js (250ms), and test/code-chunks.test.js (500ms) migrated to assertCpuBudget with default maxWallMs",
+      "status": "PASS",
+      "proof": [
+        "test/redact.test.js",
+        "test/compress.test.js",
+        "test/detect.test.js",
+        "test/code-chunks.test.js",
+        ".agent/tasks/test-timing-stability/raw/test-unit.txt (3/3 consecutive npm test runs pass)"
+      ],
+      "gaps": []
+    },
+    {
+      "id": "AC6",
+      "text": "test/proxy-usage.test.js awaits bounded (5000ms, timer cleared on resolve and in finally) clientDestroyed before upstream write-settling waits",
+      "status": "PASS",
+      "proof": [
+        "test/proxy-usage.test.js",
+        ".agent/tasks/test-timing-stability/raw/test-integration.txt (test/proxy-usage.test.js 5/5 pass)",
+        ".agent/tasks/test-timing-stability/raw/test-unit.txt (3/3 consecutive npm test runs pass)"
+      ],
+      "gaps": []
+    },
+    {
+      "id": "AC7",
+      "text": "test/usage-tap.test.js raises runAsync default waitMs from 300 to 2000 while keeping explicit negative-test timeouts untouched",
+      "status": "PASS",
+      "proof": [
+        "test/usage-tap.test.js",
+        ".agent/tasks/test-timing-stability/raw/test-unit.txt (3/3 consecutive npm test runs pass)"
+      ],
+      "gaps": []
+    },
+    {
+      "id": "AC8",
+      "text": "test/timing-helper.test.js unit tests cover measureCpuMs, measureCpuMsAsync, assertCpuBudget, and assertCpuBudgetAsync pass/breach/default paths",
+      "status": "PASS",
+      "proof": [
+        "test/timing-helper.test.js",
+        ".agent/tasks/test-timing-stability/raw/test-unit.txt (node --test test/timing-helper.test.js 8/8 pass; discovered in npm test)"
+      ],
+      "gaps": []
+    },
+    {
+      "id": "AC9",
+      "text": "Default-concurrency npm test passes 3 consecutive times with 0 failures and node smoke.js exits 0 with 0 failures",
+      "status": "PASS",
+      "proof": [
+        ".agent/tasks/test-timing-stability/raw/test-unit.txt (3 consecutive npm test runs: 965/965 pass, 0 fail, retrieval-eval PASS)",
+        ".agent/tasks/test-timing-stability/raw/test-integration.txt (node smoke.js exit 0, all 6 checks passed)"
+      ],
+      "gaps": []
+    }
+  ],
+  "changed_files": [
+    "test/helpers/timing.js",
+    "test/timing-helper.test.js",
+    "test/compress-hardening.test.js",
+    "test/quality-gates.test.js",
+    "test/redact.test.js",
+    "test/compress.test.js",
+    "test/detect.test.js",
+    "test/code-chunks.test.js",
+    "test/proxy-usage.test.js",
+    "test/usage-tap.test.js"
+  ],
+  "commands_for_fresh_verifier": [
+    "git status --short",
+    "git diff --stat",
+    "node --check test/helpers/timing.js",
+    "node --check test/timing-helper.test.js",
+    "node --test test/timing-helper.test.js",
+    "node --test test/proxy-usage.test.js",
+    "npm test",
+    "npm test",
+    "npm test",
+    "node smoke.js"
+  ],
+  "known_gaps": []
+}

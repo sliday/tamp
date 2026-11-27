@@ -1,6 +1,7 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
 import { languageForPath, sniffLanguage, detectBlocks, buildStructure, indentWidth } from '../lib/code-chunks.js'
+import { assertCpuBudget } from './helpers/timing.js'
 
 const JS_BODY = `import fs from 'node:fs'
 
@@ -168,14 +169,13 @@ describe('code-chunks — buildStructure', () => {
     for (let i = 0; i < 4000; i++) lines.push('{')
     for (let i = 0; i < 4000; i++) lines.push('}')
     const blocks = detectBlocks(lines, { path: 'x.js' })
-    const started = process.hrtime.bigint()
-    const { parent } = buildStructure(lines, blocks)
-    const ms = Number(process.hrtime.bigint() - started) / 1e6
+    const { result: { parent } } = assertCpuBudget(
+      'buildStructure(8000 nested lines)',
+      () => buildStructure(lines, blocks),
+      500
+    )
 
     assert.equal(parent.length, 8000)
-    // Generous ceiling: the linear sweep measures ~2ms here, the quadratic
-    // fill measured hundreds. Anything under 500ms proves it is not quadratic.
-    assert.ok(ms < 500, `buildStructure took ${ms.toFixed(0)}ms on 8000 nested lines`)
   })
 
   it('returns empty maps when there are no blocks', () => {

@@ -71,17 +71,30 @@ describe('proxy usage telemetry and replay, end to end', () => {
     })
     const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
     const proxy = await startProxy({ upstream: up.url })
+    let destroyTimer = null
     try {
-      const req = http.request({ hostname: '127.0.0.1', port: proxy.port, method: 'POST', path: '/v1/messages', headers: { 'content-type': 'application/json' } }, (res) => {
-        res.once('data', () => req.destroy())
+      const clientDestroyed = new Promise((resolve, reject) => {
+        destroyTimer = setTimeout(() => {
+          reject(new Error('timed out waiting for client response data before req.destroy()'))
+        }, 5000)
+        const req = http.request({ hostname: '127.0.0.1', port: proxy.port, method: 'POST', path: '/v1/messages', headers: { 'content-type': 'application/json' } }, (res) => {
+          res.once('data', () => {
+            req.destroy()
+            clearTimeout(destroyTimer)
+            destroyTimer = null
+            resolve()
+          })
+        })
+        req.on('error', () => {})
+        req.end(JSON.stringify({ model: 'claude-sonnet-5-5', messages: head }))
       })
-      req.on('error', () => {})
-      req.end(JSON.stringify({ model: 'claude-sonnet-5-5', messages: head }))
+      await clientDestroyed
       await wait(300)
       const settled = written
       await wait(300)
       assert.equal(written, settled, 'upstream writes stalled after the client left')
     } finally {
+      clearTimeout(destroyTimer)
       stop = true
       up.server.closeAllConnections(); proxy.server.closeAllConnections()
       await proxy.close(); await up.close()
