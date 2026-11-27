@@ -1,7 +1,7 @@
 # Tamp Feature Atlas
 
 Comprehensive map of all states, modes, entrypoints, stages, and surfaces in `@sliday/tamp` (`v0.9.1`).
-Last updated: 2026-11-27 (Cycle 7).
+Last updated: 2026-11-27 (Cycle 8).
 
 ---
 
@@ -95,5 +95,5 @@ Last updated: 2026-11-27 (Cycle 7).
 ## 6. Sidecar, Plugin Hooks & Website
 
 - **Python Sidecar (`sidecar/server.py` + `bin/tamp.js` `startSidecar`)**: FastAPI `lifespan` model loader (`microsoft/llmlingua-2-xlm-roberta-large-meetingbank`), `GET /health` (`model_loaded`), sync threadpool `POST /compress` (503 while loading). `bin/tamp.js` honors configured `TAMP_LLMLINGUA_URL` (env > config file, loopback SSRF guarded) and passes `--with mlx` only on `darwin` + `arm64`.
-- **Claude Code Plugin (`plugin/`)**: `SessionStart` hooks (`ensure-tamp.sh`, `ensure-claude-md.sh` reversible markers), `/tamp:status`, `/tamp:config`.
+- **Claude Code Plugin (`plugin/`)**: `SessionStart` hooks (`ensure-tamp.sh` with env > config `TAMP_PORT` resolution, single-fetch `--max-time 2` health probe, `-sTCP:LISTEN` guarded `lsof` conflict check, POSIX `awk` JSON-safe output, and bounded 8s auto-start poll; `ensure-claude-md.sh` reversible markers), `/tamp:status`, `/tamp:config`.
 - **Website (`site/` → `https://tamp.dev`)**: Cloudflare Pages + `_worker.js` (Markdown-for-Agents content negotiation via `Accept: text/markdown`, RFC 8288 `Link` headers, `/.well-known/*` discovery cards, WebMCP tools incl. `recommended` preset), DAUB Solarized Light & Dark themes with WCAG AA-safe custom semantic tokens, and byte-identical `setup.sh` / `site/setup.sh` installer (`OPENAI_API_BASE=.../v1`, `@latest` upgrades).
