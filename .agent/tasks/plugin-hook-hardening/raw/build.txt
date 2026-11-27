@@ -1,0 +1,24 @@
+# Build / Syntax / Runtime Environment Check
+Timestamp: 2026-11-27T01:13:25Z
+Branch: fix/plugin-hook-hardening
+
+## Tool Versions
+node --version
+v22.17.0
+
+bash --version | head -n 1
+GNU bash, version 3.2.57(1)-release (arm64-apple-darwin25)
+
+## Syntax Checks
+$ bash -n plugin/hooks/ensure-tamp.sh
+exit_code: 0
+
+$ node --check test/plugin-hooks.test.js
+exit_code: 0
+
+## File Permissions
+$ stat -f '%Lp %N' plugin/hooks/ensure-tamp.sh
+755 plugin/hooks/ensure-tamp.sh
+
+$ ls -l plugin/hooks/ensure-tamp.sh
+-rwxr-xr-x@ 1 stas  staff  4510 Nov 27 02:09 plugin/hooks/ensure-tamp.sh

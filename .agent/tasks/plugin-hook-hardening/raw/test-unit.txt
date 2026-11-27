@@ -1,0 +1,81 @@
+# Targeted & Full Unit Test Results
+Timestamp: 2026-11-27T01:12:49Z
+
+## 1. Targeted Suite: node --test test/plugin-hooks.test.js
+Command: node --test test/plugin-hooks.test.js
+Exit code: 0
+
+▶ ensure-tamp.sh permissions and syntax
+  ✔ retains executable bit and passes bash -n syntax check (4.993667ms)
+✔ ensure-tamp.sh permissions and syntax (5.425459ms)
+▶ ensure-tamp.sh port resolution & config parity
+  ✔ parses TAMP_CONFIG with comments, whitespace, quotes, exact key, and last-value-wins (398.441792ms)
+  ✔ reads ${HOME}/.config/tamp/config when TAMP_CONFIG is unset or empty (614.55775ms)
+  ✔ gives TAMP_PORT env precedence over config file, and empty TAMP_PORT defers to config (412.082833ms)
+  ✔ normalizes leading-zero base-10 ports and falls back to 7778 on invalid/missing configs (3008.464042ms)
+  ✔ silently ignores unreadable config file and falls back to 7778 (387.659084ms)
+✔ ensure-tamp.sh port resolution & config parity (4822.079875ms)
+▶ ensure-tamp.sh health check & JSON escaping
+  ✔ makes exactly 1 HTTP request to /health on custom config port and outputs valid JSON (46.179833ms)
+  ✔ escapes backslashes, quotes, tabs, and newlines in health version cleanly (42.994583ms)
+  ✔ handles missing or empty version in /health gracefully without broken formatting (74.319666ms)
+✔ ensure-tamp.sh health check & JSON escaping (163.938583ms)
+▶ ensure-tamp.sh port-conflict & lsof handling
+  ✔ detects a listening non-health TCP socket, emits port-in-use JSON, and does not spawn tamp (169.9195ms)
+  ✔ passes -nP -iTCP:<PORT> -sTCP:LISTEN to lsof and ignores non-listening (exit 1) sockets (541.068708ms)
+  ✔ does not block startup when lsof is missing from PATH (211.489875ms)
+✔ ensure-tamp.sh port-conflict & lsof handling (922.792625ms)
+▶ ensure-tamp.sh missing binary & auto-start path
+  ✔ recommends @sliday/tamp@latest when tamp is absent from PATH (157.456292ms)
+  ✔ auto-starts tamp shim, detects readiness, returns without hanging, and leaves no nohup.out (807.885084ms)
+✔ ensure-tamp.sh missing binary & auto-start path (965.599833ms)
+▶ ensure-claude-md.sh idempotency, drift refresh, and uninstall
+  ✔ creates CLAUDE.local.md, stays idempotent on re-run, and removes empty file on TAMP_RULES=off (44.316459ms)
+  ✔ appends to user content, refreshes drifted block in place, and preserves user content on --uninstall (58.975709ms)
+✔ ensure-claude-md.sh idempotency, drift refresh, and uninstall (103.506583ms)
+ℹ tests 16
+ℹ suites 6
+ℹ pass 16
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 7032.57075
+
+## 2. Full Quality Gate: npm test
+Command: npm test (node --test test/*.test.js && node bench/retrieval-eval.js)
+Exit code: 0
+
+ℹ tests 993
+ℹ suites 227
+ℹ pass 993
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 8607.968708
+
+bm25-trim retrieval quality  (15 fixtures, offline)
+
+fixture                    NDCG@10 before   after      Recall before   after
+--------------------------------------------------------------------------------
+camel-definition             0.000      0.920           0.0%   100.0%
+snake-definition             0.000      0.920           0.0%   100.0%
+pascal-class                 0.920      0.920         100.0%   100.0%
+acronym-method               0.000      0.920           0.0%   100.0%
+interface-type               0.000      0.920           0.0%   100.0%
+go-func                      1.000      1.000         100.0%   100.0%
+rust-fn                      0.693      0.877         100.0%   100.0%
+nested-method                0.000      0.920           0.0%   100.0%
+const-arrow                  1.000      1.000         100.0%   100.0%
+error-string                 1.000      1.000         100.0%   100.0%
+config-key                   0.000      1.000           0.0%   100.0%
+comment-vs-code              0.000      0.920           0.0%   100.0%
+definition-vs-callsite       0.000      0.651           0.0%   100.0%
+multi-term                   1.000      1.000         100.0%   100.0%
+dotted-path                  1.000      1.000         100.0%   100.0%
+--------------------------------------------------------------------------------
+MEAN                         0.441      0.931          46.7%   100.0%
+
+definition survival at 4096-token budget: 100.0%
+PASS

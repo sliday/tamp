@@ -1,0 +1,49 @@
+# Integration & Smoke Test Results
+Timestamp: 2026-11-27T01:12:49Z
+
+## 1. Proxy Smoke Test: node smoke.js
+Command: node smoke.js
+Exit code: 0
+
+tamp smoke test (proxy :50911 -> echo :50910)
+
+Test 1: JSON minification
+  PASS compressed (minify or toon)
+  PASS shorter than original
+  PASS shorter than or equal to minified
+  method: toon
+  savings: 234 -> 164 chars (-29.9%)
+
+Test 2: TOON encoding for tabular data
+  PASS TOON is shorter than minified
+  PASS TOON is shorter than original
+  savings: 480 -> 187 chars (-61.0%)
+
+Test 3: Cache-safe mode (only latest message compressed)
+  PASS historical tool_result unchanged (cache-safe)
+  PASS latest tool_result compressed
+
+Test 4: Error results skipped
+  PASS error content unchanged
+
+Test 5: Non-JSON text passthrough
+  PASS text content unchanged
+
+Test 6: GET passthrough
+  PASS status 200
+  PASS response body passed through
+
+────────────────────────────────────────
+All checks passed!
+
+## 2. Live Subprocess Hook Integration Summary (from test/plugin-hooks.test.js)
+- Executed plugin/hooks/ensure-tamp.sh against live ephemeral 127.0.0.1:0 HTTP servers:
+  - Single GET /health verified (hits === 1) with valid SessionStart JSON and exit 0.
+  - Special characters in /health version (backslash, double quote, tab, newline) round-tripped through msg() JSON escaping cleanly.
+  - Missing and empty version fields produced clean "Tamp running on :<port>. Token compression active." output.
+- Executed plugin/hooks/ensure-tamp.sh against a live non-health listening TCP socket on 127.0.0.1:0:
+  - Detected listening conflict via lsof -nP -iTCP:<port> -sTCP:LISTEN, emitted port-in-use JSON, exited 0, did not spawn tamp.
+- Executed plugin/hooks/ensure-tamp.sh auto-start flow with an isolated fake tamp shim launching an ephemeral 127.0.0.1 HTTP server after 150ms:
+  - Hook returned promptly (~808ms, no inherited-stdio hang), emitted "Tamp v9.9.9 auto-started on :<port>. Token compression active.", created no nohup.out, and afterEach terminated the shim PID cleanly.
+- Executed plugin/hooks/ensure-claude-md.sh in isolated temp directories:
+  - Verified create, idempotent re-run, append to user content, drift refresh preserving surrounding user content, --uninstall preserving user content + no-op repeat, and TAMP_RULES=off deleting empty CLAUDE.local.md.

@@ -1,0 +1,68 @@
+{
+  "task_id": "plugin-hook-hardening",
+  "overall_verdict": "PASS",
+  "criteria": [
+    {
+      "id": "AC1",
+      "status": "PASS",
+      "reason": "Verified plugin/hooks/ensure-tamp.sh resolves PORT with precedence TAMP_PORT env > TAMP_CONFIG (non-empty) or ${HOME}/.config/tamp/config > 7778, matching config.js loadConfigFile() semantics (blank/# comment skip, key/val trimming, CRLF handling, exact TAMP_PORT key, single enclosing quote pair stripping, last-definition-wins, unreadable/missing file fallback, base-10 1..65535 validation without octal bugs). Confirmed via 5 passing unit tests in test/plugin-hooks.test.js."
+    },
+    {
+      "id": "AC2",
+      "status": "PASS",
+      "reason": "Verified plugin/hooks/ensure-tamp.sh fetches http://127.0.0.1:${PORT}/health once with curl -sf --max-time 2 into HEALTH_BODY and extracts version via extract_version() without double-fetching. Handles missing or empty version cleanly without malformed output. Confirmed via 3 passing live HTTP tests asserting hits === 1, --max-time 2, valid SessionStart JSON, and exit 0."
+    },
+    {
+      "id": "AC3",
+      "status": "PASS",
+      "reason": "Verified plugin/hooks/ensure-tamp.sh guards lsof with command -v lsof >/dev/null 2>&1 and executes lsof -nP -iTCP:\"${PORT}\" -sTCP:LISTEN >/dev/null 2>&1. Confirmed via 3 passing tests: live listening non-health socket reports port-in-use JSON without invoking tamp, stubbed lsof verifies exact flags and exit-1 non-blocking behavior, and omitted lsof in PATH does not block startup."
+    },
+    {
+      "id": "AC4",
+      "status": "PASS",
+      "reason": "Verified msg() in plugin/hooks/ensure-tamp.sh escapes backslash, double quote, CR, LF, tab, BS, FF, and ASCII control chars 0x01..0x1f via POSIX awk reading ENVIRON[\"MSG\"] with zero runtime jq/python3/node calls (grep returned no matches). Confirmed JSON.parse validity and SessionStart schema across all 16 subprocess tests including special characters in /health version."
+    },
+    {
+      "id": "AC5",
+      "status": "PASS",
+      "reason": "Verified missing tamp emits valid SessionStart JSON with npm i -g @sliday/tamp@latest and exits 0; auto-start launches nohup tamp -y </dev/null >/dev/null 2>&1 & and polls within an 8s SECONDS wall-clock loop (fitting hooks.json's 12s timeout) emitting auto-started JSON on readiness or manual tamp -y guidance on timeout, with exit 0 on all paths. Confirmed via 2 passing tests including live fake tamp shim with clean PID teardown and no nohup.out."
+    },
+    {
+      "id": "AC6",
+      "status": "PASS",
+      "reason": "Verified plugin/hooks/ensure-tamp.sh has mode 0755 (ls -l and stat -f %Lp), passes bash -n with exit 0, uses only macOS BSD bash 3.2+ and Linux GNU bash compatible syntax and standard utilities (bash, curl, awk, sleep, nohup; optional lsof), and has zero runtime jq/python3/node dependencies."
+    },
+    {
+      "id": "AC7",
+      "status": "PASS",
+      "reason": "Verified test/plugin-hooks.test.js passes node --check and runs 16/16 passing tests across 6 suites under node:test using only Node.js built-ins, isolated mkdtempSync dirs, HOME/TAMP_CONFIG/PATH shims, ephemeral 127.0.0.1:0 sockets, and afterEach cleanup covering all 6 required areas (port precedence/config parity, single-fetch /health + JSON escaping, port-conflict/lsof, missing tamp, auto-start shim, and ensure-claude-md.sh create/idempotency/drift/--uninstall/TAMP_RULES=off)."
+    },
+    {
+      "id": "AC8",
+      "status": "PASS",
+      "reason": "Verified fresh npm test passed 993/993 tests (227 suites, 0 failures) plus bench/retrieval-eval.js PASS, and fresh node smoke.js passed all 6 checks. git status --short and git diff --stat confirm strictly scoped 2-file code change (plugin/hooks/ensure-tamp.sh and test/plugin-hooks.test.js) on branch fix/plugin-hook-hardening with zero new dependencies."
+    }
+  ],
+  "commands_run": [
+    "git status --short",
+    "git diff --stat",
+    "ls -l plugin/hooks/ensure-tamp.sh",
+    "stat -f \"%Lp\" plugin/hooks/ensure-tamp.sh",
+    "git branch --show-current",
+    "grep -nE '\\b(jq|python3|node)\\b' plugin/hooks/ensure-tamp.sh",
+    "bash -n plugin/hooks/ensure-tamp.sh",
+    "node --check test/plugin-hooks.test.js",
+    "node --test test/plugin-hooks.test.js",
+    "npm test",
+    "node smoke.js"
+  ],
+  "artifacts_used": [
+    ".agent/tasks/plugin-hook-hardening/spec.md",
+    ".agent/tasks/plugin-hook-hardening/evidence.md",
+    ".agent/tasks/plugin-hook-hardening/evidence.json",
+    "plugin/hooks/ensure-tamp.sh",
+    "test/plugin-hooks.test.js",
+    "plugin/hooks/hooks.json",
+    "config.js"
+  ]
+}

@@ -1,0 +1,29 @@
+# Lint, Scope, and Portability Checks
+Timestamp: 2026-11-27T01:13:25Z
+Branch: fix/plugin-hook-hardening
+
+## Syntax Validation
+$ bash -n plugin/hooks/ensure-tamp.sh
+exit_code: 0
+
+$ node --check test/plugin-hooks.test.js
+exit_code: 0
+
+## Runtime External Tool Check (jq / python3 / node forbidden in ensure-tamp.sh)
+$ grep -nE '\b(jq|python3|node)\b' plugin/hooks/ensure-tamp.sh || echo 'NO_RUNTIME_EXTERNAL_DEPS'
+NO_RUNTIME_EXTERNAL_DEPS
+
+## Git Scope & Minimal Diff Check
+$ git status --short
+ M plugin/hooks/ensure-tamp.sh
+?? .agent/tasks/plugin-hook-hardening/
+?? test/plugin-hooks.test.js
+
+$ git diff --stat
+ plugin/hooks/ensure-tamp.sh | 164 +++++++++++++++++++++++++++++++++++++++-----
+ 1 file changed, 146 insertions(+), 18 deletions(-)
+
+## Dependency Check
+- package.json untouched (0 new npm dependencies).
+- test/plugin-hooks.test.js uses Node.js built-ins only: node:test, node:assert/strict, node:child_process, node:fs, node:http, node:net, node:os, node:path, node:url.
+- plugin/hooks/ensure-tamp.sh runs under macOS BSD bash 3.2.57 without bash 4+ features and uses only standard utilities (bash, curl, awk, sleep, nohup; optional lsof).

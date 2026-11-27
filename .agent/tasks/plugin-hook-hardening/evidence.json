@@ -1,0 +1,107 @@
+{
+  "task_id": "plugin-hook-hardening",
+  "overall_status": "PASS",
+  "acceptance_criteria": [
+    {
+      "id": "AC1",
+      "text": "Port resolution & config parity (TAMP_PORT env > TAMP_CONFIG / ~/.config/tamp/config > 7778, base-10 1..65535 validation)",
+      "status": "PASS",
+      "proof": [
+        "plugin/hooks/ensure-tamp.sh: read_config_port(), validate_port(), and env > config > 7778 resolution",
+        ".agent/tasks/plugin-hook-hardening/raw/test-unit.txt: 5/5 passing tests in 'ensure-tamp.sh port resolution & config parity'"
+      ],
+      "gaps": []
+    },
+    {
+      "id": "AC2",
+      "text": "Bounded single-fetch health check against http://127.0.0.1:${PORT}/health with curl -sf --max-time 2",
+      "status": "PASS",
+      "proof": [
+        "plugin/hooks/ensure-tamp.sh: single HEALTH_BODY capture via curl -sf --max-time 2 and extract_version()",
+        ".agent/tasks/plugin-hook-hardening/raw/test-unit.txt: 3/3 passing tests in 'ensure-tamp.sh health check & JSON escaping' verifying hits === 1 and missing/empty version handling"
+      ],
+      "gaps": []
+    },
+    {
+      "id": "AC3",
+      "text": "Listening-only TCP port conflict check (lsof -nP -iTCP:${PORT} -sTCP:LISTEN) guarded with command -v lsof",
+      "status": "PASS",
+      "proof": [
+        "plugin/hooks/ensure-tamp.sh: command -v lsof guard and -sTCP:LISTEN invocation",
+        ".agent/tasks/plugin-hook-hardening/raw/test-unit.txt: 3/3 passing tests in 'ensure-tamp.sh port-conflict & lsof handling'"
+      ],
+      "gaps": []
+    },
+    {
+      "id": "AC4",
+      "text": "Always-valid SessionStart JSON output from msg() with POSIX/awk escaping and no jq/python3/node dependency",
+      "status": "PASS",
+      "proof": [
+        "plugin/hooks/ensure-tamp.sh: msg() escapes backslash, double quote, CR, LF, tab, and ASCII control chars via POSIX awk",
+        ".agent/tasks/plugin-hook-hardening/raw/lint.txt: NO_RUNTIME_EXTERNAL_DEPS grep verification",
+        ".agent/tasks/plugin-hook-hardening/raw/test-unit.txt: JSON.parse verification across all 16 tests including special characters in /health version"
+      ],
+      "gaps": []
+    },
+    {
+      "id": "AC5",
+      "text": "Missing tamp install hint (@sliday/tamp@latest), no-hang nohup auto-start, and bounded 8s polling window",
+      "status": "PASS",
+      "proof": [
+        "plugin/hooks/ensure-tamp.sh: @sliday/tamp@latest hint, nohup tamp -y </dev/null >/dev/null 2>&1 &, SECONDS < 8 wall-clock loop, exit 0 on all paths",
+        ".agent/tasks/plugin-hook-hardening/raw/test-unit.txt: 2/2 passing tests in 'ensure-tamp.sh missing binary & auto-start path'",
+        ".agent/tasks/plugin-hook-hardening/raw/test-integration.txt: live fake tamp shim auto-start verified without stdio hang or nohup.out"
+      ],
+      "gaps": [
+        "8s timeout failure branch verified by code inspection rather than an 8s real-time sleep test"
+      ]
+    },
+    {
+      "id": "AC6",
+      "text": "0755 executable permissions, bash -n clean, macOS BSD bash 3.2+ and Linux GNU bash portability",
+      "status": "PASS",
+      "proof": [
+        ".agent/tasks/plugin-hook-hardening/raw/build.txt: GNU bash 3.2.57 syntax check exit 0 and mode 755 verified",
+        ".agent/tasks/plugin-hook-hardening/raw/lint.txt: no jq/python3/node dependencies and no bash 4+ syntax"
+      ],
+      "gaps": []
+    },
+    {
+      "id": "AC7",
+      "text": "Deterministic, host-isolated subprocess test suite in test/plugin-hooks.test.js covering ensure-tamp.sh and ensure-claude-md.sh",
+      "status": "PASS",
+      "proof": [
+        "test/plugin-hooks.test.js: 16 tests across 6 suites using isolated temp dirs, HOME/TAMP_CONFIG/PATH shims, ephemeral 127.0.0.1:0 sockets, and afterEach cleanup",
+        ".agent/tasks/plugin-hook-hardening/raw/test-unit.txt: node --test test/plugin-hooks.test.js passed 16/16"
+      ],
+      "gaps": []
+    },
+    {
+      "id": "AC8",
+      "text": "Full test suite green with zero regressions and changes strictly scoped to plugin/hooks/ensure-tamp.sh and test/plugin-hooks.test.js",
+      "status": "PASS",
+      "proof": [
+        ".agent/tasks/plugin-hook-hardening/raw/test-unit.txt: npm test passed 993/993 tests + bench/retrieval-eval.js PASS",
+        ".agent/tasks/plugin-hook-hardening/raw/test-integration.txt: node smoke.js passed all 6 checks",
+        ".agent/tasks/plugin-hook-hardening/raw/lint.txt: git status --short confirms minimal diff scope"
+      ],
+      "gaps": []
+    }
+  ],
+  "changed_files": [
+    "plugin/hooks/ensure-tamp.sh",
+    "test/plugin-hooks.test.js"
+  ],
+  "commands_for_fresh_verifier": [
+    "bash -n plugin/hooks/ensure-tamp.sh",
+    "node --check test/plugin-hooks.test.js",
+    "test -x plugin/hooks/ensure-tamp.sh",
+    "node --test test/plugin-hooks.test.js",
+    "npm test",
+    "node smoke.js",
+    "git status --short"
+  ],
+  "known_gaps": [
+    "The 8-second auto-start timeout message path in plugin/hooks/ensure-tamp.sh is verified by code inspection rather than waiting 8 real seconds in unit tests."
+  ]
+}
