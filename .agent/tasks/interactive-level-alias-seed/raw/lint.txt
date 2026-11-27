@@ -1,0 +1,93 @@
+# Lint, Scope, Diff, and Dependency Verification — interactive-level-alias-seed
+
+$ node --check bin/ui/LevelPicker.js bin/ui/App.js test/level-picker.test.js test/tui-state-telemetry.test.js
+Command exited with code 0.
+
+$ git status --short
+ M bin/ui/App.js
+ M bin/ui/LevelPicker.js
+ M test/level-picker.test.js
+ M test/tui-state-telemetry.test.js
+?? .agent/tasks/interactive-level-alias-seed/
+
+$ git diff --stat
+ bin/ui/App.js                    |  15 ++--
+ bin/ui/LevelPicker.js            |   5 +-
+ test/level-picker.test.js        |  40 ++++++++++-
+ test/tui-state-telemetry.test.js | 145 ++++++++++++++++++++++++++++++++++++++-
+ 4 files changed, 198 insertions(+), 7 deletions(-)
+
+$ git diff bin/ui/LevelPicker.js bin/ui/App.js
+diff --git a/bin/ui/App.js b/bin/ui/App.js
+index 889f8d5..801c0a5 100644
+--- a/bin/ui/App.js
++++ b/bin/ui/App.js
+@@ -4,29 +4,36 @@ import { LevelPicker } from './LevelPicker.js'
+ import { SidecarLoader } from './SidecarLoader.js'
+ import { Dashboard } from './Dashboard.js'
+ import { installShutdown, writePidFile, diagnoseBindConflict } from '../lifecycle.js'
+-import { COMPRESSION_PRESETS } from '../../metadata.js'
++import { COMPRESSION_PRESETS, LEVEL_ALIASES } from '../../metadata.js'
+ 
+ const h = React.createElement
+ 
+ export const MAX_EVENTS = 200
+ 
+ export function resolveInteractiveSeed({ argvLevel = null, argvPreset = null, envStages = null } = {}) {
++  let normalizedLevel = null
++  if (Number.isInteger(argvLevel) && argvLevel >= 1 && argvLevel <= 9) {
++    normalizedLevel = argvLevel
++  } else if (typeof argvLevel === 'string' && Object.hasOwn(LEVEL_ALIASES, argvLevel)) {
++    normalizedLevel = LEVEL_ALIASES[argvLevel]
++  }
++
+   if (typeof argvPreset === 'string' && Object.hasOwn(COMPRESSION_PRESETS, argvPreset)) {
+     const preset = COMPRESSION_PRESETS[argvPreset]
+     if (Number.isInteger(preset.level)) {
+       return {
+-        envLevel: argvLevel ?? preset.level,
++        envLevel: normalizedLevel ?? preset.level,
+         envStages,
+       }
+     }
+     if (preset.level === null) {
+       return {
+-        envLevel: argvLevel,
++        envLevel: normalizedLevel,
+         envStages: envStages ?? new Set(preset.stages),
+       }
+     }
+   }
+-  return { envLevel: argvLevel, envStages }
++  return { envLevel: normalizedLevel, envStages }
+ }
+ 
+ export function appendBoundedEvent(events, event, max = MAX_EVENTS) {
+diff --git a/bin/ui/LevelPicker.js b/bin/ui/LevelPicker.js
+index ec76085..55805cf 100644
+--- a/bin/ui/LevelPicker.js
++++ b/bin/ui/LevelPicker.js
+@@ -1,7 +1,7 @@
+ import React, { useState } from 'react'
+ import { Box, Text, useInput } from 'ink'
+ import { StagePicker } from './StagePicker.js'
+-import { COMPRESSION_LEVELS, DEFAULT_LEVEL, resolveLevel } from '../../metadata.js'
++import { COMPRESSION_LEVELS, DEFAULT_LEVEL, LEVEL_ALIASES, resolveLevel } from '../../metadata.js'
+ 
+ const h = React.createElement
+ 
+@@ -24,6 +24,9 @@ export function levelReducer(state, action) {
+ 
+ export function initialLevel(envLevel) {
+   if (Number.isInteger(envLevel) && envLevel >= 1 && envLevel <= 9) return envLevel
++  if (typeof envLevel === 'string' && Object.hasOwn(LEVEL_ALIASES, envLevel)) {
++    return LEVEL_ALIASES[envLevel]
++  }
+   return DEFAULT_LEVEL
+ }
+
+# Scope & Dependency Checks
+- Edit allowlist check: PASS (only bin/ui/LevelPicker.js, bin/ui/App.js, test/level-picker.test.js, test/tui-state-telemetry.test.js modified; package.json, package-lock.json, metadata.js, bin/tamp.js, test/cli-hardening.test.js untouched).
+- Dependencies check: PASS (0 new external dependencies; plain Node.js ESM JavaScript only).
+- Prototype guard check: PASS (Object.hasOwn(LEVEL_ALIASES, envLevel) in bin/ui/LevelPicker.js and Object.hasOwn(LEVEL_ALIASES, argvLevel) in bin/ui/App.js).
+- Zero process.env mutation check: PASS (verified by diff and test/tui-state-telemetry.test.js).

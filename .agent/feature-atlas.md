@@ -1,7 +1,7 @@
 # Tamp Feature Atlas
 
 Comprehensive map of all states, modes, entrypoints, stages, and surfaces in `@sliday/tamp` (`v0.9.1`).
-Last updated: 2026-11-27 (Cycle 8).
+Last updated: 2026-11-27 (Cycle 9).
 
 ---
 
@@ -34,8 +34,8 @@ Last updated: 2026-11-27 (Cycle 8).
 
 | Component | States / Modes | Notes |
 |---|---|---|
-| `App.js` | Phases: `pick` → (`loading` if `llmlingua`) → `running` | Seeds `LevelPicker` from `argvLevel`/`argvPreset`/`envStages` (`resolveInteractiveSeed`); passes explicit `(overrides, loadOpts)` to `createProxy` (zero `process.env.TAMP_*` mutation); binds `proxyConfig.host` (`127.0.0.1` default); kills sidecar on bind errors; bounds `events` to `MAX_EVENTS = 200`; wires live `usage` via `onUsage`; installs shutdown hooks |
-| `LevelPicker.js` | 1–9 slider (`←`/`→`/`h`/`l`/`1-9`), `A` → advanced `StagePicker`, `Enter` confirm, `Esc` cancel | Shows `LOSSLESS` (L1–L4) vs `LOSSY` (L5–L9) badge and cumulative stage chips |
+| `App.js` | Phases: `pick` → (`loading` if `llmlingua`) → `running` | Seeds `LevelPicker` from normalized `argvLevel` (int or `LEVEL_ALIASES` own-key)/`argvPreset`/`envStages` (`resolveInteractiveSeed`); passes explicit `(overrides, loadOpts)` to `createProxy` (zero `process.env.TAMP_*` mutation); binds `proxyConfig.host` (`127.0.0.1` default); kills sidecar on bind errors; bounds `events` to `MAX_EVENTS = 200`; wires live `usage` via `onUsage`; installs shutdown hooks |
+| `LevelPicker.js` | 1–9 slider (`←`/`→`/`h`/`l`/`1-9`), `A` → advanced `StagePicker`, `Enter` confirm, `Esc` cancel | `initialLevel` accepts `1..9` integers and `LEVEL_ALIASES` own-keys; shows `LOSSLESS` (L1–L4) vs `LOSSY` (L5–L9) badge and cumulative stage chips |
 | `StagePicker.js` | MultiSelect over all 20 stages (`DEFAULT_STAGES` + `EXTRA_STAGES`) | Enforces `>= 1` stage selected |
 | `SidecarLoader.js` | `loading` → `success` (600ms) or `warning` (1200ms fallback without `llmlingua`) | Spawns `startSidecar()` |
 | `Dashboard.js` | `Banner` (with `level`) + `StatsBar` (empty vs active + live `cache XX.X%`) + bounded `<Box>` tail (`MAX_VISIBLE_EVENTS = 20`) | Avoids Ink 5 `<Static>` stall past `MAX_EVENTS`; redacts query-string secrets in URLs via `redactUrl` |

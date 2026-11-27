@@ -1,0 +1,35 @@
+# Integration / Smoke Test Verification
+
+$ node smoke.js
+Command exited with code 0.
+
+tamp smoke test (proxy :53174 -> echo :53173)
+
+Test 1: JSON minification
+  PASS compressed (minify or toon)
+  PASS shorter than original
+  PASS shorter than or equal to minified
+  method: toon
+  savings: 234 -> 164 chars (-29.9%)
+
+Test 2: TOON encoding for tabular data
+  PASS TOON is shorter than minified
+  PASS TOON is shorter than original
+  savings: 480 -> 187 chars (-61.0%)
+
+Test 3: Cache-safe mode (only latest message compressed)
+  PASS historical tool_result unchanged (cache-safe)
+  PASS latest tool_result compressed
+
+Test 4: Error results skipped
+  PASS error content unchanged
+
+Test 5: Non-JSON text passthrough
+  PASS text content unchanged
+
+Test 6: GET passthrough
+  PASS status 200
+  PASS response body passed through
+
+────────────────────────────────────────
+All checks passed!

@@ -1,0 +1,137 @@
+# Targeted Unit Tests
+
+$ node --test test/level-picker.test.js test/tui-state-telemetry.test.js test/cli-hardening.test.js
+Command exited with code 0.
+
+▶ App.js host binding hardening
+  ✔ passes proxyConfig.host to server.listen so interactive TUI binds loopback by default (0.312292ms)
+✔ App.js host binding hardening (0.658584ms)
+▶ Dashboard.js URL redaction
+  ✔ redacts query-string API keys in compressed log entries (0.534625ms)
+  ✔ redacts query-string API keys in passthrough/skipped log entries (0.065875ms)
+✔ Dashboard.js URL redaction (0.656792ms)
+▶ bin/tamp.js non-interactive stage resolution
+  ✔ respects TAMP_COMPRESSION_PRESET without mutating process.env.TAMP_STAGES (0.712416ms)
+  ✔ respects TAMP_LEVEL without mutating process.env.TAMP_STAGES (0.289042ms)
+  ✔ respects level= in config file without clobbering with DEFAULT_STAGES (0.876792ms)
+  ✔ strips llmlingua via overrides instead of mutating TAMP_STAGES when sidecar fails (0.943458ms)
+  ✔ passes llmLinguaUrl via overrides when sidecar starts (0.122708ms)
+  ✔ resolves --preset recommended non-interactively without starting sidecar or mutating process.env (0.348708ms)
+✔ bin/tamp.js non-interactive stage resolution (3.459333ms)
+▶ bin/tamp.js --preset flag parsing, validation, and subprocess CLI checks
+  ✔ parsePresetArgv accepts --preset NAME and --preset=NAME for all COMPRESSION_PRESETS keys (0.237708ms)
+  ✔ parsePresetArgv rejects missing, empty, unknown, and prototype-chain keys (0.130542ms)
+  ✔ parseCliFlags rejects mutually exclusive --level and --preset in any order/form (0.037459ms)
+  ✔ resolveInteractiveSeed maps anchored presets to envLevel and recommended to envStages Set (0.094833ms)
+  ✔ subprocess: tamp help / --help / -h exits 0 and documents --preset NAME (138.068875ms)
+  ✔ subprocess: invalid/missing/prototype-key --preset and --level + --preset conflict exit 2 with stderr (421.720792ms)
+✔ bin/tamp.js --preset flag parsing, validation, and subprocess CLI checks (560.39475ms)
+▶ bin/tamp.js status formatting and lifecycle guards
+  ✔ formats live health stats including cache hit rate when present (0.140583ms)
+  ✔ omits cache hit rate when usage.cacheHitRate is null (0.047583ms)
+  ✔ uses loadConfig().port in status and stop, and guards kill calls with isTampProcess (0.170542ms)
+✔ bin/tamp.js status formatting and lifecycle guards (0.407375ms)
+▶ sidecar/server.py hardening
+  ✔ uses FastAPI lifespan, sync compress endpoint, and 503 guard before model loads (0.869833ms)
+✔ sidecar/server.py hardening (0.89375ms)
+▶ LevelPicker reducer
+  ✔ starts at envLevel when provided and valid (0.359167ms)
+  ✔ falls back to DEFAULT_LEVEL when envLevel is missing or invalid (0.04725ms)
+  ✔ resolves all LEVEL_ALIASES strings to their canonical integer levels (0.054875ms)
+  ✔ rejects prototype-chain keys, numeric/invalid strings, and non-1..9 numbers to DEFAULT_LEVEL (0.100375ms)
+  ✔ moveRight increments and clamps at 9 (0.048625ms)
+  ✔ moveLeft decrements and clamps at 1 (0.030791ms)
+  ✔ jumpTo accepts 1..9 and rejects out-of-range/NaN (0.122084ms)
+  ✔ jumpTo accepts numeric strings (simulating keystroke input) (0.074042ms)
+  ✔ unknown actions are no-ops (0.155458ms)
+✔ LevelPicker reducer (1.543125ms)
+▶ LevelPicker payload builder
+  ✔ returns kind=level with stages matching resolveLevel (0.430459ms)
+  ✔ payload.stages is a copy (not a frozen reference) (0.061791ms)
+✔ LevelPicker payload builder (0.547333ms)
+▶ AC1: App.js proxy arg building and zero process.env mutation
+  ✔ App.js source does not assign to process.env.TAMP_* (0.576375ms)
+  ✔ level selection passes levelOverride without overrides.stages so config.level and levelSource stay accurate (1.43075ms)
+  ✔ level selection with llmlingua fallback filters llmlingua via overrides.stages while preserving level (0.381333ms)
+  ✔ level selection with sidecar URL passes overrides.llmLinguaUrl without mutating env (0.347791ms)
+  ✔ custom stages selection sets overrides.stages and overrides.level = null with empty loadOpts (0.511417ms)
+  ✔ custom stages selection with llmlingua fallback strips llmlingua and keeps level null (0.288541ms)
+✔ AC1: App.js proxy arg building and zero process.env mutation (3.921666ms)
+▶ AC2: Sidecar cleanup on server bind error
+  ✔ kills sidecar before exiting on EADDRINUSE (0.124084ms)
+  ✔ kills sidecar before exiting on non-EADDRINUSE errors (0.143542ms)
+  ✔ runs safely when getSidecarProc is undefined, returns null, kill throws, or diagnose throws (0.189042ms)
+✔ AC2: Sidecar cleanup on server bind error (0.561ms)
+▶ AC3: Bounded events array and Dashboard rendering past MAX_EVENTS
+  ✔ caps events at MAX_EVENTS (200), dropping oldest entries and preserving order (0.157208ms)
+  ✔ Dashboard does not use Ink <Static> and renders newly appended events beyond MAX_EVENTS (0.845042ms)
+✔ AC3: Bounded events array and Dashboard rendering past MAX_EVENTS (1.034417ms)
+▶ AC5: Dashboard Banner level propagation and StatsBar live cache hit rate
+  ✔ forwards integer config.level to Banner and renders Level line (0.229875ms)
+  ✔ forwards null config.level to Banner and shows per-stage breakdown (0.234209ms)
+  ✔ forwards usage to StatsBar and renders cache hit rate when finite (0.137667ms)
+  ✔ omits cache hit segment when usage is null, undefined, or cacheHitRate is null/non-finite (0.123542ms)
+  ✔ preserves Waiting for requests when compressionCount === 0 and usage is absent (0.030834ms)
+  ✔ surfaces live cache hit rate alongside waiting indicator when compressionCount === 0 and usage.cacheHitRate is set (0.0395ms)
+  ✔ renders 0.0% when cacheHitRate is 0 (0.051708ms)
+✔ AC5: Dashboard Banner level propagation and StatsBar live cache hit rate (0.905834ms)
+▶ resolveInteractiveSeed: level alias normalization and preset interactions
+  ✔ normalizes all LEVEL_ALIASES strings to canonical integer levels when argvPreset is null (0.140708ms)
+  ✔ normalizes prototype-chain keys, numeric strings, out-of-range integers, NaN, and unknown strings to null (0.139792ms)
+  ✔ does not let invalid, prototype-chain, numeric-string, or out-of-range argvLevel mask anchored presets (0.106ms)
+  ✔ lets valid alias or integer argvLevel take precedence over anchored preset level (0.031667ms)
+  ✔ handles recommended preset with normalized argvLevel and envStages precedence (0.046958ms)
+  ✔ maintains parity between resolveInteractiveSeed and initialLevel for every alias in LEVEL_ALIASES (0.054708ms)
+✔ resolveInteractiveSeed: level alias normalization and preset interactions (0.567208ms)
+ℹ tests 54
+ℹ suites 13
+ℹ pass 54
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 779.529458
+
+================================================================================
+# Full Regression Suite + Retrieval Eval (npm test)
+
+$ npm test
+npm notice run @sliday/tamp@0.9.1 test
+npm notice run node --test test/*.test.js && node bench/retrieval-eval.js
+Command exited with code 0.
+
+# Full test/*.test.js summary:
+ℹ tests 1001
+ℹ suites 228
+ℹ pass 1001
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 8486.286083
+
+# bench/retrieval-eval.js output:
+bm25-trim retrieval quality  (15 fixtures, offline)
+
+fixture                    NDCG@10 before   after      Recall before   after
+--------------------------------------------------------------------------------
+camel-definition             0.000      0.920           0.0%   100.0%
+snake-definition             0.000      0.920           0.0%   100.0%
+pascal-class                 0.920      0.920         100.0%   100.0%
+acronym-method               0.000      0.920           0.0%   100.0%
+interface-type               0.000      0.920           0.0%   100.0%
+go-func                      1.000      1.000         100.0%   100.0%
+rust-fn                      0.693      0.877         100.0%   100.0%
+nested-method                0.000      0.920           0.0%   100.0%
+const-arrow                  1.000      1.000         100.0%   100.0%
+error-string                 1.000      1.000         100.0%   100.0%
+config-key                   0.000      1.000           0.0%   100.0%
+comment-vs-code              0.000      0.920           0.0%   100.0%
+definition-vs-callsite       0.000      0.651           0.0%   100.0%
+multi-term                   1.000      1.000         100.0%   100.0%
+dotted-path                  1.000      1.000         100.0%   100.0%
+--------------------------------------------------------------------------------
+MEAN                         0.441      0.931          46.7%   100.0%
+
+definition survival at 4096-token budget: 100.0%
+PASS

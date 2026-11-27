@@ -9,11 +9,13 @@ import {
   appendBoundedEvent,
   buildInteractiveProxyArgs,
   handleServerError,
+  resolveInteractiveSeed,
 } from '../bin/ui/App.js'
+import { initialLevel } from '../bin/ui/LevelPicker.js'
 import { Dashboard, StatsBar, LogEntry, MAX_VISIBLE_EVENTS } from '../bin/ui/Dashboard.js'
 import { Banner } from '../bin/ui/Banner.js'
 import { createProxy } from '../index.js'
-import { COMPRESSION_LEVELS } from '../metadata.js'
+import { COMPRESSION_LEVELS, COMPRESSION_PRESETS, LEVEL_ALIASES } from '../metadata.js'
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url))
 
@@ -346,5 +348,146 @@ describe('AC5: Dashboard Banner level propagation and StatsBar live cache hit ra
   it('renders 0.0% when cacheHitRate is 0', () => {
     const text = getAllText(StatsBar({ totals: activeTotals, tokenCost: 3, usage: { cacheHitRate: 0 } }))
     assert.match(text, /cache\s+0\.0%/)
+  })
+})
+
+describe('resolveInteractiveSeed: level alias normalization and preset interactions', () => {
+  it('normalizes all LEVEL_ALIASES strings to canonical integer levels when argvPreset is null', () => {
+    assert.deepEqual(
+      resolveInteractiveSeed({ argvLevel: 'conservative', argvPreset: null, envStages: null }),
+      { envLevel: 4, envStages: null },
+    )
+    assert.deepEqual(
+      resolveInteractiveSeed({ argvLevel: 'balanced', argvPreset: null, envStages: null }),
+      { envLevel: 5, envStages: null },
+    )
+    assert.deepEqual(
+      resolveInteractiveSeed({ argvLevel: 'aggressive', argvPreset: null, envStages: null }),
+      { envLevel: 8, envStages: null },
+    )
+    assert.deepEqual(
+      resolveInteractiveSeed({ argvLevel: 'max', argvPreset: null, envStages: null }),
+      { envLevel: 9, envStages: null },
+    )
+    for (const [alias, expected] of Object.entries(LEVEL_ALIASES)) {
+      assert.deepEqual(
+        resolveInteractiveSeed({ argvLevel: alias, argvPreset: null, envStages: null }),
+        { envLevel: expected, envStages: null },
+      )
+    }
+  })
+
+  it('normalizes prototype-chain keys, numeric strings, out-of-range integers, NaN, and unknown strings to null', () => {
+    const invalidLevels = [
+      null,
+      undefined,
+      'toString',
+      'constructor',
+      'valueOf',
+      'hasOwnProperty',
+      '__proto__',
+      '1',
+      '5',
+      '9',
+      '',
+      'bogus',
+      'Aggressive',
+      ' aggressive ',
+      ' max ',
+      0,
+      10,
+      -1,
+      4.5,
+      NaN,
+      Infinity,
+      -Infinity,
+    ]
+    for (const bad of invalidLevels) {
+      assert.deepEqual(
+        resolveInteractiveSeed({ argvLevel: bad, argvPreset: null, envStages: null }),
+        { envLevel: null, envStages: null },
+        `expected envLevel: null for ${String(bad)}`,
+      )
+    }
+  })
+
+  it('does not let invalid, prototype-chain, numeric-string, or out-of-range argvLevel mask anchored presets', () => {
+    const invalidLevels = [
+      'toString',
+      'constructor',
+      'valueOf',
+      'hasOwnProperty',
+      '__proto__',
+      '5',
+      'bogus',
+      'Aggressive',
+      0,
+      10,
+      -1,
+      4.5,
+      NaN,
+    ]
+    for (const [presetName, expectedLevel] of [['conservative', 4], ['balanced', 5], ['aggressive', 8]]) {
+      for (const bad of invalidLevels) {
+        assert.deepEqual(
+          resolveInteractiveSeed({ argvLevel: bad, argvPreset: presetName, envStages: null }),
+          { envLevel: expectedLevel, envStages: null },
+          `expected preset ${presetName} level ${expectedLevel} for invalid argvLevel ${String(bad)}`,
+        )
+      }
+    }
+  })
+
+  it('lets valid alias or integer argvLevel take precedence over anchored preset level', () => {
+    assert.deepEqual(
+      resolveInteractiveSeed({ argvLevel: 'max', argvPreset: 'conservative', envStages: null }),
+      { envLevel: 9, envStages: null },
+    )
+    assert.deepEqual(
+      resolveInteractiveSeed({ argvLevel: 'conservative', argvPreset: 'aggressive', envStages: null }),
+      { envLevel: 4, envStages: null },
+    )
+    assert.deepEqual(
+      resolveInteractiveSeed({ argvLevel: 2, argvPreset: 'balanced', envStages: null }),
+      { envLevel: 2, envStages: null },
+    )
+  })
+
+  it('handles recommended preset with normalized argvLevel and envStages precedence', () => {
+    const withAlias = resolveInteractiveSeed({ argvLevel: 'aggressive', argvPreset: 'recommended', envStages: null })
+    assert.equal(withAlias.envLevel, 8)
+    assert.ok(withAlias.envStages instanceof Set)
+    assert.deepEqual([...withAlias.envStages], COMPRESSION_PRESETS.recommended.stages)
+
+    const withInvalid = resolveInteractiveSeed({ argvLevel: '__proto__', argvPreset: 'recommended', envStages: null })
+    assert.equal(withInvalid.envLevel, null)
+    assert.ok(withInvalid.envStages instanceof Set)
+    assert.deepEqual([...withInvalid.envStages], COMPRESSION_PRESETS.recommended.stages)
+
+    const callerStages = new Set(['minify', 'dedup'])
+    const withCallerStages = resolveInteractiveSeed({
+      argvLevel: 'max',
+      argvPreset: 'recommended',
+      envStages: callerStages,
+    })
+    assert.equal(withCallerStages.envLevel, 9)
+    assert.equal(withCallerStages.envStages, callerStages)
+
+    const withCallerStagesAndInvalid = resolveInteractiveSeed({
+      argvLevel: '5',
+      argvPreset: 'recommended',
+      envStages: callerStages,
+    })
+    assert.equal(withCallerStagesAndInvalid.envLevel, null)
+    assert.equal(withCallerStagesAndInvalid.envStages, callerStages)
+  })
+
+  it('maintains parity between resolveInteractiveSeed and initialLevel for every alias in LEVEL_ALIASES', () => {
+    for (const [alias, expected] of Object.entries(LEVEL_ALIASES)) {
+      const seed = resolveInteractiveSeed({ argvLevel: alias })
+      assert.equal(seed.envLevel, expected)
+      assert.equal(initialLevel(seed.envLevel), expected)
+      assert.equal(initialLevel(alias), expected)
+    }
   })
 })

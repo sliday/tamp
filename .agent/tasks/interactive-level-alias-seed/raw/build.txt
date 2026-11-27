@@ -1,0 +1,9 @@
+# Build / Syntax Verification — interactive-level-alias-seed
+# Stack: Plain Node.js ESM JavaScript (no transpile/build step required)
+
+$ node --version
+v22.17.0
+
+$ node --check bin/ui/LevelPicker.js bin/ui/App.js test/level-picker.test.js test/tui-state-telemetry.test.js
+Command exited with code 0.
+(no output — all 4 files passed Node.js ESM syntax check)

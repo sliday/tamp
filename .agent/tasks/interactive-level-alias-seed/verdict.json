@@ -1,0 +1,50 @@
+{
+  "task_id": "interactive-level-alias-seed",
+  "overall_verdict": "PASS",
+  "criteria": [
+    {
+      "id": "AC1",
+      "status": "PASS",
+      "reason": "Verified bin/ui/LevelPicker.js imports LEVEL_ALIASES from ../../metadata.js and initialLevel(envLevel) returns valid 1..9 integers unchanged, resolves own-key LEVEL_ALIASES strings via Object.hasOwn(LEVEL_ALIASES, envLevel) (conservative->4, balanced->5, aggressive->8, max->9), and falls back to DEFAULT_LEVEL (5) for numeric strings ('1','5','9'), out-of-range/non-integer numbers, null/undefined/empty/unknown/case-or-whitespace-mismatched strings, and prototype-chain keys ('toString','constructor','valueOf','hasOwnProperty','__proto__'). Confirmed by targeted and full test runs."
+    },
+    {
+      "id": "AC2",
+      "status": "PASS",
+      "reason": "Verified bin/ui/App.js imports LEVEL_ALIASES from ../../metadata.js and resolveInteractiveSeed normalizes argvLevel into normalizedLevel (valid integer 1..9 or own-key LEVEL_ALIASES string -> canonical integer; all other inputs including numeric strings, out-of-range/non-integers, unknown strings, and prototype-chain keys -> null) before COMPRESSION_PRESETS handling. Anchored presets return { envLevel: normalizedLevel ?? preset.level, envStages } (valid argvLevel wins, invalid argvLevel never masks preset.level), recommended returns { envLevel: normalizedLevel, envStages: envStages ?? new Set(preset.stages) }, and missing/invalid/prototype argvPreset returns { envLevel: normalizedLevel, envStages }."
+    },
+    {
+      "id": "AC3",
+      "status": "PASS",
+      "reason": "Verified via git status --short that test/cli-hardening.test.js is unmodified, existing test/level-picker.test.js assertions (including initialLevel('5') === DEFAULT_LEVEL) remain intact, and node --test test/level-picker.test.js test/tui-state-telemetry.test.js test/cli-hardening.test.js passed 54/54 tests across 13 suites with exit code 0."
+    },
+    {
+      "id": "AC4",
+      "status": "PASS",
+      "reason": "Verified deterministic, TTY-free unit tests added in test/level-picker.test.js (all 4 LEVEL_ALIASES, prototype-chain keys, numeric/empty/unknown/case/whitespace strings, out-of-range/NaN/non-integer numbers) and test/tui-state-telemetry.test.js (all 4 aliases with argvPreset: null, invalid/prototype/numeric/out-of-range/NaN normalization to null, anchored preset non-masking, valid alias/integer precedence over anchored presets, recommended preset with null and caller-supplied envStages Set, and resolveInteractiveSeed/initialLevel parity across all LEVEL_ALIASES). All 54 targeted tests passed in 737.7ms without TTY."
+    },
+    {
+      "id": "AC5",
+      "status": "PASS",
+      "reason": "Verified plain Node.js ESM JavaScript only with zero new dependencies (package.json untouched), minimal 4-file diff strictly restricted to bin/ui/LevelPicker.js, bin/ui/App.js, test/level-picker.test.js, and test/tui-state-telemetry.test.js (+198/-7, plus .agent/tasks/interactive-level-alias-seed/ artifacts), zero process.env mutations, node --check exit 0, npm test exit 0 (1001/1001 pass, 228 suites, 0 fail; bench/retrieval-eval.js PASS with 100.0% definition survival), and node smoke.js exit 0 (Tests 1-6 PASS)."
+    }
+  ],
+  "commands_run": [
+    "git status --short",
+    "git diff --stat",
+    "git diff",
+    "node --check bin/ui/LevelPicker.js bin/ui/App.js test/level-picker.test.js test/tui-state-telemetry.test.js",
+    "node --test test/level-picker.test.js test/tui-state-telemetry.test.js test/cli-hardening.test.js",
+    "npm test",
+    "node smoke.js"
+  ],
+  "artifacts_used": [
+    ".agent/tasks/interactive-level-alias-seed/spec.md",
+    ".agent/tasks/interactive-level-alias-seed/evidence.md",
+    ".agent/tasks/interactive-level-alias-seed/evidence.json",
+    "bin/ui/LevelPicker.js",
+    "bin/ui/App.js",
+    "metadata.js",
+    "test/level-picker.test.js",
+    "test/tui-state-telemetry.test.js"
+  ]
+}
