@@ -1,0 +1,138 @@
+{
+  "task_id": "interactive-level-alias-seed",
+  "overall_status": "PASS",
+  "acceptance_criteria": [
+    {
+      "id": "AC1",
+      "text": "initialLevel(envLevel) in bin/ui/LevelPicker.js imports LEVEL_ALIASES from ../../metadata.js, resolves own-key alias strings via Object.hasOwn(LEVEL_ALIASES, envLevel) to canonical integers (4/5/8/9), preserves valid integers 1..9, and falls back to DEFAULT_LEVEL for numeric strings, out-of-range/non-integer numbers, unknown/case/whitespace strings, null/undefined, and prototype-chain keys.",
+      "status": "PASS",
+      "proof": [
+        {
+          "type": "diff",
+          "path": ".agent/tasks/interactive-level-alias-seed/raw/lint.txt",
+          "command": "git diff bin/ui/LevelPicker.js bin/ui/App.js",
+          "exit_code": 0,
+          "summary": "bin/ui/LevelPicker.js imports LEVEL_ALIASES from ../../metadata.js and uses Object.hasOwn(LEVEL_ALIASES, envLevel) in initialLevel."
+        },
+        {
+          "type": "command",
+          "path": ".agent/tasks/interactive-level-alias-seed/raw/test-unit.txt",
+          "command": "node --test test/level-picker.test.js test/tui-state-telemetry.test.js test/cli-hardening.test.js",
+          "exit_code": 0,
+          "summary": "54/54 targeted tests passed, including LevelPicker alias resolution, prototype-chain rejection, and numeric string rejection."
+        }
+      ],
+      "gaps": []
+    },
+    {
+      "id": "AC2",
+      "text": "resolveInteractiveSeed in bin/ui/App.js imports LEVEL_ALIASES from ../../metadata.js, normalizes argvLevel (valid integer 1..9 or own-key LEVEL_ALIASES -> canonical integer; all else -> null) before preset handling so invalid/prototype argvLevel never masks anchored presets, valid alias/integer wins over anchored presets, and recommended preset seeds envStages Set unless envStages is supplied.",
+      "status": "PASS",
+      "proof": [
+        {
+          "type": "diff",
+          "path": ".agent/tasks/interactive-level-alias-seed/raw/lint.txt",
+          "command": "git diff bin/ui/LevelPicker.js bin/ui/App.js",
+          "exit_code": 0,
+          "summary": "bin/ui/App.js imports LEVEL_ALIASES and normalizes argvLevel into normalizedLevel via Object.hasOwn(LEVEL_ALIASES, argvLevel) before preset dispatch."
+        },
+        {
+          "type": "command",
+          "path": ".agent/tasks/interactive-level-alias-seed/raw/test-unit.txt",
+          "command": "node --test test/level-picker.test.js test/tui-state-telemetry.test.js test/cli-hardening.test.js",
+          "exit_code": 0,
+          "summary": "54/54 targeted tests passed, including all 6 resolveInteractiveSeed normalization, preset interaction, and initialLevel parity tests."
+        }
+      ],
+      "gaps": []
+    },
+    {
+      "id": "AC3",
+      "text": "All existing tests in test/cli-hardening.test.js (without modifying it) and test/level-picker.test.js (including initialLevel('5') === DEFAULT_LEVEL) pass.",
+      "status": "PASS",
+      "proof": [
+        {
+          "type": "command",
+          "path": ".agent/tasks/interactive-level-alias-seed/raw/lint.txt",
+          "command": "git status --short",
+          "exit_code": 0,
+          "summary": "test/cli-hardening.test.js is unmodified."
+        },
+        {
+          "type": "command",
+          "path": ".agent/tasks/interactive-level-alias-seed/raw/test-unit.txt",
+          "command": "node --test test/level-picker.test.js test/tui-state-telemetry.test.js test/cli-hardening.test.js",
+          "exit_code": 0,
+          "summary": "All existing tests in test/cli-hardening.test.js and test/level-picker.test.js passed (54/54)."
+        }
+      ],
+      "gaps": []
+    },
+    {
+      "id": "AC4",
+      "text": "Deterministic TTY-free unit tests added in test/level-picker.test.js and test/tui-state-telemetry.test.js covering all 4 aliases, prototype-chain keys, numeric/invalid strings, out-of-range/NaN numbers, argvLevel + argvPreset interactions, and resolveInteractiveSeed/initialLevel parity.",
+      "status": "PASS",
+      "proof": [
+        {
+          "type": "command",
+          "path": ".agent/tasks/interactive-level-alias-seed/raw/test-unit.txt",
+          "command": "node --test test/level-picker.test.js test/tui-state-telemetry.test.js test/cli-hardening.test.js",
+          "exit_code": 0,
+          "summary": "54/54 tests across 13 suites passed in 779.5ms without TTY or live Ink rendering."
+        }
+      ],
+      "gaps": []
+    },
+    {
+      "id": "AC5",
+      "text": "Plain Node.js ESM JavaScript only (no TypeScript, no new external dependencies), edits restricted strictly to the 4 allowlisted files, and full npm test + node smoke.js pass with zero failures.",
+      "status": "PASS",
+      "proof": [
+        {
+          "type": "command",
+          "path": ".agent/tasks/interactive-level-alias-seed/raw/build.txt",
+          "command": "node --check bin/ui/LevelPicker.js bin/ui/App.js test/level-picker.test.js test/tui-state-telemetry.test.js",
+          "exit_code": 0,
+          "summary": "All 4 modified ESM JS files passed Node.js v22.17.0 syntax check."
+        },
+        {
+          "type": "command",
+          "path": ".agent/tasks/interactive-level-alias-seed/raw/lint.txt",
+          "command": "git status --short && git diff --stat",
+          "exit_code": 0,
+          "summary": "Only bin/ui/LevelPicker.js, bin/ui/App.js, test/level-picker.test.js, and test/tui-state-telemetry.test.js modified (+198/-7); no new dependencies."
+        },
+        {
+          "type": "command",
+          "path": ".agent/tasks/interactive-level-alias-seed/raw/test-unit.txt",
+          "command": "npm test",
+          "exit_code": 0,
+          "summary": "1001/1001 tests across 228 suites passed (0 fail) and bench/retrieval-eval.js PASS (100.0% definition survival)."
+        },
+        {
+          "type": "command",
+          "path": ".agent/tasks/interactive-level-alias-seed/raw/test-integration.txt",
+          "command": "node smoke.js",
+          "exit_code": 0,
+          "summary": "All 6 integration smoke tests passed."
+        }
+      ],
+      "gaps": []
+    }
+  ],
+  "changed_files": [
+    "bin/ui/LevelPicker.js",
+    "bin/ui/App.js",
+    "test/level-picker.test.js",
+    "test/tui-state-telemetry.test.js"
+  ],
+  "commands_for_fresh_verifier": [
+    "node --check bin/ui/LevelPicker.js bin/ui/App.js test/level-picker.test.js test/tui-state-telemetry.test.js",
+    "node --test test/level-picker.test.js test/tui-state-telemetry.test.js test/cli-hardening.test.js",
+    "npm test",
+    "node smoke.js",
+    "git status --short",
+    "git diff --stat"
+  ],
+  "known_gaps": []
+}

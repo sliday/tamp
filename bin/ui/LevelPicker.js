@@ -1,7 +1,7 @@
 import React, { useState } from 'react'
 import { Box, Text, useInput } from 'ink'
 import { StagePicker } from './StagePicker.js'
-import { COMPRESSION_LEVELS, DEFAULT_LEVEL, resolveLevel } from '../../metadata.js'
+import { COMPRESSION_LEVELS, DEFAULT_LEVEL, LEVEL_ALIASES, resolveLevel } from '../../metadata.js'
 
 const h = React.createElement
 
@@ -24,6 +24,9 @@ export function levelReducer(state, action) {
 
 export function initialLevel(envLevel) {
   if (Number.isInteger(envLevel) && envLevel >= 1 && envLevel <= 9) return envLevel
+  if (typeof envLevel === 'string' && Object.hasOwn(LEVEL_ALIASES, envLevel)) {
+    return LEVEL_ALIASES[envLevel]
+  }
   return DEFAULT_LEVEL
 }
 

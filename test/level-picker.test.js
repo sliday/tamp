@@ -5,7 +5,7 @@ import {
   initialLevel,
   buildLevelPayload,
 } from '../bin/ui/LevelPicker.js'
-import { COMPRESSION_LEVELS, DEFAULT_LEVEL, resolveLevel } from '../metadata.js'
+import { COMPRESSION_LEVELS, DEFAULT_LEVEL, LEVEL_ALIASES, resolveLevel } from '../metadata.js'
 
 describe('LevelPicker reducer', () => {
   it('starts at envLevel when provided and valid', () => {
@@ -21,6 +21,44 @@ describe('LevelPicker reducer', () => {
     assert.equal(initialLevel(10), DEFAULT_LEVEL)
     assert.equal(initialLevel(NaN), DEFAULT_LEVEL)
     assert.equal(initialLevel('5'), DEFAULT_LEVEL) // strings rejected
+  })
+
+  it('resolves all LEVEL_ALIASES strings to their canonical integer levels', () => {
+    assert.equal(initialLevel('conservative'), 4)
+    assert.equal(initialLevel('balanced'), 5)
+    assert.equal(initialLevel('aggressive'), 8)
+    assert.equal(initialLevel('max'), 9)
+    for (const [alias, expected] of Object.entries(LEVEL_ALIASES)) {
+      assert.equal(initialLevel(alias), expected)
+    }
+  })
+
+  it('rejects prototype-chain keys, numeric/invalid strings, and non-1..9 numbers to DEFAULT_LEVEL', () => {
+    const invalidInputs = [
+      'toString',
+      'constructor',
+      'valueOf',
+      'hasOwnProperty',
+      '__proto__',
+      '1',
+      '5',
+      '9',
+      '',
+      'bogus',
+      'Aggressive',
+      ' aggressive ',
+      ' max ',
+      0,
+      10,
+      -1,
+      4.5,
+      NaN,
+      Infinity,
+      -Infinity,
+    ]
+    for (const input of invalidInputs) {
+      assert.equal(initialLevel(input), DEFAULT_LEVEL, `expected DEFAULT_LEVEL for ${String(input)}`)
+    }
   })
 
   it('moveRight increments and clamps at 9', () => {

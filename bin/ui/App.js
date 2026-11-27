@@ -4,29 +4,36 @@ import { LevelPicker } from './LevelPicker.js'
 import { SidecarLoader } from './SidecarLoader.js'
 import { Dashboard } from './Dashboard.js'
 import { installShutdown, writePidFile, diagnoseBindConflict } from '../lifecycle.js'
-import { COMPRESSION_PRESETS } from '../../metadata.js'
+import { COMPRESSION_PRESETS, LEVEL_ALIASES } from '../../metadata.js'
 
 const h = React.createElement
 
 export const MAX_EVENTS = 200
 
 export function resolveInteractiveSeed({ argvLevel = null, argvPreset = null, envStages = null } = {}) {
+  let normalizedLevel = null
+  if (Number.isInteger(argvLevel) && argvLevel >= 1 && argvLevel <= 9) {
+    normalizedLevel = argvLevel
+  } else if (typeof argvLevel === 'string' && Object.hasOwn(LEVEL_ALIASES, argvLevel)) {
+    normalizedLevel = LEVEL_ALIASES[argvLevel]
+  }
+
   if (typeof argvPreset === 'string' && Object.hasOwn(COMPRESSION_PRESETS, argvPreset)) {
     const preset = COMPRESSION_PRESETS[argvPreset]
     if (Number.isInteger(preset.level)) {
       return {
-        envLevel: argvLevel ?? preset.level,
+        envLevel: normalizedLevel ?? preset.level,
         envStages,
       }
     }
     if (preset.level === null) {
       return {
-        envLevel: argvLevel,
+        envLevel: normalizedLevel,
         envStages: envStages ?? new Set(preset.stages),
       }
     }
   }
-  return { envLevel: argvLevel, envStages }
+  return { envLevel: normalizedLevel, envStages }
 }
 
 export function appendBoundedEvent(events, event, max = MAX_EVENTS) {
