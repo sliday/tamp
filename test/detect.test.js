@@ -1,6 +1,7 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
 import { tryParseJSON, isTOON, classifyContent, stripLineNumbers, jsonHasUnsafeInteger } from '../detect.js'
+import { assertCpuBudget } from './helpers/timing.js'
 
 describe('jsonHasUnsafeInteger', () => {
   it('flags integers beyond 2^53 (precision is lost by JSON.parse)', () => {
@@ -92,10 +93,7 @@ describe('isTOON', () => {
   it('stays linear on a large single-line blob (ReDoS guard)', () => {
     // Unanchored `\w+\[\d+\]\{` was O(n^2): a long word-char run with no bracket
     // backtracked at every offset and stalled the proxy. Must be near-instant.
-    const start = process.hrtime.bigint()
-    isTOON('a'.repeat(256_000))
-    const ms = Number(process.hrtime.bigint() - start) / 1e6
-    assert.ok(ms < 250, `isTOON took ${ms.toFixed(0)}ms — expected < 250ms (ReDoS regression)`)
+    assertCpuBudget('isTOON(256KB single-line blob)', () => isTOON('a'.repeat(256_000)), 250)
   })
 })
 

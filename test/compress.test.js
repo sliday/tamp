@@ -5,24 +5,21 @@ import http from 'node:http'
 import { compressText, compressMessages, compressRequest, clearCache } from '../compress.js'
 import { openai, openaiResponses } from '../providers.js'
 import { createSessionStore } from '../session-graph.js'
+import { assertCpuBudget } from './helpers/timing.js'
 
 const fixtures = JSON.parse(readFileSync(new URL('./fixtures/sample-messages.json', import.meta.url), 'utf-8'))
 
 const defaultConfig = { minSize: 50, stages: ['minify'], llmLinguaUrl: null }
 
 describe('compressText — ReDoS guards', () => {
-  const timed = (fn) => { const s = process.hrtime.bigint(); fn(); return Number(process.hrtime.bigint() - s) / 1e6 }
-
   it('normalizeWhitespace stays linear on a long space run (whitespace stage)', () => {
     const cfg = { minSize: 50, stages: ['whitespace'], llmLinguaUrl: null, log: false }
-    const ms = timed(() => compressText(' '.repeat(256_000) + 'x', cfg))
-    assert.ok(ms < 300, `took ${ms.toFixed(0)}ms — expected < 300ms (ReDoS regression)`)
+    assertCpuBudget('normalizeWhitespace(256KB space run)', () => compressText(' '.repeat(256_000) + 'x', cfg), 300)
   })
 
   it('stripComments stays linear on many unclosed block openers', () => {
     const cfg = { minSize: 50, stages: ['strip-comments'], llmLinguaUrl: null, log: false }
-    const ms = timed(() => compressText('/**\n'.repeat(64_000), cfg))
-    assert.ok(ms < 400, `took ${ms.toFixed(0)}ms — expected < 400ms (ReDoS regression)`)
+    assertCpuBudget('stripComments(64K unclosed block openers)', () => compressText('/**\n'.repeat(64_000), cfg), 400)
   })
 
   it('stripComments still removes line-level block and HTML comments', () => {

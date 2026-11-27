@@ -1,6 +1,7 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
 import { redactText } from '../lib/redact.js'
+import { assertCpuBudget } from './helpers/timing.js'
 
 describe('redactText — provider-shaped tokens', () => {
   it('masks AWS, GitHub, Anthropic, OpenAI, Google, Slack, Stripe keys', () => {
@@ -85,10 +86,7 @@ describe('redactText — ReDoS guard', () => {
     // A 256KB CONSTANT_CASE run used to be O(n^2) via the unbounded key prefix
     // and stalled the proxy event loop for seconds. Must complete near-instantly.
     const blob = 'A'.repeat(256_000)
-    const start = process.hrtime.bigint()
-    redactText(blob)
-    const ms = Number(process.hrtime.bigint() - start) / 1e6
-    assert.ok(ms < 250, `redaction took ${ms.toFixed(0)}ms — expected < 250ms (ReDoS regression)`)
+    assertCpuBudget('redactText(256KB uppercase blob)', () => redactText(blob), 250)
   })
 })
 
