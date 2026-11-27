@@ -1,0 +1,124 @@
+{
+  "task_id": "bm25-hotpath-hardening",
+  "overall_status": "PASS",
+  "acceptance_criteria": [
+    {
+      "id": "AC1",
+      "text": "lib/bm25.js — injectable tokenizer in rerankScores and trimLinesByRelevance",
+      "status": "PASS",
+      "proof": [
+        "lib/bm25.js: rerankScores accepts optional { tokenizer = tokenize } = {} and calls tokenizer(def[1]); 3-arg calls default to tokenize",
+        "lib/bm25.js: trimLinesByRelevance passes { tokenizer } into rerankScores(raw, lines, tokenizer(query), { tokenizer })",
+        ".agent/tasks/bm25-hotpath-hardening/raw/test-unit.txt",
+        ".agent/tasks/bm25-hotpath-hardening/raw/build.txt"
+      ],
+      "gaps": []
+    },
+    {
+      "id": "AC2",
+      "text": "lib/bm25.js & compress.js — blockAware visibility",
+      "status": "PASS",
+      "proof": [
+        "lib/bm25.js: trimLinesByRelevance returns blockAware: Boolean(structure)",
+        "compress.js: bm25TrimTargets records target.bm25BlockAware = Boolean(result.blockAware)",
+        "compress.js: bm25-trim stat entry includes blockAware: Boolean(target.bm25BlockAware) and reuses bm25OriginalTokens/bm25TrimmedTokens",
+        ".agent/tasks/bm25-hotpath-hardening/raw/test-unit.txt"
+      ],
+      "gaps": []
+    },
+    {
+      "id": "AC3",
+      "text": "lib/tokens.js — AsyncLocalStorage request-scoped instrumentation",
+      "status": "PASS",
+      "proof": [
+        "lib/tokens.js: uses AsyncLocalStorage from node:async_hooks with zero global counters and zero overhead when unobserved",
+        "lib/tokens.js: exports withTokenCountObserver and withTokenCountBudget with TypeError validation, non-empty fast path, nested composition, non-fatal throwing observers, sync/async support, and countTokens === safeCountTokens",
+        ".agent/tasks/bm25-hotpath-hardening/raw/test-unit.txt"
+      ],
+      "gaps": []
+    },
+    {
+      "id": "AC4",
+      "text": "bench/retrieval-eval.js — de-confounded arms & retrieval gates",
+      "status": "PASS",
+      "proof": [
+        "bench/retrieval-eval.js: passes { tokenizer } into rerankScores and runs both before and after arms with rerank: true",
+        "bench/retrieval-eval.js: enforces mean NDCG@10 >= 0.90, zero per-fixture regressions (after + 1e-9 >= before), and per-fixture NDCG@10 >= 0.50 alongside existing gates",
+        "node bench/retrieval-eval.js exited 0 (PASS; before mean NDCG@10 0.441, after 0.931, defRecall 100.0%, min fixture 0.651)",
+        ".agent/tasks/bm25-hotpath-hardening/raw/test-integration.txt"
+      ],
+      "gaps": []
+    },
+    {
+      "id": "AC5",
+      "text": "test/bm25-trim.test.js — rerankScores injectable tokenizer unit tests",
+      "status": "PASS",
+      "proof": [
+        "test/bm25-trim.test.js: bm25 — rerank > honors an injectable tokenizer and defaults 3-arg calls to tokenize passed",
+        ".agent/tasks/bm25-hotpath-hardening/raw/test-unit.txt"
+      ],
+      "gaps": []
+    },
+    {
+      "id": "AC6",
+      "text": "test/bm25-trim.test.js — request-scoped token-count budget & concurrency isolation tests",
+      "status": "PASS",
+      "proof": [
+        "test/bm25-trim.test.js: tokens — request-scoped observer & budget (AsyncLocalStorage) (5/5 tests pass, including 2-call trimmed, 1-call early no-trim exit, and Promise.all concurrency isolation)",
+        ".agent/tasks/bm25-hotpath-hardening/raw/test-unit.txt"
+      ],
+      "gaps": []
+    },
+    {
+      "id": "AC7",
+      "text": "test/bm25-trim.test.js — blockAware stat visibility tests",
+      "status": "PASS",
+      "proof": [
+        "test/bm25-trim.test.js: bm25 — blockAware visibility (2/2 tests pass covering trimLinesByRelevance and compressRequest on balanced JS vs plain logs)",
+        ".agent/tasks/bm25-hotpath-hardening/raw/test-unit.txt"
+      ],
+      "gaps": []
+    },
+    {
+      "id": "AC8",
+      "text": "test/bm25-trim.test.js — 64KB superlinear-input CPU guards",
+      "status": "PASS",
+      "proof": [
+        "test/bm25-trim.test.js: bm25 — 64KB superlinear-input CPU guards (4/4 tests pass with assertCpuBudget < 25ms after warm-up across detectBlocks, tokenize, bm25Scores, rerankScores)",
+        ".agent/tasks/bm25-hotpath-hardening/raw/test-unit.txt"
+      ],
+      "gaps": []
+    },
+    {
+      "id": "AC9",
+      "text": "Full test suite & diff hygiene",
+      "status": "PASS",
+      "proof": [
+        "npm test exited 0 (977/977 tests pass across 221 suites + bench/retrieval-eval.js PASS)",
+        "node smoke.js exited 0 (All checks passed!)",
+        "git diff --name-only confirms only the 5 allowed files modified and zero new external dependencies",
+        ".agent/tasks/bm25-hotpath-hardening/raw/test-unit.txt",
+        ".agent/tasks/bm25-hotpath-hardening/raw/test-integration.txt",
+        ".agent/tasks/bm25-hotpath-hardening/raw/lint.txt"
+      ],
+      "gaps": []
+    }
+  ],
+  "changed_files": [
+    "bench/retrieval-eval.js",
+    "compress.js",
+    "lib/bm25.js",
+    "lib/tokens.js",
+    "test/bm25-trim.test.js"
+  ],
+  "commands_for_fresh_verifier": [
+    "node --check lib/bm25.js lib/tokens.js compress.js bench/retrieval-eval.js test/bm25-trim.test.js",
+    "node --test test/bm25-trim.test.js test/compress-hardening.test.js test/code-chunks.test.js",
+    "node bench/retrieval-eval.js",
+    "npm test",
+    "node smoke.js",
+    "git status --short",
+    "git diff --stat"
+  ],
+  "known_gaps": []
+}

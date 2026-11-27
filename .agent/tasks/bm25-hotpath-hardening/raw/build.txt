@@ -1,0 +1,9 @@
+# Build & Syntax Verification — bm25-hotpath-hardening
+# Stack: plain Node.js ESM JavaScript (no build step / no TypeScript)
+
+$ node -v
+v22.17.0
+
+$ node --check lib/bm25.js lib/tokens.js compress.js bench/retrieval-eval.js test/bm25-trim.test.js
+Exit code: 0
+(no syntax errors)

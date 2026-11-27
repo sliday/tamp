@@ -1,0 +1,131 @@
+# Unit & Full Test Suite Output — bm25-hotpath-hardening
+
+## 1. Targeted unit & hardening tests
+$ node --test test/bm25-trim.test.js test/compress-hardening.test.js test/code-chunks.test.js
+Exit code: 0
+
+▶ bm25 — tokenizer
+  ✔ preserves identifiers with dots/underscores/dashes as one token (0.433ms)
+  ✔ drops single-character tokens (0.08875ms)
+  ✔ lowercases and splits on non-alphanumeric (0.10825ms)
+  ✔ also emits identifier parts so split-word queries match (0.077459ms)
+  ✔ splits acronym runs without swallowing the following word (0.05725ms)
+  ✔ does not double-count atomic identifiers (0.06425ms)
+✔ bm25 — tokenizer (1.384125ms)
+▶ bm25 — scoring
+  ✔ ranks the most relevant document highest (IR smoke test) (0.272792ms)
+  ✔ returns zero scores on empty query (0.20475ms)
+  ✔ scores split-identifier definitions above unrelated lines (0.262959ms)
+✔ bm25 — scoring (0.989625ms)
+▶ bm25 — rerank
+  ✔ boosts a line that defines a query term over one that calls it (0.519417ms)
+  ✔ penalises comment lines against equivalent code (0.064083ms)
+  ✔ lends score to neighbours so survivors stay contiguous (0.103458ms)
+  ✔ leaves zero-scoring lines at zero (0.044375ms)
+  ✔ honors an injectable tokenizer and defaults 3-arg calls to tokenize (0.443458ms)
+✔ bm25 — rerank (1.248791ms)
+▶ bm25 — chunk-aware trimming
+  ✔ keeps the enclosing signature and closer for any surviving body line (149.6035ms)
+  ✔ falls back to plain line trimming on non-code bodies (123.887292ms)
+  ✔ keeps its own closer when a block header is selected on its own merit (128.206417ms)
+  ✔ indents drop markers to the depth of the body they replace (122.701ms)
+✔ bm25 — chunk-aware trimming (524.548417ms)
+▶ bm25 — trimLinesByRelevance under budget
+  ✔ returns null when text is already under token budget (28.931958ms)
+  ✔ returns null when text has fewer than minLines lines even if over budget (91.882291ms)
+✔ bm25 — trimLinesByRelevance under budget (120.991541ms)
+▶ bm25 — trimLinesByRelevance above budget
+  ✔ drops low-relevance lines, keeps query-matching lines, preserves anchors (124.548375ms)
+✔ bm25 — trimLinesByRelevance above budget (124.619667ms)
+▶ bm25-trim — integration with compressRequest
+  ✔ trims a huge tool_result when stage is active and task is not dangerous (218.328584ms)
+✔ bm25-trim — integration with compressRequest (218.395ms)
+▶ bm25-trim — dangerous task bypass
+  ✔ does not trim when the latest user message matches a dangerous pattern (3.241583ms)
+✔ bm25-trim — dangerous task bypass (3.298417ms)
+▶ bm25-trim — under-threshold no-op
+  ✔ leaves a 4 KB body untouched even when stage is active (0.325292ms)
+✔ bm25-trim — under-threshold no-op (0.366292ms)
+▶ bm25-trim — stage disabled
+  ✔ does not trim even a 1 MB body when stage is not in config.stages (20.58275ms)
+✔ bm25-trim — stage disabled (20.647208ms)
+▶ trimLinesByRelevance - last-line anchor with trailing newline
+  ✔ preserves the real final line (trailing error) when the body ends in a newline (132.33125ms)
+✔ trimLinesByRelevance - last-line anchor with trailing newline (132.400667ms)
+▶ tokens — request-scoped observer & budget (AsyncLocalStorage)
+  ✔ preserves countTokens === safeCountTokens identity and validates arguments (0.400083ms)
+  ✔ observes sync and async calls, skips empty/non-string inputs, and preserves errors (165.434625ms)
+  ✔ insulates safeCountTokens from throwing observers and composes nested scopes (30.88025ms)
+  ✔ counts exactly 2 tokenizer calls for 1 trimmed >64KB target and 1 call on early no-trim exit (312.841667ms)
+  ✔ isolates concurrent async scopes via AsyncLocalStorage without cross-contamination (426.820125ms)
+✔ tokens — request-scoped observer & budget (AsyncLocalStorage) (936.637708ms)
+▶ bm25 — blockAware visibility
+  ✔ sets blockAware: true on balanced JS and false on plain logs in trimLinesByRelevance (280.128125ms)
+  ✔ propagates stat.blockAware in compressRequest for balanced JS vs plain log >64KB bodies (406.431875ms)
+✔ bm25 — blockAware visibility (686.6585ms)
+▶ bm25 — 64KB superlinear-input CPU guards
+  ✔ stays under 25ms CPU on 64KB escaped-quote runs (26.245041ms)
+  ✔ stays under 25ms CPU on 64KB unterminated quotes (1.440209ms)
+  ✔ stays under 25ms CPU on 64KB long identifier runs (plain, camelCase, dotted) (23.302417ms)
+  ✔ stays under 25ms CPU on 64KB deep Python-style indentation (4.287541ms)
+✔ bm25 — 64KB superlinear-input CPU guards (55.411333ms)
+▶ code-chunks — language selection (3/3 pass)
+▶ code-chunks — brace detector (4/4 pass)
+▶ code-chunks — indent detector (2/2 pass)
+▶ code-chunks — buildStructure (4/4 pass)
+▶ code-chunks — indentWidth (1/1 pass)
+▶ safe tokenizer (lib/tokens.js) (1/1 pass)
+▶ compressBlock cache isolation across stage configs (1/1 pass)
+▶ verbatim-critical guard covers all neural/LLM stages (1/1 pass)
+▶ SSRF loopback URL validation (1/1 pass)
+▶ strip-comments hardening (1/1 pass)
+▶ bm25-trim precomputed token reuse (1/1 pass)
+▶ foundation-models argv length guard (1/1 pass)
+ℹ tests 58
+ℹ suites 26
+ℹ pass 58
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2914.478583
+
+## 2. Full regression suite (`npm test`)
+$ npm test
+npm notice run @sliday/tamp@0.9.1 test
+npm notice run node --test test/*.test.js && node bench/retrieval-eval.js
+Exit code: 0
+
+ℹ tests 977
+ℹ suites 221
+ℹ pass 977
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 8441.426667
+
+bm25-trim retrieval quality  (15 fixtures, offline)
+
+fixture                    NDCG@10 before   after      Recall before   after
+--------------------------------------------------------------------------------
+camel-definition             0.000      0.920           0.0%   100.0%
+snake-definition             0.000      0.920           0.0%   100.0%
+pascal-class                 0.920      0.920         100.0%   100.0%
+acronym-method               0.000      0.920           0.0%   100.0%
+interface-type               0.000      0.920           0.0%   100.0%
+go-func                      1.000      1.000         100.0%   100.0%
+rust-fn                      0.693      0.877         100.0%   100.0%
+nested-method                0.000      0.920           0.0%   100.0%
+const-arrow                  1.000      1.000         100.0%   100.0%
+error-string                 1.000      1.000         100.0%   100.0%
+config-key                   0.000      1.000           0.0%   100.0%
+comment-vs-code              0.000      0.920           0.0%   100.0%
+definition-vs-callsite       0.000      0.651           0.0%   100.0%
+multi-term                   1.000      1.000         100.0%   100.0%
+dotted-path                  1.000      1.000         100.0%   100.0%
+--------------------------------------------------------------------------------
+MEAN                         0.441      0.931          46.7%   100.0%
+
+definition survival at 4096-token budget: 100.0%
+PASS

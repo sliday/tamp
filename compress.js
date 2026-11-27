@@ -338,6 +338,7 @@ function bm25TrimTargets(targets, body, provider) {
     target.bm25DroppedLines = result.droppedLines
     target.bm25OriginalTokens = result.originalTokens
     target.bm25TrimmedTokens = result.trimmedTokens
+    target.bm25BlockAware = Boolean(result.blockAware)
     trimmed += 1
   }
   return trimmed
@@ -973,7 +974,7 @@ export async function compressRequest(body, config, provider) {
       continue
     }
     if (target.bm25Trimmed) {
-      stats.push({ index: target.index, method: 'bm25-trim', originalLen: target.text.length, compressedLen: target.compressed.length, originalTokens: target.bm25OriginalTokens ?? countTokens(target.text), compressedTokens: target.bm25TrimmedTokens ?? countTokens(target.compressed) })
+      stats.push({ index: target.index, method: 'bm25-trim', originalLen: target.text.length, compressedLen: target.compressed.length, originalTokens: target.bm25OriginalTokens ?? countTokens(target.text), compressedTokens: target.bm25TrimmedTokens ?? countTokens(target.compressed), blockAware: Boolean(target.bm25BlockAware) })
       continue
     }
     if (target.pxRendered) {

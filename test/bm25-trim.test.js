@@ -1,12 +1,20 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
 import { tokenize, bm25Scores, rerankScores, trimLinesByRelevance } from '../lib/bm25.js'
+import { detectBlocks } from '../lib/code-chunks.js'
+import {
+  safeCountTokens,
+  countTokens,
+  withTokenCountObserver,
+  withTokenCountBudget,
+} from '../lib/tokens.js'
 import { compressRequest } from '../compress.js'
 import { anthropic } from '../providers.js'
+import { assertCpuBudget } from './helpers/timing.js'
 
 // Build an Anthropic request with a single huge tool_result body. The user's
 // first turn carries the query; the second carries the synthetic tool output.
-function buildRequest(userText, toolResultBody) {
+function buildRequest(userText, toolResultBody, path = '/tmp/huge.log') {
   return {
     model: 'claude-3-5-sonnet-20241022',
     max_tokens: 1024,
@@ -14,7 +22,7 @@ function buildRequest(userText, toolResultBody) {
       { role: 'user', content: userText },
       {
         role: 'assistant',
-        content: [{ type: 'tool_use', id: 'tu_1', name: 'read_file', input: { path: '/tmp/huge.log' } }],
+        content: [{ type: 'tool_use', id: 'tu_1', name: 'read_file', input: { path } }],
       },
       {
         role: 'user',
@@ -146,6 +154,30 @@ describe('bm25 — rerank', () => {
     const ranked = rerankScores(bm25Scores(lines, 'parse config'), lines, q)
     assert.equal(ranked[0], 0)
     assert.equal(ranked[1], 0)
+  })
+
+  it('honors an injectable tokenizer and defaults 3-arg calls to tokenize', () => {
+    const lines = ['function parseConfig(opts) {', 'return parseConfig(opts)']
+    const uniform = new Float64Array([1, 1])
+
+    // Default 3-arg call splits `parseConfig` -> ['parseconfig', 'parse', 'config']
+    // and applies the definition boost to line 0.
+    const defaultRanked = rerankScores(uniform, lines, ['parse', 'config'])
+    assert.ok(defaultRanked[0] > defaultRanked[1], '3-arg call should boost camelCase definition via tokenize')
+
+    // A non-splitting tokenizer emits only ['parseconfig'], suppressing the boost.
+    const noSplit = (s) => (typeof s === 'string'
+      ? s.toLowerCase().split(/[^a-z0-9_]+/).filter(t => t.length >= 2)
+      : [])
+    const noSplitRanked = rerankScores(uniform, lines, ['parse', 'config'], { tokenizer: noSplit })
+    assert.equal(noSplitRanked[0], noSplitRanked[1], 'custom non-splitting tokenizer should suppress camelCase boost')
+
+    // A custom tokenizer emitting a synthetic token matching queryTokens activates the boost.
+    const seen = []
+    const customTok = (s) => { seen.push(s); return s === 'parseConfig' ? ['synthetic_hit'] : [] }
+    const customRanked = rerankScores(uniform, lines, ['synthetic_hit'], { tokenizer: customTok })
+    assert.deepEqual(seen, ['parseConfig'])
+    assert.ok(customRanked[0] > customRanked[1], 'custom tokenizer match should apply definition boost')
   })
 })
 
@@ -401,5 +433,276 @@ describe('trimLinesByRelevance - last-line anchor with trailing newline', () => 
     const r = trimLinesByRelevance(text, 'widget', { targetTokens: 300 })
     assert.ok(r, 'should produce a trim')
     assert.ok(r.text.includes('ERROR_AT_END'), 'trailing error line must survive the trim')
+  })
+})
+
+describe('tokens — request-scoped observer & budget (AsyncLocalStorage)', () => {
+  it('preserves countTokens === safeCountTokens identity and validates arguments', () => {
+    assert.equal(countTokens, safeCountTokens)
+    assert.throws(() => withTokenCountObserver(null, () => {}), TypeError)
+    assert.throws(() => withTokenCountObserver(() => {}, null), TypeError)
+    assert.throws(() => withTokenCountBudget(null), TypeError)
+  })
+
+  it('observes sync and async calls, skips empty/non-string inputs, and preserves errors', async () => {
+    const seen = []
+    const syncRes = withTokenCountObserver(
+      (text) => seen.push(text),
+      () => {
+        assert.equal(safeCountTokens(''), 0)
+        assert.equal(safeCountTokens(null), 0)
+        assert.equal(safeCountTokens(undefined), 0)
+        const n = safeCountTokens('hello world')
+        assert.ok(n > 0)
+        return 'sync-ok'
+      },
+    )
+    assert.equal(syncRes, 'sync-ok')
+    assert.deepEqual(seen, ['hello world'])
+
+    const budgetSync = withTokenCountBudget(() => {
+      safeCountTokens('')
+      safeCountTokens(null)
+      return safeCountTokens('one') + safeCountTokens('two')
+    })
+    assert.equal(typeof budgetSync.then, 'undefined', 'sync fn must return synchronously')
+    assert.equal(budgetSync.calls, 2)
+    assert.ok(budgetSync.result > 0)
+
+    const budgetEmpty = withTokenCountBudget(() => safeCountTokens('') + safeCountTokens(null))
+    assert.equal(budgetEmpty.calls, 0)
+    assert.equal(budgetEmpty.result, 0)
+
+    const budgetAsync = await withTokenCountBudget(async () => {
+      safeCountTokens('alpha')
+      await new Promise(r => setImmediate(r))
+      safeCountTokens('beta')
+      return 'async-ok'
+    })
+    assert.equal(budgetAsync.result, 'async-ok')
+    assert.equal(budgetAsync.calls, 2)
+
+    assert.throws(() => withTokenCountBudget(() => { throw new Error('sync-boom') }), /sync-boom/)
+    await assert.rejects(
+      () => withTokenCountBudget(async () => {
+        await Promise.resolve()
+        throw new Error('async-boom')
+      }),
+      /async-boom/,
+    )
+  })
+
+  it('insulates safeCountTokens from throwing observers and composes nested scopes', () => {
+    const parentSeen = []
+    const childSeen = []
+
+    const tokens = withTokenCountObserver(
+      (t) => { parentSeen.push(t); throw new Error('parent observer failed') },
+      () => withTokenCountObserver(
+        (t) => { childSeen.push(t); throw new Error('child observer failed') },
+        () => safeCountTokens('nested payload'),
+      ),
+    )
+
+    assert.ok(tokens > 0)
+    assert.deepEqual(parentSeen, ['nested payload'])
+    assert.deepEqual(childSeen, ['nested payload'])
+  })
+
+  it('counts exactly 2 tokenizer calls for 1 trimmed >64KB target and 1 call on early no-trim exit', async () => {
+    // Trimmed >64KB target: 1 original count + 1 trimmed count, zero redundant recounts.
+    const lines = ['FILE: /var/log/budget.log']
+    const noise = 'debug cache miss key=nope bucket=none status=ok latency=1ms session=abc request=xyz '.repeat(10)
+    for (let i = 0; i < 95; i++) lines.push(`LINE${i} ${noise}`)
+    lines.splice(40, 0, 'async error handling failed in worker thread #4')
+    lines.push('TRAILER: end of log')
+    const trimmedBody = lines.join('\n')
+    assert.ok(Buffer.byteLength(trimmedBody, 'utf8') > 64 * 1024)
+
+    const trimmedReq = buildRequest('trace async error handling', trimmedBody)
+    const cfg = { minSize: 50, stages: ['bm25-trim'], llmLinguaUrl: null, log: false }
+
+    const trimmedRun = await withTokenCountBudget(() => compressRequest(trimmedReq, cfg, anthropic))
+    assert.ok(trimmedRun.result.stats.some(s => s.method === 'bm25-trim'), 'expected bm25-trim stat')
+    assert.equal(trimmedRun.calls, 2, `expected exactly 2 safeCountTokens calls, got ${trimmedRun.calls}`)
+
+    // >64KB target with < minLines (3 lines) exits trimLinesByRelevance right after originalTokens count.
+    const longLine = 'uncompressible line payload with varied words alpha beta gamma delta '.repeat(400)
+    const noTrimBody = [longLine, longLine, longLine].join('\n')
+    assert.ok(Buffer.byteLength(noTrimBody, 'utf8') > 64 * 1024)
+    assert.equal(noTrimBody.split('\n').length, 3)
+
+    const noTrimReq = buildRequest('trace alpha beta', noTrimBody)
+    const noTrimRun = await withTokenCountBudget(() => compressRequest(noTrimReq, cfg, anthropic))
+    assert.equal(noTrimRun.result.stats.some(s => s.method === 'bm25-trim'), false)
+    assert.equal(noTrimRun.calls, 1, `expected exactly 1 safeCountTokens call on early exit, got ${noTrimRun.calls}`)
+  })
+
+  it('isolates concurrent async scopes via AsyncLocalStorage without cross-contamination', async () => {
+    const lines = ['FILE: /var/log/concurrent.log']
+    const noise = 'debug heartbeat status=ok latency=1ms session=abc request=xyz bucket=none '.repeat(12)
+    for (let i = 0; i < 95; i++) lines.push(`LINE${i} ${noise}`)
+    lines.splice(45, 0, 'async error handling failed in worker')
+    lines.push('TRAILER: end')
+    const body = lines.join('\n')
+    const cfg = { minSize: 50, stages: ['bm25-trim'], llmLinguaUrl: null, log: false }
+
+    const [a, b, c] = await Promise.all([
+      withTokenCountBudget(async () => {
+        safeCountTokens('scope-a-1')
+        await new Promise(r => setTimeout(r, 10))
+        return 'A'
+      }),
+      withTokenCountBudget(async () => {
+        await new Promise(r => setImmediate(r))
+        const req = buildRequest('trace async error handling', body)
+        const out = await compressRequest(req, cfg, anthropic)
+        await new Promise(r => setTimeout(r, 5))
+        return out
+      }),
+      withTokenCountBudget(async () => {
+        for (let i = 0; i < 5; i++) {
+          safeCountTokens(`scope-c-${i}`)
+          await new Promise(r => setImmediate(r))
+        }
+        return 'C'
+      }),
+    ])
+
+    assert.equal(a.result, 'A')
+    assert.equal(a.calls, 1)
+    assert.ok(b.result.stats.some(s => s.method === 'bm25-trim'))
+    assert.equal(b.calls, 2)
+    assert.equal(c.result, 'C')
+    assert.equal(c.calls, 5)
+  })
+})
+
+describe('bm25 — blockAware visibility', () => {
+  function makeLargeBalancedJs() {
+    const lines = ['// module header', "import fs from 'node:fs'", '']
+    for (let f = 0; f < 360; f++) {
+      lines.push(`export function helper${f}(a, b) {`)
+      lines.push(`  const padded = "routine filler text for helper ${f} keeping every function balanced and realistic"`)
+      lines.push(`  const step = a + b + ${f} // routine accumulation padding value for helper`)
+      lines.push('  return step + padded.length')
+      lines.push('}')
+      lines.push('')
+    }
+    lines.push('export function parseConfig(opts) {')
+    lines.push('  const merged = Object.assign({}, defaults, opts)')
+    lines.push('  return merged')
+    lines.push('}')
+    lines.push('// end of module')
+    return lines.join('\n')
+  }
+
+  function makeLargePlainLog() {
+    const lines = ['FILE: /var/log/plain.log']
+    const noise = 'INFO heartbeat status=200 latency=2ms worker=pool-1 region=us-east request=ok '.repeat(10)
+    for (let i = 0; i < 100; i++) lines.push(`LINE${i} ${noise}`)
+    lines.splice(50, 0, 'ERROR parseConfig failed to load defaults from disk')
+    lines.push('TRAILER: end')
+    return lines.join('\n')
+  }
+
+  it('sets blockAware: true on balanced JS and false on plain logs in trimLinesByRelevance', () => {
+    const js = makeLargeBalancedJs()
+    const jsRes = trimLinesByRelevance(js, 'parse config merged defaults', { targetTokens: 400, path: 'src/config.js' })
+    assert.ok(jsRes)
+    assert.equal(jsRes.blockAware, true)
+
+    const log = makeLargePlainLog()
+    const logRes = trimLinesByRelevance(log, 'parseConfig failed defaults', { targetTokens: 400, path: '/var/log/plain.log' })
+    assert.ok(logRes)
+    assert.equal(logRes.blockAware, false)
+  })
+
+  it('propagates stat.blockAware in compressRequest for balanced JS vs plain log >64KB bodies', async () => {
+    const cfg = { minSize: 50, stages: ['bm25-trim'], llmLinguaUrl: null, log: false }
+
+    const js = makeLargeBalancedJs()
+    assert.ok(Buffer.byteLength(js, 'utf8') > 64 * 1024, `JS body too small: ${Buffer.byteLength(js, 'utf8')}`)
+    const jsReq = buildRequest('find parse config merged defaults', js, '/tmp/config.js')
+    const { stats: jsStats } = await compressRequest(jsReq, cfg, anthropic)
+    const jsStat = jsStats.find(s => s.method === 'bm25-trim')
+    assert.ok(jsStat, 'expected bm25-trim stat for JS body')
+    assert.equal(jsStat.blockAware, true)
+
+    const log = makeLargePlainLog()
+    assert.ok(Buffer.byteLength(log, 'utf8') > 64 * 1024, `log body too small: ${Buffer.byteLength(log, 'utf8')}`)
+    const logReq = buildRequest('find parseConfig failed defaults', log, '/tmp/plain.log')
+    const { stats: logStats } = await compressRequest(logReq, cfg, anthropic)
+    const logStat = logStats.find(s => s.method === 'bm25-trim')
+    assert.ok(logStat, 'expected bm25-trim stat for log body')
+    assert.equal(logStat.blockAware, false)
+  })
+})
+
+describe('bm25 — 64KB superlinear-input CPU guards', () => {
+  const SIZE = 64 * 1024
+  const BUDGET_MS = 25
+
+  function guardPipeline(label, lines, query, detectOpts) {
+    const qTokens = tokenize(query)
+    const joined = lines.join('\n')
+
+    // Warm up each public entry point once before timing.
+    detectBlocks(lines, detectOpts)
+    tokenize(joined)
+    const warmScores = bm25Scores(lines, query)
+    rerankScores(warmScores, lines, qTokens)
+
+    assertCpuBudget(`${label} — detectBlocks`, () => detectBlocks(lines, detectOpts), BUDGET_MS)
+    assertCpuBudget(`${label} — tokenize`, () => tokenize(joined), BUDGET_MS)
+    const { result: scores } = assertCpuBudget(`${label} — bm25Scores`, () => bm25Scores(lines, query), BUDGET_MS)
+    assertCpuBudget(`${label} — rerankScores`, () => rerankScores(scores, lines, qTokens), BUDGET_MS)
+  }
+
+  it('stays under 25ms CPU on 64KB escaped-quote runs', () => {
+    const payload = '"' + 'a\\"'.repeat(Math.floor((SIZE - 2) / 3)) + '"'
+    const lines = [
+      'export function escapedQuotes() {',
+      `  const s = ${payload}`,
+      '  return s',
+      '}',
+    ]
+    guardPipeline('64KB escaped quotes', lines, 'escaped quotes', { path: 'escaped.js' })
+  })
+
+  it('stays under 25ms CPU on 64KB unterminated quotes', () => {
+    const payload = '"' + 'a'.repeat(SIZE - 1)
+    const lines = [
+      'export function unterminatedQuote() {',
+      `  const s = ${payload}`,
+      '  return s',
+      '}',
+    ]
+    guardPipeline('64KB unterminated quote', lines, 'unterminated quote', { path: 'unterminated.js' })
+  })
+
+  it('stays under 25ms CPU on 64KB long identifier runs (plain, camelCase, dotted)', () => {
+    const plain = 'a'.repeat(SIZE)
+    const camel = 'fooBar'.repeat(Math.ceil(SIZE / 6)).slice(0, SIZE)
+    const dotted = 'ab.'.repeat(Math.ceil(SIZE / 3)).slice(0, SIZE)
+
+    guardPipeline('64KB plain identifier', [`export function ${plain}() {`, '  return 1', '}'], 'foo bar', { path: 'plain.js' })
+    guardPipeline('64KB camelCase identifier', [`export function ${camel}() {`, '  return 1', '}'], 'foo bar', { path: 'camel.js' })
+    guardPipeline('64KB dotted identifier', [`const x = ${dotted}`, 'export function targetFn() {', '  return x', '}'], 'ab target', { path: 'dotted.js' })
+  })
+
+  it('stays under 25ms CPU on 64KB deep Python-style indentation', () => {
+    const lines = []
+    let totalBytes = 0
+    let depth = 0
+    while (totalBytes < SIZE) {
+      const indent = '  '.repeat(depth)
+      const line = `${indent}def level_${depth}():`
+      lines.push(line)
+      totalBytes += line.length + 1
+      depth += 1
+    }
+    lines.push(`${'  '.repeat(depth)}return 1`)
+    guardPipeline('64KB deep indentation', lines, 'level return', { path: 'deep.py' })
   })
 })

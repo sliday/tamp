@@ -301,7 +301,7 @@ function evaluate(tokenizer, useRerank) {
   for (const fx of FIXTURES) {
     const goldSet = new Set(fx.gold)
     let scores = bm25Scores(fx.lines, fx.query, { tokenizer })
-    if (useRerank) scores = rerankScores(scores, fx.lines, tokenizer(fx.query))
+    if (useRerank) scores = rerankScores(scores, fx.lines, tokenizer(fx.query), { tokenizer })
     const trim = recallAfterTrim(fx, tokenizer, useRerank)
     rows.push({ id: fx.id, ndcg: ndcgAt(scores, goldSet), ...trim })
   }
@@ -311,7 +311,7 @@ function evaluate(tokenizer, useRerank) {
 const mean = xs => (xs.length === 0 ? 0 : xs.reduce((a, b) => a + b, 0) / xs.length)
 const pct = x => `${(x * 100).toFixed(1)}%`
 
-const before = evaluate(legacyTokenize, false)
+const before = evaluate(legacyTokenize, true)
 const after = evaluate(tokenize, true)
 
 console.log('\nbm25-trim retrieval quality  (15 fixtures, offline)\n')
@@ -335,6 +335,9 @@ console.log(
 
 // --- Gates ---
 
+const MEAN_NDCG_FLOOR = 0.90
+const PER_FIXTURE_NDCG_FLOOR = 0.50
+
 const failures = []
 
 // A fixture that never trims proves nothing — surface it loudly rather than
@@ -349,11 +352,33 @@ if (defRecall < 1) {
   const lost = after.filter(r => r.defRecall < 1).map(r => r.id)
   failures.push(`definition survival ${pct(defRecall)} (< 100%): ${lost.join(', ')}`)
 }
-if (mean(after.map(r => r.ndcg)) <= mean(before.map(r => r.ndcg))) {
+const meanBeforeNdcg = mean(before.map(r => r.ndcg))
+const meanAfterNdcg = mean(after.map(r => r.ndcg))
+if (meanAfterNdcg <= meanBeforeNdcg) {
   failures.push('mean NDCG@10 did not improve over the legacy tokenizer')
+}
+if (meanAfterNdcg < MEAN_NDCG_FLOOR) {
+  failures.push(`mean NDCG@10 ${meanAfterNdcg.toFixed(3)} (< ${MEAN_NDCG_FLOOR.toFixed(2)})`)
 }
 if (mean(after.map(r => r.recall)) < mean(before.map(r => r.recall))) {
   failures.push('mean recall regressed against the legacy tokenizer')
+}
+
+const ndcgRegressions = []
+const ndcgBelowFloor = []
+for (let i = 0; i < FIXTURES.length; i++) {
+  if (after[i].ndcg + 1e-9 < before[i].ndcg) {
+    ndcgRegressions.push(`${after[i].id} (${after[i].ndcg.toFixed(3)} < ${before[i].ndcg.toFixed(3)})`)
+  }
+  if (after[i].ndcg < PER_FIXTURE_NDCG_FLOOR) {
+    ndcgBelowFloor.push(`${after[i].id} (${after[i].ndcg.toFixed(3)} < ${PER_FIXTURE_NDCG_FLOOR.toFixed(2)})`)
+  }
+}
+if (ndcgRegressions.length > 0) {
+  failures.push(`per-fixture NDCG@10 regression(s): ${ndcgRegressions.join(', ')}`)
+}
+if (ndcgBelowFloor.length > 0) {
+  failures.push(`per-fixture NDCG@10 below ${PER_FIXTURE_NDCG_FLOOR.toFixed(2)} floor: ${ndcgBelowFloor.join(', ')}`)
 }
 
 console.log(`\ndefinition survival at 4096-token budget: ${pct(defRecall)}`)

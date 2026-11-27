@@ -1,0 +1,33 @@
+# Lint, Diff Scope & Dependency Hygiene — bm25-hotpath-hardening
+
+$ node --check lib/bm25.js lib/tokens.js compress.js bench/retrieval-eval.js test/bm25-trim.test.js
+Exit code: 0
+
+$ git status --short
+ M bench/retrieval-eval.js
+ M compress.js
+ M lib/bm25.js
+ M lib/tokens.js
+ M test/bm25-trim.test.js
+?? .agent/tasks/bm25-hotpath-hardening/
+
+$ git diff --name-only
+bench/retrieval-eval.js
+compress.js
+lib/bm25.js
+lib/tokens.js
+test/bm25-trim.test.js
+
+$ git diff --stat
+ bench/retrieval-eval.js |  31 ++++-
+ compress.js             |   3 +-
+ lib/bm25.js             |   7 +-
+ lib/tokens.js           |  35 ++++++
+ test/bm25-trim.test.js  | 307 +++++++++++++++++++++++++++++++++++++++++++++++-
+ 5 files changed, 374 insertions(+), 9 deletions(-)
+
+# Scope & dependency checks
+- Allowed source/test files modified: 5/5 (bench/retrieval-eval.js, compress.js, lib/bm25.js, lib/tokens.js, test/bm25-trim.test.js)
+- Forbidden files touched (metadata.js, lib/code-chunks.js, index.js, stats.js, package.json, CHANGELOG.md): 0
+- External npm dependencies added: 0 (uses built-in node:async_hooks AsyncLocalStorage)
+- Plain ESM JavaScript (2-space indent, no TypeScript syntax): verified
