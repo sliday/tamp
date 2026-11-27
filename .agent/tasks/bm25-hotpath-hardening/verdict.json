@@ -1,0 +1,72 @@
+{
+  "task_id": "bm25-hotpath-hardening",
+  "overall_verdict": "PASS",
+  "criteria": [
+    {
+      "id": "AC1",
+      "status": "PASS",
+      "reason": "Verified lib/bm25.js lines 182, 194, and 267: rerankScores accepts optional { tokenizer = tokenize } = {} and calls tokenizer(def[1]), preserving 3-argument backwards compatibility, and trimLinesByRelevance passes { tokenizer } into rerankScores(raw, lines, tokenizer(query), { tokenizer }). Confirmed passing via targeted tests and npm test."
+    },
+    {
+      "id": "AC2",
+      "status": "PASS",
+      "reason": "Verified lib/bm25.js line 439 returns blockAware: Boolean(structure) without altering existing fields; compress.js line 341 sets target.bm25BlockAware = Boolean(result.blockAware); compress.js line 977 includes blockAware: Boolean(target.bm25BlockAware) on the bm25-trim stat entry while reusing target.bm25OriginalTokens and target.bm25TrimmedTokens."
+    },
+    {
+      "id": "AC3",
+      "status": "PASS",
+      "reason": "Verified lib/tokens.js lines 19-82: uses built-in AsyncLocalStorage from node:async_hooks with zero global counters, returns 0 on empty/non-string inputs before consulting observerStore, validates arguments with TypeError, composes nested observers with non-fatal try/catch isolation, supports sync/async return and error propagation for withTokenCountObserver and withTokenCountBudget, preserves countTokens === safeCountTokens, and retains 4KB cap, 3-window sampling, and catch fallback."
+    },
+    {
+      "id": "AC4",
+      "status": "PASS",
+      "reason": "Verified bench/retrieval-eval.js lines 304, 314-315, and 338-382: passes { tokenizer } to rerankScores, runs both before and after arms with rerank: true, preserves all existing gates, enforces MEAN_NDCG_FLOOR = 0.90, per-fixture non-regression (after + 1e-9 >= before), and PER_FIXTURE_NDCG_FLOOR = 0.50. Independent run of node bench/retrieval-eval.js exited 0 (PASS): before mean NDCG@10 0.441, after mean NDCG@10 0.931, definition survival 100.0%, 0 regressions, min per-fixture after NDCG@10 0.651."
+    },
+    {
+      "id": "AC5",
+      "status": "PASS",
+      "reason": "Verified test/bm25-trim.test.js lines 159-181 tests default 3-arg camelCase boost via tokenize, suppression with a custom non-splitting tokenizer, and activation/argument delivery with a synthetic custom tokenizer; passed in node --test and npm test."
+    },
+    {
+      "id": "AC6",
+      "status": "PASS",
+      "reason": "Verified test/bm25-trim.test.js lines 439-579 covers countTokens === safeCountTokens, TypeError validation, sync/async return and throw/rejection propagation, empty/non-string fast-path (calls === 0), non-fatal throwing and nested observers, compressRequest stages: ['bm25-trim'] call budgets (calls === 2 for trimmed >64KB target, calls === 1 for early no-trim exit), and concurrent Promise.all isolation (1, 2, 5); all 5 tests passed."
+    },
+    {
+      "id": "AC7",
+      "status": "PASS",
+      "reason": "Verified test/bm25-trim.test.js lines 581-640 asserts blockAware: true on balanced JS and false on plain logs in both trimLinesByRelevance and compressRequest (stat.blockAware on >64KB tool_result payloads); both tests passed."
+    },
+    {
+      "id": "AC8",
+      "status": "PASS",
+      "reason": "Verified test/bm25-trim.test.js lines 642-708 warms up and runs assertCpuBudget(..., 25) from ./helpers/timing.js across public entry points detectBlocks, tokenize, bm25Scores, and rerankScores on 64KB escaped-quote runs, unterminated quotes, long identifier runs (plain, camelCase, dotted), and deep Python-style indentation; all 4 tests passed."
+    },
+    {
+      "id": "AC9",
+      "status": "PASS",
+      "reason": "Independent runs succeeded: node --check exited 0, targeted tests passed 58/58, node bench/retrieval-eval.js exited 0 (PASS), npm test exited 0 (977/977 tests across 221 suites + retrieval-eval PASS), and node smoke.js exited 0 (All checks passed!). git status --short and git diff --stat confirm strictly scoped 5-file diff (bench/retrieval-eval.js, compress.js, lib/bm25.js, lib/tokens.js, test/bm25-trim.test.js) plus .agent/tasks/bm25-hotpath-hardening/ artifacts, plain Node.js ESM JS, and zero new external dependencies."
+    }
+  ],
+  "commands_run": [
+    "git status --short",
+    "git diff --stat",
+    "git diff",
+    "node --check lib/bm25.js lib/tokens.js compress.js bench/retrieval-eval.js test/bm25-trim.test.js",
+    "node --test test/bm25-trim.test.js test/compress-hardening.test.js test/code-chunks.test.js",
+    "node bench/retrieval-eval.js",
+    "npm test",
+    "node smoke.js"
+  ],
+  "artifacts_used": [
+    ".agent/tasks/bm25-hotpath-hardening/spec.md",
+    ".agent/tasks/bm25-hotpath-hardening/evidence.md",
+    ".agent/tasks/bm25-hotpath-hardening/evidence.json",
+    "lib/bm25.js",
+    "lib/tokens.js",
+    "compress.js",
+    "bench/retrieval-eval.js",
+    "test/bm25-trim.test.js",
+    "test/helpers/timing.js"
+  ]
+}
